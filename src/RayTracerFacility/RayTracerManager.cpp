@@ -373,11 +373,7 @@ void RayTracerManager::Init() {
   auto &manager = GetInstance();
   CudaModule::Init();
   manager.m_defaultWindow.Init("Ray Tracer");
-  Application::RegisterUpdateFunction([]() {
-    Update();
 
-    OnGui();
-  });
 
   SunlightCalculator::GetInstance().m_database.insert({4, {0, 90}});
   SunlightCalculator::GetInstance().m_database.insert({5, {7.12, 87.78}});
