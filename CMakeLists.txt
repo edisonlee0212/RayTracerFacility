@@ -28,7 +28,7 @@ if (BUILD_RAY_TRACER_FACILITY)
     endif ()
 endif ()
 # We need a CMAKE_DIR with some code to find external dependencies
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_CURRENT_SOURCE_DIR}/cmake/")
 
 set(UNIENGINE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../UniEngine)
 
