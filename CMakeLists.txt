@@ -33,9 +33,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/")
 set(UNIENGINE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../UniEngine)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-add_subdirectory(${UNIENGINE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/UniEngine)
-include_directories(${UNIENGINE_INCLUDES})
+if (NOT TARGET uniengine)
+    add_subdirectory(${UNIENGINE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/UniEngine)
+    include_directories(${UNIENGINE_INCLUDES})
+endif ()
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 if (BUILD_RAY_TRACER_FACILITY)
@@ -136,26 +137,27 @@ endif ()
 # ------------------------------------------------------------------
 # Example program
 # ------------------------------------------------------------------
-add_executable(Application
-        "src/app/Application.cpp"
-        )
-target_precompile_headers(Application
-        PRIVATE
-        ${PLANT_ARCHITECT_PCH_LOCAL}
-        ${UNIENGINE_PCH}
-        )
-if (BUILD_RAY_TRACER_FACILITY)
-    target_link_libraries(Application
-            uniengine
-            RayTracerFacility
+if (${CMAKE_BINARY_DIR} STREQUAL ${PROJECT_BINARY_DIR})
+    add_executable(Application
+            "src/app/Application.cpp"
             )
-    target_compile_definitions(Application
+    target_precompile_headers(Application
             PRIVATE
-            RAYTRACERFACILITY
+            ${PLANT_ARCHITECT_PCH_LOCAL}
+            ${UNIENGINE_PCH}
             )
-else ()
+    if (BUILD_RAY_TRACER_FACILITY)
+        target_link_libraries(Application
+                uniengine
+                RayTracerFacility
+                )
+        target_compile_definitions(Application
+                PRIVATE
+                RAYTRACERFACILITY
+                )
+    else ()
+    endif ()
 endif ()
-
 # ------------------------------------------------------------------
 # Copy Internal resources
 # ------------------------------------------------------------------

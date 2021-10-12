@@ -24,10 +24,7 @@ int main() {
 #ifdef RAYTRACERFACILITY
     if (enableRayTracing)
         RayTracerManager::Init();
-    Application::RegisterUpdateFunction([]() {
-        RayTracerManager::Update();
-        RayTracerManager::OnGui();
-    });
+
 #endif
 #pragma region Engine Loop
     Application::Run();
