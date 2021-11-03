@@ -1,9 +1,10 @@
 #include "MLVQRenderer.hpp"
 #include <RayTracerManager.hpp>
+#include <ProjectManager.hpp>
+#include "EditorLayer.hpp"
 
 using namespace RayTracerFacility;
 
-#include <ProjectManager.hpp>
 
 void RayTracerManager::UpdateMeshesStorage(
         std::vector<RayTracerInstance> &meshesStorage,
@@ -364,20 +365,11 @@ void RayTracerManager::UpdateScene() const {
     }
 }
 
-RayTracerManager &RayTracerManager::GetInstance() {
-    static RayTracerManager instance;
-    return instance;
-}
-
-void RayTracerManager::Init() {
-    auto &manager = GetInstance();
+void RayTracerManager::OnCreate() {
     CudaModule::Init();
-    manager.m_defaultWindow.Init("Ray Tracer");
+    m_defaultWindow.Init("Ray Tracer");
 
-    Application::RegisterUpdateFunction([]() {
-        RayTracerManager::Update();
-        RayTracerManager::OnGui();
-    });
+
     SunlightCalculator::GetInstance().m_database.insert({4, {0, 90}});
     SunlightCalculator::GetInstance().m_database.insert({5, {7.12, 87.78}});
     SunlightCalculator::GetInstance().m_database.insert({6, {79, 77.19}});
@@ -410,45 +402,45 @@ void RayTracerRenderWindow::Init(const std::string &name) {
     m_name = name;
 }
 
-void RayTracerManager::Update() {
-    auto &manager = GetInstance();
-    manager.UpdateScene();
-    if (manager.m_defaultWindow.m_renderingEnabled) {
-        const auto size = manager.m_defaultWindow.Resize();
-        manager.m_defaultRenderingProperties.m_camera.Set(
-                EditorManager::GetInstance().m_sceneCameraRotation,
-                EditorManager::GetInstance().m_sceneCameraPosition,
-                EditorManager::GetInstance().m_sceneCamera->m_fov, size);
-        auto environmentalMap = manager.m_environmentalMap.Get<Cubemap>();
+void RayTracerManager::LateUpdate() {
+    auto editorLayer = Application::GetLayer<EditorLayer>();
+    if (!editorLayer) return;
+    UpdateScene();
+    if (m_defaultWindow.m_renderingEnabled) {
+        const auto size = m_defaultWindow.Resize();
+        m_defaultRenderingProperties.m_camera.Set(
+                editorLayer->m_sceneCameraRotation,
+                editorLayer->m_sceneCameraPosition,
+                editorLayer->m_sceneCamera->m_fov, size);
+        auto environmentalMap = m_environmentalMap.Get<Cubemap>();
         if (environmentalMap) {
-            manager.m_defaultRenderingProperties.m_environmentalMapId =
+            m_defaultRenderingProperties.m_environmentalMapId =
                     environmentalMap->Texture()->Id();
         }
-        manager.m_defaultRenderingProperties.m_frameSize = size;
-        manager.m_defaultRenderingProperties.m_outputTextureId =
-                manager.m_defaultWindow.m_output->Id();
+        m_defaultRenderingProperties.m_frameSize = size;
+        m_defaultRenderingProperties.m_outputTextureId =
+                m_defaultWindow.m_output->Id();
         if (!CudaModule::GetRayTracer()->m_instances.empty() ||
             !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
-            manager.m_defaultWindow.m_rendered =
+            m_defaultWindow.m_rendered =
                     CudaModule::GetRayTracer()->RenderDefault(
-                            manager.m_defaultRenderingProperties);
+                            m_defaultRenderingProperties);
         }
     }
 }
 
-void RayTracerManager::OnGui() {
-    auto &manager = GetInstance();
+void RayTracerManager::OnInspect() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("View")) {
-            ImGui::Checkbox("Ray Tracer Manager", &manager.m_enableMenus);
+            ImGui::Checkbox("Ray Tracer Manager", &m_enableMenus);
             ImGui::EndMenu();
         }
         ImGui::EndMainMenuBar();
     }
     ImGui::Begin("Ray Tracer Manager");
     {
-        manager.m_defaultRenderingProperties.OnGui();
-        if (manager.m_defaultRenderingProperties.m_environmentalLightingType ==
+        m_defaultRenderingProperties.OnGui();
+        if (m_defaultRenderingProperties.m_environmentalLightingType ==
             EnvironmentalLightingType::CIE) {
             if (ImGui::TreeNodeEx("CIE Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
                 static bool manualControl = false;
@@ -457,13 +449,13 @@ void RayTracerManager::OnGui() {
                 if (manualControl) {
                     if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
                                           1.0f, 0.0f, 180.0f)) {
-                        manager.m_defaultRenderingProperties.m_sunDirection =
+                        m_defaultRenderingProperties.m_sunDirection =
                                 glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
                                 glm::vec3(0, 0, -1);
                     }
                     ImGui::DragFloat(
                             "Zenith radiance",
-                            &manager.m_defaultRenderingProperties.m_skylightIntensity, 0.01f,
+                            &m_defaultRenderingProperties.m_skylightIntensity, 0.01f,
                             0.0f, 1.0f);
                 } else {
                     static bool autoUpdate = true;
@@ -503,17 +495,17 @@ void RayTracerManager::OnGui() {
                         SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
                         SunlightCalculator::CalculateSunlightIntensity(
                                 hour, minute,
-                                manager.m_defaultRenderingProperties.m_skylightIntensity);
-                        manager.m_defaultRenderingProperties.m_skylightIntensity *=
+                                m_defaultRenderingProperties.m_skylightIntensity);
+                        m_defaultRenderingProperties.m_skylightIntensity *=
                                 zenithIntensityFactor;
-                        manager.m_defaultRenderingProperties.m_sunDirection =
+                        m_defaultRenderingProperties.m_sunDirection =
                                 glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
                                 glm::vec3(0, 0, -1);
                     }
                     ImGui::Text(
                             ("Intensity: " +
                              std::to_string(
-                                     manager.m_defaultRenderingProperties.m_skylightIntensity))
+                                     m_defaultRenderingProperties.m_skylightIntensity))
                                     .c_str());
                     ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
                 }
@@ -521,7 +513,7 @@ void RayTracerManager::OnGui() {
             }
         }
         EditorManager::DragAndDropButton<Cubemap>(
-                RayTracerManager::GetInstance().m_environmentalMap,
+                m_environmentalMap,
                 "Environmental Map");
 
         if (ImGui::Button("Load all MLVQ Materials")) {
@@ -534,11 +526,10 @@ void RayTracerManager::OnGui() {
         }
     }
     ImGui::End();
-
-    manager.m_defaultWindow.OnGui();
+    m_defaultWindow.OnInspect();
 }
 
-void RayTracerManager::End() { CudaModule::Terminate(); }
+void RayTracerManager::OnDestroy() { CudaModule::Terminate(); }
 
 glm::ivec2 RayTracerRenderWindow::Resize() const {
     glm::ivec2 size = glm::vec2(m_outputSize) * m_resolutionMultiplier;
@@ -628,7 +619,10 @@ SunlightCalculator &SunlightCalculator::GetInstance() {
     return instance;
 }
 
-void RayTracerRenderWindow::OnGui() {
+void RayTracerRenderWindow::OnInspect() {
+    auto editorLayer = Application::GetLayer<EditorLayer>();
+    if (!editorLayer) return;
+
     if (m_rightMouseButtonHold &&
         !InputManager::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT,
                                         WindowManager::GetWindow())) {
@@ -653,7 +647,7 @@ void RayTracerRenderWindow::OnGui() {
                     ImGui::DragFloat("Resolution multiplier", &m_resolutionMultiplier,
                                      0.01f, 0.1f, 1.0f);
                     ImGui::DragFloat("FOV",
-                                     &EditorManager::GetInstance().m_sceneCamera->m_fov,
+                                     &editorLayer->m_sceneCamera->m_fov,
                                      1, 1, 120);
                     ImGui::EndMenu();
                 }
@@ -692,63 +686,63 @@ void RayTracerRenderWindow::OnGui() {
                         m_rightMouseButtonHold = true;
                     }
                     if (m_rightMouseButtonHold &&
-                        !EditorManager::GetInstance().m_lockCamera) {
+                        !editorLayer->m_lockCamera) {
                         const glm::vec3 front =
-                                EditorManager::GetInstance().m_sceneCameraRotation *
+                                editorLayer->m_sceneCameraRotation *
                                 glm::vec3(0, 0, -1);
                         const glm::vec3 right =
-                                EditorManager::GetInstance().m_sceneCameraRotation *
+                                editorLayer->m_sceneCameraRotation *
                                 glm::vec3(1, 0, 0);
                         if (InputManager::GetKeyInternal(GLFW_KEY_W,
                                                          WindowManager::GetWindow())) {
-                            EditorManager::GetInstance().m_sceneCameraPosition +=
+                            editorLayer->m_sceneCameraPosition +=
                                     front * static_cast<float>(Application::Time().DeltaTime()) *
-                                    EditorManager::GetInstance().m_velocity;
+                                    editorLayer->m_velocity;
                         }
                         if (InputManager::GetKeyInternal(GLFW_KEY_S,
                                                          WindowManager::GetWindow())) {
-                            EditorManager::GetInstance().m_sceneCameraPosition -=
+                            editorLayer->m_sceneCameraPosition -=
                                     front * static_cast<float>(Application::Time().DeltaTime()) *
-                                    EditorManager::GetInstance().m_velocity;
+                                    editorLayer->m_velocity;
                         }
                         if (InputManager::GetKeyInternal(GLFW_KEY_A,
                                                          WindowManager::GetWindow())) {
-                            EditorManager::GetInstance().m_sceneCameraPosition -=
+                            editorLayer->m_sceneCameraPosition -=
                                     right * static_cast<float>(Application::Time().DeltaTime()) *
-                                    EditorManager::GetInstance().m_velocity;
+                                    editorLayer->m_velocity;
                         }
                         if (InputManager::GetKeyInternal(GLFW_KEY_D,
                                                          WindowManager::GetWindow())) {
-                            EditorManager::GetInstance().m_sceneCameraPosition +=
+                            editorLayer->m_sceneCameraPosition +=
                                     right * static_cast<float>(Application::Time().DeltaTime()) *
-                                    EditorManager::GetInstance().m_velocity;
+                                    editorLayer->m_velocity;
                         }
                         if (InputManager::GetKeyInternal(GLFW_KEY_LEFT_SHIFT,
                                                          WindowManager::GetWindow())) {
-                            EditorManager::GetInstance().m_sceneCameraPosition.y +=
-                                    EditorManager::GetInstance().m_velocity *
+                            editorLayer->m_sceneCameraPosition.y +=
+                                    editorLayer->m_velocity *
                                     static_cast<float>(Application::Time().DeltaTime());
                         }
                         if (InputManager::GetKeyInternal(GLFW_KEY_LEFT_CONTROL,
                                                          WindowManager::GetWindow())) {
-                            EditorManager::GetInstance().m_sceneCameraPosition.y -=
-                                    EditorManager::GetInstance().m_velocity *
+                            editorLayer->m_sceneCameraPosition.y -=
+                                    editorLayer->m_velocity *
                                     static_cast<float>(Application::Time().DeltaTime());
                         }
                         if (xOffset != 0.0f || yOffset != 0.0f) {
-                            EditorManager::GetInstance().m_sceneCameraYawAngle +=
-                                    xOffset * EditorManager::GetInstance().m_sensitivity;
-                            EditorManager::GetInstance().m_sceneCameraPitchAngle +=
-                                    yOffset * EditorManager::GetInstance().m_sensitivity;
-                            if (EditorManager::GetInstance().m_sceneCameraPitchAngle > 89.0f)
-                                EditorManager::GetInstance().m_sceneCameraPitchAngle = 89.0f;
-                            if (EditorManager::GetInstance().m_sceneCameraPitchAngle < -89.0f)
-                                EditorManager::GetInstance().m_sceneCameraPitchAngle = -89.0f;
+                            editorLayer->m_sceneCameraYawAngle +=
+                                    xOffset * editorLayer->m_sensitivity;
+                            editorLayer->m_sceneCameraPitchAngle +=
+                                    yOffset * editorLayer->m_sensitivity;
+                            if (editorLayer->m_sceneCameraPitchAngle > 89.0f)
+                                editorLayer->m_sceneCameraPitchAngle = 89.0f;
+                            if (editorLayer->m_sceneCameraPitchAngle < -89.0f)
+                                editorLayer->m_sceneCameraPitchAngle = -89.0f;
 
-                            EditorManager::GetInstance().m_sceneCameraRotation =
+                            editorLayer->m_sceneCameraRotation =
                                     UniEngine::Camera::ProcessMouseMovement(
-                                            EditorManager::GetInstance().m_sceneCameraYawAngle,
-                                            EditorManager::GetInstance().m_sceneCameraPitchAngle,
+                                            editorLayer->m_sceneCameraYawAngle,
+                                            editorLayer->m_sceneCameraPitchAngle,
                                             false);
                         }
                     }

@@ -6,7 +6,6 @@
 #include <RayTracerManager.hpp>
 #include "MLVQRenderer.hpp"
 #endif
-#include <PhysicsManager.hpp>
 
 
 #ifdef RAYTRACERFACILITY
@@ -20,18 +19,12 @@ int main() {
 #endif
     const bool enableRayTracing = true;
     ApplicationConfigs applicationConfigs;
-    Application::Init(applicationConfigs);
+    Application::Create(applicationConfigs);
 #ifdef RAYTRACERFACILITY
-    if (enableRayTracing)
-        RayTracerManager::Init();
-
+    Application::PushLayer<RayTracerManager>();
 #endif
 #pragma region Engine Loop
-    Application::Run();
+    Application::Start();
 #pragma endregion
-#ifdef RAYTRACERFACILITY
-    if (enableRayTracing)
-        RayTracerManager::End();
-#endif
     Application::End();
 }

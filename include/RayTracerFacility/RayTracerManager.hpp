@@ -8,7 +8,7 @@
 #include <InputManager.hpp>
 #include <MeshRenderer.hpp>
 #include <AssetManager.hpp>
-
+#include "ILayer.hpp"
 #include <WindowManager.hpp>
 #include <memory>
 #include <ray_tracer_facility_export.h>
@@ -35,7 +35,7 @@ namespace RayTracerFacility {
 
         [[nodiscard]] glm::ivec2 Resize() const;
 
-        void OnGui();
+        void OnInspect();
     };
 
     class RAY_TRACER_FACILITY_API SunlightCalculator {
@@ -55,29 +55,13 @@ namespace RayTracerFacility {
       static void CalculateSunlightAngle(int hour, int minute, float& angle);
     };
 
-    class RAY_TRACER_FACILITY_API RayTracerManager {
+    class RAY_TRACER_FACILITY_API RayTracerManager : public ILayer {
     protected:
-#pragma region Class related
-
-        RayTracerManager() = default;
-
-        RayTracerManager(RayTracerManager &&) = default;
-
-        RayTracerManager(const RayTracerManager &) = default;
-
-        RayTracerManager &operator=(RayTracerManager &&) = default;
-
-        RayTracerManager &operator=(const RayTracerManager &) = default;
-
-#pragma endregion
-
         void UpdateMeshesStorage(std::vector<RayTracerInstance>& meshesStorage, bool &rebuildAccelerationStructure,
                                  bool &updateShaderBindingTable) const;
-
         void
         UpdateSkinnedMeshesStorage(std::vector<SkinnedRayTracerInstance>& meshesStorage, bool &rebuildAccelerationStructure,
                                    bool &updateShaderBindingTable) const;
-
     public:
         AssetRef m_environmentalMap;
         bool m_enableMenus = true;
@@ -86,14 +70,12 @@ namespace RayTracerFacility {
 
         void UpdateScene() const;
 
-        static RayTracerManager &GetInstance();
+        void OnCreate() override;
 
-        static void Init();
+        void LateUpdate() override;
 
-        static void Update();
+        void OnInspect() override;
 
-        static void OnGui();
-
-        static void End();
+        void OnDestroy() override;
     };
 } // namespace RayTracerFacility
