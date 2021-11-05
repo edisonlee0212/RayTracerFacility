@@ -209,7 +209,7 @@ namespace RayTracerFacility {
                 *GetRayDataPointer<DefaultRenderingRadianceRayData>();
         unsigned hitCount = perRayData.m_hitCount + 1;
 
-        if (defaultRenderingLaunchParams.m_defaultRenderingProperties
+        /*if (defaultRenderingLaunchParams.m_defaultRenderingProperties
                     .m_enableGround &&
             hitPoint.y < defaultRenderingLaunchParams
                     .m_defaultRenderingProperties.m_groundHeight) {
@@ -230,7 +230,7 @@ namespace RayTracerFacility {
                     defaultRenderingLaunchParams.m_defaultRenderingProperties.m_groundColor;
             if (perRayData.m_hitCount <=
                 defaultRenderingLaunchParams.m_defaultRenderingProperties
-                        .m_bounceLimit) {
+                        .m_bounces) {
                 energy = glm::vec3(0.0f);
                 float f = 1.0f;
                 if (metallic >= 0.0f)
@@ -276,9 +276,8 @@ namespace RayTracerFacility {
                 perRayData.m_pixelAlbedo = albedoColor;
             }
             perRayData.m_energy = energy + 0.0f * albedoColor;
-        } else {
-
-
+        } else*/
+        {
             // start with some ambient term
             auto energy = glm::vec3(0.0f);
             uint32_t u0, u1;
@@ -297,8 +296,8 @@ namespace RayTracerFacility {
                     glm::vec3 albedoColor = static_cast<DefaultMaterial *>(sbtData.m_material)
                             ->GetAlbedo(texCoord);
                     if (perRayData.m_hitCount <=
-                        defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                .m_bounceLimit) {
+                        defaultRenderingLaunchParams.m_defaultRenderingProperties.m_rayTracerProperties
+                                .m_bounces) {
                         energy = glm::vec3(0.0f);
                         float f = 1.0f;
                         if (metallic >= 0.0f)
@@ -347,8 +346,8 @@ namespace RayTracerFacility {
                 case MaterialType::MLVQ: {
                     glm::vec3 btfColor;
                     if (perRayData.m_hitCount <=
-                        defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                .m_bounceLimit) {
+                        defaultRenderingLaunchParams.m_defaultRenderingProperties.m_rayTracerProperties
+                                .m_bounces) {
                         energy = glm::vec3(0.0f);
                         float f = 1.0f;
                         glm::vec3 reflected = Reflect(rayDirection, normal);
@@ -428,6 +427,7 @@ namespace RayTracerFacility {
         float3 rayOrigin = optixGetWorldRayOrigin();
         glm::vec3 rayOrig = glm::vec3(rayOrigin.x, rayOrigin.y, rayOrigin.z);
         glm::vec3 rayDirection = glm::vec3(rayDir.x, rayDir.y, rayDir.z);
+        /*
         if (defaultRenderingLaunchParams.m_defaultRenderingProperties
                     .m_enableGround &&
             rayDir.y < 0) {
@@ -448,7 +448,7 @@ namespace RayTracerFacility {
                     defaultRenderingLaunchParams.m_defaultRenderingProperties.m_groundColor;
             if (perRayData.m_hitCount <=
                 defaultRenderingLaunchParams.m_defaultRenderingProperties
-                        .m_bounceLimit) {
+                        .m_bounces) {
                 energy = glm::vec3(0.0f);
                 float f = 1.0f;
                 if (metallic >= 0.0f)
@@ -491,29 +491,10 @@ namespace RayTracerFacility {
                 perRayData.m_pixelAlbedo = albedoColor;
             }
             perRayData.m_energy = energy + 0.0f * albedoColor;
-        } else {
-            const glm::vec3 sunColor = glm::normalize(
-                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_sunColor);
-            glm::vec3 environmentalLightColor = sunColor;
-            switch (defaultRenderingLaunchParams.m_defaultRenderingProperties
-                    .m_environmentalLightingType) {
-                case EnvironmentalLightingType::Color:
-                    break;
-                case EnvironmentalLightingType::EnvironmentalMap:
-                    if (defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environmentalMapId != 0) {
-                        float4 color = SampleCubeMap<float4>(
-                                defaultRenderingLaunchParams.m_skylight.m_environmentalMaps,
-                                rayDir);
-                        environmentalLightColor = glm::vec3(color.x, color.y, color.z);
-                    }
-                    break;
-                case EnvironmentalLightingType::Skydome:
-                    environmentalLightColor = NishitaSkyIncidentLight(rayOrig, rayDirection,
-                                                                      defaultRenderingLaunchParams.m_defaultRenderingProperties.m_sunDirection);
-                    break;
-            }
-            perRayData.m_pixelAlbedo = perRayData.m_energy = environmentalLightColor *
-                                                             defaultRenderingLaunchParams.m_defaultRenderingProperties.m_skylightIntensity;
+        } else*/ {
+            glm::vec3 environmentalLightColor = CalculateEnvironmentalLight(rayOrig, rayDirection,
+                                                                            defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment);
+            perRayData.m_pixelAlbedo = perRayData.m_energy = environmentalLightColor;
         }
     }
     extern "C" __global__ void __miss__sampleSp() {}
@@ -524,121 +505,107 @@ namespace RayTracerFacility {
         float iy = optixGetLaunchIndex().y;
         const uint32_t fbIndex =
                 ix + iy * defaultRenderingLaunchParams.m_frame.size.x;
-        if (defaultRenderingLaunchParams.m_defaultRenderingProperties
-                    .m_enableGround &&
-            defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera.m_from
-                    .y < defaultRenderingLaunchParams.m_defaultRenderingProperties
-                    .m_groundHeight) {
-            defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex] =
-                    glm::vec4(0.0, 0.0, 0.0, 1.0);
-            defaultRenderingLaunchParams.m_frame.m_albedoBuffer[fbIndex] =
-                    glm::vec4(0.0, 0.0, 0.0, 1.0);
-            defaultRenderingLaunchParams.m_frame.m_normalBuffer[fbIndex] =
-                    glm::vec4(0.0, 0.0, -1.0, 1.0);
-        } else {
-            // compute a test pattern based on pixel ID
 
-            DefaultRenderingRadianceRayData cameraRayData;
+        // compute a test pattern based on pixel ID
+
+        DefaultRenderingRadianceRayData cameraRayData;
+        cameraRayData.m_hitCount = 0;
+        cameraRayData.m_random.Init(
+                ix + defaultRenderingLaunchParams.m_defaultRenderingProperties
+                             .m_frameSize.x *
+                     iy,
+                defaultRenderingLaunchParams.m_frame.m_frameId);
+        cameraRayData.m_energy = glm::vec3(0);
+        cameraRayData.m_pixelNormal = glm::vec3(0);
+        cameraRayData.m_pixelAlbedo = glm::vec3(0);
+        // the values we store the PRD pointer in:
+        uint32_t u0, u1;
+        PackRayDataPointer(&cameraRayData, u0, u1);
+
+        const auto numPixelSamples =
+                defaultRenderingLaunchParams.m_defaultRenderingProperties.m_rayTracerProperties
+                        .m_samples;
+        auto pixelColor = glm::vec3(0.f);
+        auto pixelNormal = glm::vec3(0.f);
+        auto pixelAlbedo = glm::vec3(0.f);
+
+        for (int sampleID = 0; sampleID < numPixelSamples; sampleID++) {
+            // normalized screen plane position, in [0,1]^2
+            // iw: note for de-noising that's not actually correct - if we
+            // assume that the camera should only(!) cover the de-noised
+            // screen then the actual screen plane we should be using during
+            // rendering is slightly larger than [0,1]^2
+            glm::vec2 screen;
+            screen = glm::vec2(ix + cameraRayData.m_random(),
+                               iy + cameraRayData.m_random()) /
+                     glm::vec2(defaultRenderingLaunchParams
+                                       .m_defaultRenderingProperties.m_frameSize);
+            glm::vec3 rayDir = glm::normalize(
+                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
+                            .m_direction +
+                    (screen.x - 0.5f) *
+                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
+                            .m_horizontal +
+                    (screen.y - 0.5f) *
+                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
+                            .m_vertical);
+            float3 rayOrigin =
+                    make_float3(defaultRenderingLaunchParams.m_defaultRenderingProperties
+                                        .m_camera.m_from.x,
+                                defaultRenderingLaunchParams.m_defaultRenderingProperties
+                                        .m_camera.m_from.y,
+                                defaultRenderingLaunchParams.m_defaultRenderingProperties
+                                        .m_camera.m_from.z);
+            float3 rayDirection = make_float3(rayDir.x, rayDir.y, rayDir.z);
+
+            optixTrace(
+                    defaultRenderingLaunchParams.m_traversable, rayOrigin, rayDirection,
+                    0.f,   // tmin
+                    1e20f, // tmax
+                    0.0f,  // rayTime
+                    static_cast<OptixVisibilityMask>(255),
+                    OPTIX_RAY_FLAG_DISABLE_ANYHIT, // OPTIX_RAY_FLAG_NONE,
+                    static_cast<int>(
+                            DefaultRenderingRayType::RadianceRayType),           // SBT offset
+                    static_cast<int>(DefaultRenderingRayType::RayTypeCount), // SBT stride
+                    static_cast<int>(
+                            DefaultRenderingRayType::RadianceRayType), // missSBTIndex
+                    u0, u1);
+            pixelColor += cameraRayData.m_energy;
+            pixelNormal += cameraRayData.m_pixelNormal;
+            pixelAlbedo += cameraRayData.m_pixelAlbedo;
+            cameraRayData.m_energy = glm::vec3(0.0f);
+            cameraRayData.m_pixelNormal = glm::vec3(0.0f);
+            cameraRayData.m_pixelAlbedo = glm::vec3(0.0f);
             cameraRayData.m_hitCount = 0;
-            cameraRayData.m_random.Init(
-                    ix + defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                 .m_frameSize.x *
-                         iy,
-                    defaultRenderingLaunchParams.m_frame.m_frameId);
-            cameraRayData.m_energy = glm::vec3(0);
-            cameraRayData.m_pixelNormal = glm::vec3(0);
-            cameraRayData.m_pixelAlbedo = glm::vec3(0);
-            // the values we store the PRD pointer in:
-            uint32_t u0, u1;
-            PackRayDataPointer(&cameraRayData, u0, u1);
-
-            const auto numPixelSamples =
-                    defaultRenderingLaunchParams.m_defaultRenderingProperties
-                            .m_samplesPerPixel;
-            auto pixelColor = glm::vec3(0.f);
-            auto pixelNormal = glm::vec3(0.f);
-            auto pixelAlbedo = glm::vec3(0.f);
-
-            for (int sampleID = 0; sampleID < numPixelSamples; sampleID++) {
-                // normalized screen plane position, in [0,1]^2
-                // iw: note for de-noising that's not actually correct - if we
-                // assume that the camera should only(!) cover the de-noised
-                // screen then the actual screen plane we should be using during
-                // rendering is slightly larger than [0,1]^2
-                glm::vec2 screen;
-                screen = glm::vec2(ix + cameraRayData.m_random(),
-                                   iy + cameraRayData.m_random()) /
-                         glm::vec2(defaultRenderingLaunchParams
-                                           .m_defaultRenderingProperties.m_frameSize);
-                glm::vec3 rayDir = glm::normalize(
-                        defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
-                                .m_direction +
-                        (screen.x - 0.5f) *
-                        defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
-                                .m_horizontal +
-                        (screen.y - 0.5f) *
-                        defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
-                                .m_vertical);
-                float3 rayOrigin =
-                        make_float3(defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                            .m_camera.m_from.x,
-                                    defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                            .m_camera.m_from.y,
-                                    defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                            .m_camera.m_from.z);
-                float3 rayDirection = make_float3(rayDir.x, rayDir.y, rayDir.z);
-
-                optixTrace(
-                        defaultRenderingLaunchParams.m_traversable, rayOrigin, rayDirection,
-                        0.f,   // tmin
-                        1e20f, // tmax
-                        0.0f,  // rayTime
-                        static_cast<OptixVisibilityMask>(255),
-                        OPTIX_RAY_FLAG_DISABLE_ANYHIT, // OPTIX_RAY_FLAG_NONE,
-                        static_cast<int>(
-                                DefaultRenderingRayType::RadianceRayType),           // SBT offset
-                        static_cast<int>(DefaultRenderingRayType::RayTypeCount), // SBT stride
-                        static_cast<int>(
-                                DefaultRenderingRayType::RadianceRayType), // missSBTIndex
-                        u0, u1);
-                pixelColor += cameraRayData.m_energy;
-                pixelNormal += cameraRayData.m_pixelNormal;
-                pixelAlbedo += cameraRayData.m_pixelAlbedo;
-                cameraRayData.m_energy = glm::vec3(0.0f);
-                cameraRayData.m_pixelNormal = glm::vec3(0.0f);
-                cameraRayData.m_pixelAlbedo = glm::vec3(0.0f);
-                cameraRayData.m_hitCount = 0;
-            }
-            glm::vec3 rgb(pixelColor / static_cast<float>(numPixelSamples));
-            rgb = glm::pow(rgb, glm::vec3(1.0 / 2.2));
-
-
-            // and write/accumulate to frame buffer ...
-            if (defaultRenderingLaunchParams.m_defaultRenderingProperties
-                    .m_accumulate) {
-                if (defaultRenderingLaunchParams.m_frame.m_frameId > 1) {
-                    glm::vec4 currentColor =
-                            defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex];
-                    glm::vec3 transferredCurrentColor = currentColor;
-                    rgb +=
-                            static_cast<float>(defaultRenderingLaunchParams.m_frame.m_frameId) *
-                            transferredCurrentColor;
-                    rgb /= static_cast<float>(
-                            defaultRenderingLaunchParams.m_frame.m_frameId + 1);
-                }
-            }
-            float4 data = make_float4(rgb.r, rgb.g, rgb.b, 1.0f);
-            // and write to frame buffer ...
-
-            defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex] =
-                    glm::vec4(rgb, 1.0);
-            defaultRenderingLaunchParams.m_frame.m_albedoBuffer[fbIndex] =
-                    glm::vec4(pixelAlbedo / static_cast<float>(numPixelSamples), 1.0f);
-            defaultRenderingLaunchParams.m_frame.m_normalBuffer[fbIndex] =
-                    glm::vec4(pixelNormal / static_cast<float>(numPixelSamples), 1.0f);
-            // surf2Dwrite(data, defaultRenderingLaunchParams.m_frame.m_outputTexture, ix
-            // * sizeof(float4), iy);
         }
+        glm::vec3 rgb(pixelColor / static_cast<float>(numPixelSamples));
+        rgb = glm::pow(rgb, glm::vec3(1.0 / 2.2));
+
+
+        // and write/accumulate to frame buffer ...
+        if (defaultRenderingLaunchParams.m_defaultRenderingProperties
+                .m_accumulate) {
+            if (defaultRenderingLaunchParams.m_frame.m_frameId > 1) {
+                glm::vec4 currentColor =
+                        defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex];
+                glm::vec3 transferredCurrentColor = currentColor;
+                rgb +=
+                        static_cast<float>(defaultRenderingLaunchParams.m_frame.m_frameId) *
+                        transferredCurrentColor;
+                rgb /= static_cast<float>(
+                        defaultRenderingLaunchParams.m_frame.m_frameId + 1);
+            }
+        }
+        float4 data = make_float4(rgb.r, rgb.g, rgb.b, 1.0f);
+        // and write to frame buffer ...
+
+        defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex] =
+                glm::vec4(rgb, 1.0);
+        defaultRenderingLaunchParams.m_frame.m_albedoBuffer[fbIndex] =
+                glm::vec4(pixelAlbedo / static_cast<float>(numPixelSamples), 1.0f);
+        defaultRenderingLaunchParams.m_frame.m_normalBuffer[fbIndex] =
+                glm::vec4(pixelNormal / static_cast<float>(numPixelSamples), 1.0f);
     }
 #pragma endregion
 } // namespace RayTracerFacility

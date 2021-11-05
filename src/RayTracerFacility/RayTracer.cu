@@ -42,38 +42,45 @@ void Camera::Set(const glm::quat &rotation, const glm::vec3 &position,
 
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
 const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
-
+void Environment::OnInspect() {
+    static int type = 0;
+    if (ImGui::Combo("Environment Lighting", &type, EnvironmentalLightingTypes,
+                     IM_ARRAYSIZE(EnvironmentalLightingTypes))) {
+        m_environmentalLightingType = static_cast<EnvironmentalLightingType>(type);
+    }
+    if (m_environmentalLightingType != EnvironmentalLightingType::Skydome)
+        ImGui::DragFloat("Light intensity", &m_skylightIntensity, 0.01f, 0.0f,
+                         5.0f);
+    if (m_environmentalLightingType ==
+        EnvironmentalLightingType::Color) {
+        ImGui::ColorEdit3("Sky light color", &m_sunColor.x);
+    }
+}
+void Ground::OnInspect() {
+    ImGui::Checkbox("Enable ground", &m_enableGround);
+    if(m_enableGround){
+        ImGui::ColorEdit3("Ground color", &m_groundColor.x);
+        ImGui::DragFloat("Ground metallic", &m_groundMetallic, 0.01, 0.0, 1.0);
+        ImGui::DragFloat("Ground roughness", &m_groundRoughness, 0.01, 0.0, 1.0);
+        ImGui::DragFloat("Ground height", &m_groundHeight, 0.01);
+    }
+}
+void RayTracerProperties::OnInspect() {
+    ImGui::DragInt("bounce limit", &m_bounces, 1, 1, 8);
+    if (ImGui::DragInt("pixel samples", &m_samples, 1, 1, 64)) {
+        m_samples = glm::clamp(m_samples, 1, 128);
+    }
+}
 void DefaultRenderingProperties::OnInspect() {
   ImGui::Checkbox("Accumulate", &m_accumulate);
-  ImGui::DragInt("bounce limit", &m_bounceLimit, 1, 1, 8);
-  if (ImGui::DragInt("pixel samples", &m_samplesPerPixel, 1, 1, 64)) {
-    m_samplesPerPixel = glm::clamp(m_samplesPerPixel, 1, 128);
-  }
-  static int type = 0;
-  if (ImGui::Combo("Environment Lighting", &type, EnvironmentalLightingTypes,
-                   IM_ARRAYSIZE(EnvironmentalLightingTypes))) {
-    m_environmentalLightingType = static_cast<EnvironmentalLightingType>(type);
-  }
-  if (m_environmentalLightingType != EnvironmentalLightingType::Skydome)
-    ImGui::DragFloat("Light intensity", &m_skylightIntensity, 0.01f, 0.0f,
-                     5.0f);
-  if (m_environmentalLightingType ==
-      EnvironmentalLightingType::Color) {
-    ImGui::ColorEdit3("Sky light color", &m_sunColor.x);
-  }
   static int outputType = 0;
   if (ImGui::Combo("Output Type", &outputType, OutputTypes,
                    IM_ARRAYSIZE(OutputTypes))) {
     m_outputType = static_cast<OutputType>(outputType);
   }
-
-  ImGui::Checkbox("Enable ground", &m_enableGround);
-  if(m_enableGround){
-    ImGui::ColorEdit3("Ground color", &m_groundColor.x);
-    ImGui::DragFloat("Ground metallic", &m_groundMetallic, 0.01, 0.0, 1.0);
-    ImGui::DragFloat("Ground roughness", &m_groundRoughness, 0.01, 0.0, 1.0);
-    ImGui::DragFloat("Ground height", &m_groundHeight, 0.01);
-  }
+  m_environment.OnInspect();
+  m_ground.OnInspect();
+  m_rayTracerProperties.OnInspect();
 }
 
 bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties) {
@@ -111,11 +118,11 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties) {
   cudaArray_t environmentalMapNegZArray;
   cudaGraphicsResource_t environmentalMapTexture;
   if (m_defaultRenderingLaunchParams.m_defaultRenderingProperties
-          .m_environmentalMapId != 0) {
+          .m_environment.m_environmentalMapId != 0) {
     CUDA_CHECK(GraphicsGLRegisterImage(
         &environmentalMapTexture,
         m_defaultRenderingLaunchParams.m_defaultRenderingProperties
-            .m_environmentalMapId,
+            .m_environment.m_environmentalMapId,
         GL_TEXTURE_CUBE_MAP, cudaGraphicsRegisterFlagsNone));
     CUDA_CHECK(GraphicsMapResources(1, &environmentalMapTexture, nullptr));
     CUDA_CHECK(GraphicsSubResourceGetMappedArray(
@@ -148,35 +155,35 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties) {
     // Create texture object
     cudaResourceDesc.res.array.array = environmentalMapPosXArray;
     CUDA_CHECK(CreateTextureObject(
-        &m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[0],
+        &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0],
         &cudaResourceDesc, &cudaTextureDesc, nullptr));
     cudaResourceDesc.res.array.array = environmentalMapNegXArray;
     CUDA_CHECK(CreateTextureObject(
-        &m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[1],
+        &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1],
         &cudaResourceDesc, &cudaTextureDesc, nullptr));
     cudaResourceDesc.res.array.array = environmentalMapPosYArray;
     CUDA_CHECK(CreateTextureObject(
-        &m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[2],
+        &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2],
         &cudaResourceDesc, &cudaTextureDesc, nullptr));
     cudaResourceDesc.res.array.array = environmentalMapNegYArray;
     CUDA_CHECK(CreateTextureObject(
-        &m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[3],
+        &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3],
         &cudaResourceDesc, &cudaTextureDesc, nullptr));
     cudaResourceDesc.res.array.array = environmentalMapPosZArray;
     CUDA_CHECK(CreateTextureObject(
-        &m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[4],
+        &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4],
         &cudaResourceDesc, &cudaTextureDesc, nullptr));
     cudaResourceDesc.res.array.array = environmentalMapNegZArray;
     CUDA_CHECK(CreateTextureObject(
-        &m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[5],
+        &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5],
         &cudaResourceDesc, &cudaTextureDesc, nullptr));
   } else {
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[0] = 0;
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[1] = 0;
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[2] = 0;
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[3] = 0;
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[4] = 0;
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[5] = 0;
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0] = 0;
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1] = 0;
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2] = 0;
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3] = 0;
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4] = 0;
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5] = 0;
   }
 #pragma endregion
 #pragma region Upload parameters
@@ -203,25 +210,25 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties) {
   CUDA_SYNC_CHECK();
 #pragma region Remove textures binding.
   if (m_defaultRenderingLaunchParams.m_defaultRenderingProperties
-          .m_environmentalMapId != 0) {
+          .m_environment.m_environmentalMapId != 0) {
     CUDA_CHECK(DestroyTextureObject(
-        m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[0]));
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[0] = 0;
+        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0]));
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0] = 0;
     CUDA_CHECK(DestroyTextureObject(
-        m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[1]));
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[1] = 0;
+        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1]));
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1] = 0;
     CUDA_CHECK(DestroyTextureObject(
-        m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[2]));
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[2] = 0;
+        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2]));
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2] = 0;
     CUDA_CHECK(DestroyTextureObject(
-        m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[3]));
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[3] = 0;
+        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3]));
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3] = 0;
     CUDA_CHECK(DestroyTextureObject(
-        m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[4]));
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[4] = 0;
+        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4]));
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4] = 0;
     CUDA_CHECK(DestroyTextureObject(
-        m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[5]));
-    m_defaultRenderingLaunchParams.m_skylight.m_environmentalMaps[5] = 0;
+        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5]));
+    m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5] = 0;
 
     CUDA_CHECK(GraphicsUnmapResources(1, &environmentalMapTexture, 0));
     CUDA_CHECK(GraphicsUnregisterResource(environmentalMapTexture));
@@ -463,16 +470,6 @@ RayTracer::RayTracer() {
   storage.m_material = std::make_shared<MLVQMaterial>();
   storage.m_buffer.Upload(storage.m_material.get(), 1);
   m_MLVQMaterialStorage.push_back(storage);
-}
-
-void RayTracer::SetSkylightSize(const float &value) {
-  m_defaultRenderingLaunchParams.m_skylight.m_lightSize = value;
-  m_defaultRenderingPipeline.m_statusChanged = true;
-}
-
-void RayTracer::SetSkylightDir(const glm::vec3 &value) {
-  m_defaultRenderingLaunchParams.m_skylight.m_direction = value;
-  m_defaultRenderingPipeline.m_statusChanged = true;
 }
 
 void RayTracer::ClearAccumulate() {

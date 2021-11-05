@@ -414,7 +414,7 @@ void RayTracerManager::LateUpdate() {
                 editorLayer->m_sceneCamera->m_fov, size);
         auto environmentalMap = m_environmentalMap.Get<Cubemap>();
         if (environmentalMap) {
-            m_defaultRenderingProperties.m_environmentalMapId =
+            m_defaultRenderingProperties.m_environment.m_environmentalMapId =
                     environmentalMap->Texture()->Id();
         }
         m_defaultRenderingProperties.m_frameSize = size;
@@ -440,7 +440,7 @@ void RayTracerManager::OnInspect() {
     ImGui::Begin("Ray Tracer Manager");
     {
         m_defaultRenderingProperties.OnInspect();
-        if (m_defaultRenderingProperties.m_environmentalLightingType ==
+        if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
             EnvironmentalLightingType::Skydome) {
             if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
                 static bool manualControl = false;
@@ -449,13 +449,13 @@ void RayTracerManager::OnInspect() {
                 if (manualControl) {
                     if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
                                           1.0f, 0.0f, 180.0f)) {
-                        m_defaultRenderingProperties.m_sunDirection =
+                        m_defaultRenderingProperties.m_environment.m_sunDirection =
                                 glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
                                 glm::vec3(0, 0, -1);
                     }
                     ImGui::DragFloat(
                             "Zenith radiance",
-                            &m_defaultRenderingProperties.m_skylightIntensity, 0.01f,
+                            &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f,
                             0.0f, 10.0f);
                 } else {
                     static bool autoUpdate = true;
@@ -495,17 +495,17 @@ void RayTracerManager::OnInspect() {
                         SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
                         SunlightCalculator::CalculateSunlightIntensity(
                                 hour, minute,
-                                m_defaultRenderingProperties.m_skylightIntensity);
-                        m_defaultRenderingProperties.m_skylightIntensity *=
+                                m_defaultRenderingProperties.m_environment.m_skylightIntensity);
+                        m_defaultRenderingProperties.m_environment.m_skylightIntensity *=
                                 zenithIntensityFactor;
-                        m_defaultRenderingProperties.m_sunDirection =
+                        m_defaultRenderingProperties.m_environment.m_sunDirection =
                                 glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
                                 glm::vec3(0, 0, -1);
                     }
                     ImGui::Text(
                             ("Intensity: " +
                              std::to_string(
-                                     m_defaultRenderingProperties.m_skylightIntensity))
+                                     m_defaultRenderingProperties.m_environment.m_skylightIntensity))
                                     .c_str());
                     ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
                 }

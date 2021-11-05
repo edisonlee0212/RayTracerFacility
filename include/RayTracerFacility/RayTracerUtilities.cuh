@@ -33,7 +33,7 @@ namespace RayTracerFacility {
 
     template<typename T>
     static __forceinline__ __device__ T
-    SampleCubeMap(const cudaTextureObject_t cubeMap[], const float3 &direction) {
+    SampleCubeMap(const cudaTextureObject_t cubeMap[], const glm::vec3 &direction) {
         const float absX = abs(direction.x);
         const float absY = abs(direction.y);
         const float absZ = abs(direction.z);
@@ -268,5 +268,27 @@ namespace RayTracerFacility {
         return result;
     }
 
+    static __forceinline__ __device__ glm::vec3
+    CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir, const Environment& environment){
+        glm::vec3 environmentalLightColor;
+        switch (environment.m_environmentalLightingType) {
+            case EnvironmentalLightingType::Color:
+                environmentalLightColor = environment.m_sunColor;
+                break;
+            case EnvironmentalLightingType::EnvironmentalMap:
+                if (environment.m_environmentalMapId != 0) {
+                    float4 color = SampleCubeMap<float4>(
+                            environment.m_environmentalMaps,
+                            rayDir);
+                    environmentalLightColor = glm::vec3(color.x, color.y, color.z);
+                }
+                break;
+            case EnvironmentalLightingType::Skydome:
+                environmentalLightColor = NishitaSkyIncidentLight(position, rayDir,
+                                                                  environment.m_sunDirection);
+                break;
+        }
+        return environmentalLightColor * environment.m_skylightIntensity;
+    }
 #pragma endregion
 } // namespace RayTracerFacility

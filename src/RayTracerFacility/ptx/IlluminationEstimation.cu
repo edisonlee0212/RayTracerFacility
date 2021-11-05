@@ -41,7 +41,7 @@ namespace RayTracerFacility {
                 float metallic = static_cast<DefaultMaterial*>(sbtData.m_material)->m_metallic;
                 float roughness = static_cast<DefaultMaterial*>(sbtData.m_material)->m_roughness;
                 glm::vec3 albedoColor = static_cast<DefaultMaterial*>(sbtData.m_material)->GetAlbedo(texCoord);
-                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_bounceLimit) {
+                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_rayTracerProperties.m_bounces) {
                     energy = 0.0f;
                     float f = 1.0f;
                     if (metallic >= 0.0f) f = (metallic + 2) / (metallic + 1);
@@ -72,7 +72,7 @@ namespace RayTracerFacility {
                 break;
             case MaterialType::MLVQ: {
                 glm::vec3 btfColor;
-                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_bounceLimit) {
+                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_rayTracerProperties.m_bounces) {
                     energy = 0.0f;
                     float f = 1.0f;
                     glm::vec3 reflected = Reflect(rayDirection, normal);
@@ -113,10 +113,13 @@ namespace RayTracerFacility {
 #pragma region Miss functions
     extern "C" __global__ void __miss__illuminationEstimation() {
         IlluminationEstimationRayData &prd = *GetRayDataPointer<IlluminationEstimationRayData>();
-        const float3 rayDirectionInternal = optixGetWorldRayDirection();
-        const glm::vec3 rayDirection = glm::vec3(rayDirectionInternal.x, rayDirectionInternal.y,
-                                                 rayDirectionInternal.z);
-        prd.m_energy = defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_skylightPower;
+        const float3 rayDir = optixGetWorldRayDirection();
+        float3 rayOrigin = optixGetWorldRayOrigin();
+        glm::vec3 rayOrig = glm::vec3(rayOrigin.x, rayOrigin.y, rayOrigin.z);
+        glm::vec3 rayDirection = glm::vec3(rayDir.x, rayDir.y, rayDir.z);
+        glm::vec3 environmentalLightColor = CalculateEnvironmentalLight(rayOrig, rayDirection,
+                                                                        defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_environment);
+        prd.m_energy = glm::length(environmentalLightColor);
     }
 #pragma endregion
 #pragma region Main ray generation
