@@ -40,10 +40,10 @@ void Camera::Set(const glm::quat &rotation, const glm::vec3 &position,
   m_vertical = cosFovY * glm::normalize(glm::cross(m_horizontal, m_direction));
 }
 
-const char *EnvironmentalLightingTypes[]{"Color", "EnvironmentalMap", "CIE"};
+const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
 const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
 
-void DefaultRenderingProperties::OnGui() {
+void DefaultRenderingProperties::OnInspect() {
   ImGui::Checkbox("Accumulate", &m_accumulate);
   ImGui::DragInt("bounce limit", &m_bounceLimit, 1, 1, 8);
   if (ImGui::DragInt("pixel samples", &m_samplesPerPixel, 1, 1, 64)) {
@@ -54,11 +54,11 @@ void DefaultRenderingProperties::OnGui() {
                    IM_ARRAYSIZE(EnvironmentalLightingTypes))) {
     m_environmentalLightingType = static_cast<EnvironmentalLightingType>(type);
   }
-  if (m_environmentalLightingType != EnvironmentalLightingType::CIE)
+  if (m_environmentalLightingType != EnvironmentalLightingType::Skydome)
     ImGui::DragFloat("Light intensity", &m_skylightIntensity, 0.01f, 0.0f,
                      5.0f);
-  if (m_environmentalLightingType !=
-      EnvironmentalLightingType::EnvironmentalMap) {
+  if (m_environmentalLightingType ==
+      EnvironmentalLightingType::Color) {
     ImGui::ColorEdit3("Sky light color", &m_sunColor.x);
   }
   static int outputType = 0;

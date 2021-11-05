@@ -44,7 +44,7 @@ struct RAY_TRACER_FACILITY_API Camera {
 };
 
 #pragma region MyRegion
-enum class EnvironmentalLightingType { White, EnvironmentalMap, CIE };
+enum class EnvironmentalLightingType { Skydome, EnvironmentalMap, Color };
 enum class OutputType {
   Color,
   Normal,
@@ -55,7 +55,7 @@ enum class OutputType {
 struct RAY_TRACER_FACILITY_API DefaultRenderingProperties {
   bool m_accumulate = true;
   EnvironmentalLightingType m_environmentalLightingType =
-      EnvironmentalLightingType::White;
+      EnvironmentalLightingType::Skydome;
   float m_skylightIntensity = 1.0f;
   glm::vec3 m_sunDirection = glm::vec3(0, 1, 0);
   glm::vec3 m_sunColor = glm::vec3(1, 1, 1);
@@ -94,7 +94,7 @@ struct RAY_TRACER_FACILITY_API DefaultRenderingProperties {
            properties.m_groundHeight != m_groundHeight;
   }
 
-  void OnGui();
+  void OnInspect();
 };
 
 struct RAY_TRACER_FACILITY_API IlluminationEstimationProperties {

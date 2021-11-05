@@ -439,10 +439,10 @@ void RayTracerManager::OnInspect() {
     }
     ImGui::Begin("Ray Tracer Manager");
     {
-        m_defaultRenderingProperties.OnGui();
+        m_defaultRenderingProperties.OnInspect();
         if (m_defaultRenderingProperties.m_environmentalLightingType ==
-            EnvironmentalLightingType::CIE) {
-            if (ImGui::TreeNodeEx("CIE Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+            EnvironmentalLightingType::Skydome) {
+            if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
                 static bool manualControl = false;
                 ImGui::Checkbox("Manual control", &manualControl);
                 static glm::vec2 angles = glm::vec2(90, 0);
@@ -456,7 +456,7 @@ void RayTracerManager::OnInspect() {
                     ImGui::DragFloat(
                             "Zenith radiance",
                             &m_defaultRenderingProperties.m_skylightIntensity, 0.01f,
-                            0.0f, 1.0f);
+                            0.0f, 10.0f);
                 } else {
                     static bool autoUpdate = true;
                     ImGui::Checkbox("Auto update", &autoUpdate);
@@ -468,10 +468,10 @@ void RayTracerManager::OnInspect() {
                     ImGui::Checkbox("Use day range", &useDayRange);
                     if (useDayRange) {
                         static float dayRange = 0.5f;
-                        if (ImGui::DragFloat("Day range", &dayRange, 0.01f, 0.0f, 0.99f)) {
-                            dayRange = glm::clamp(dayRange, 0.0f, 0.99f);
+                        if (ImGui::DragFloat("Day range", &dayRange, 0.001f, 0.0f, 1.0f)) {
+                            dayRange = glm::clamp(dayRange, 0.0f, 1.0f);
                             hour = (dayRange * 24.0f);
-                            minute = (glm::mod(dayRange, 1.0f / 24) * 60.0f);
+                            minute = ((dayRange * 24.0f) - static_cast<int>(dayRange * 24.0f)) * 60;
                             updated = true;
                         }
                     } else {
@@ -559,17 +559,19 @@ void SunlightCalculator::CalculateSunlightIntensity(int hour, int minute,
         intensity = sunlightCalculator.m_database.begin()->second.first;
     } else {
         float lastVal = sunlightCalculator.m_database.begin()->second.first;
+        float lastTime = sunlightCalculator.m_database.begin()->first;
         int index = 0;
         bool found = false;
         for (const auto &i: sunlightCalculator.m_database) {
             if (index != 0) {
                 if (combinedTime < i.first) {
-                    intensity = LerpHelper(lastVal, i.second.first, actualMinute);
+                    intensity = LerpHelper(lastVal, i.second.first, (combinedTime - lastTime) / (i.first - lastTime));
                     found = true;
                     break;
                 }
             }
             lastVal = i.second.first;
+            lastTime = i.first;
             index++;
         }
         if (!found)
@@ -593,17 +595,19 @@ void SunlightCalculator::CalculateSunlightAngle(int hour, int minute,
         angle = sunlightCalculator.m_database.begin()->second.second;
     } else {
         float lastVal = sunlightCalculator.m_database.begin()->second.second;
+        float lastTime = sunlightCalculator.m_database.begin()->first;
         int index = 0;
         bool found = false;
         for (const auto &i: sunlightCalculator.m_database) {
             if (index != 0) {
                 if (combinedTime < i.first) {
-                    angle = LerpHelper(lastVal, i.second.second, actualMinute);
+                    angle = LerpHelper(lastVal, i.second.second, (combinedTime - lastTime) / (i.first - lastTime));
                     found = true;
                     break;
                 }
             }
             lastVal = i.second.second;
+            lastTime = i.first;
             index++;
         }
 
@@ -611,7 +615,7 @@ void SunlightCalculator::CalculateSunlightAngle(int hour, int minute,
             angle = lastVal;
         }
     }
-    angle = 90.0f - angle;
+    angle = combinedTime > 12.0f ? 90.0f - angle : 90 + angle;
 }
 
 SunlightCalculator &SunlightCalculator::GetInstance() {
