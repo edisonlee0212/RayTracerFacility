@@ -1,19 +1,37 @@
 ﻿#pragma once
 
 #include <LinearCongruenceGenerator.hpp>
-#include <fstream>
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/vector_angle.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/random.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
 #include <optix_device.h>
+
+#include <fstream>
 #include <random>
 #include <sstream>
 #include <vector>
 
+#include <CUDAModule.hpp>
+#include <Optix7.hpp>
+#include <RayDataDefinations.hpp>
+#include "DisneyBssrdf.hpp"
+
 namespace RayTracerFacility {
     typedef LinearCongruenceGenerator<16> Random;
 #pragma region Data
-
+    template <typename T>
+    struct PerRayData {
+        unsigned m_hitCount;
+        Random m_random;
+        T m_energy;
+        glm::vec3 m_normal;
+        glm::vec3 m_albedo;
+    };
 #pragma endregion
 #pragma region Helpers
 
@@ -192,6 +210,7 @@ namespace RayTracerFacility {
 
         return true;
     }
+
     /**
      * From https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/simulating-sky/simulating-colors-of-the-sky
      * @param position
@@ -264,12 +283,12 @@ namespace RayTracerFacility {
         // We use a magic number here for the intensity of the sun (20). We will make it more
         // scientific in a future revision of this lesson/code
         glm::vec3 result = (glm::vec3(sumR.x * betaR.x, sumR.y * betaR.y, sumR.z * betaR.z) * phaseR +
-                glm::vec3(sumM.x * betaM.x, sumM.y * betaM.y, sumM.z * betaM.z) * phaseM) * 20.0f;
+                            glm::vec3(sumM.x * betaM.x, sumM.y * betaM.y, sumM.z * betaM.z) * phaseM) * 20.0f;
         return result;
     }
 
     static __forceinline__ __device__ glm::vec3
-    CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir, const Environment& environment){
+    CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir, const Environment &environment) {
         glm::vec3 environmentalLightColor;
         switch (environment.m_environmentalLightingType) {
             case EnvironmentalLightingType::Color:

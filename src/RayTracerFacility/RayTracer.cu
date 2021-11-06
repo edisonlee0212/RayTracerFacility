@@ -3,13 +3,9 @@
 #include <optix_function_table_definition.h>
 
 #include <glm/glm.hpp>
-
 #include <glm/gtc/matrix_transform.hpp>
-
 #include <glm/gtc/quaternion.hpp>
-
 #include <glm/gtc/random.hpp>
-
 #include <glm/gtc/type_ptr.hpp>
 
 #define GL_TEXTURE_CUBE_MAP 0x8513
@@ -56,16 +52,8 @@ void Environment::OnInspect() {
         ImGui::ColorEdit3("Sky light color", &m_sunColor.x);
     }
 }
-void Ground::OnInspect() {
-    ImGui::Checkbox("Enable ground", &m_enableGround);
-    if(m_enableGround){
-        ImGui::ColorEdit3("Ground color", &m_groundColor.x);
-        ImGui::DragFloat("Ground metallic", &m_groundMetallic, 0.01, 0.0, 1.0);
-        ImGui::DragFloat("Ground roughness", &m_groundRoughness, 0.01, 0.0, 1.0);
-        ImGui::DragFloat("Ground height", &m_groundHeight, 0.01);
-    }
-}
-void RayTracerProperties::OnInspect() {
+
+void RayProperties::OnInspect() {
     ImGui::DragInt("bounce limit", &m_bounces, 1, 1, 8);
     if (ImGui::DragInt("pixel samples", &m_samples, 1, 1, 64)) {
         m_samples = glm::clamp(m_samples, 1, 128);
@@ -79,7 +67,6 @@ void DefaultRenderingProperties::OnInspect() {
     m_outputType = static_cast<OutputType>(outputType);
   }
   m_environment.OnInspect();
-  m_ground.OnInspect();
   m_rayTracerProperties.OnInspect();
 }
 

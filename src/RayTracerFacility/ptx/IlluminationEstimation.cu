@@ -1,15 +1,7 @@
-﻿#include <CUDAModule.hpp>
-#include <Optix7.hpp>
-#include <RayTracerUtilities.cuh>
-#include <RayDataDefinations.hpp>
+﻿#include <RayTracerUtilities.cuh>
 
 namespace RayTracerFacility {
     extern "C" __constant__ DefaultIlluminationEstimationLaunchParams defaultIlluminationEstimationLaunchParams;
-    struct IlluminationEstimationRayData {
-        unsigned m_hitCount = 0;
-        Random m_random;
-        float m_energy = 0;
-    };
 #pragma region Closest hit functions
     extern "C" __global__ void __closesthit__illuminationEstimation() {
 #pragma region Retrive information
@@ -28,13 +20,13 @@ namespace RayTracerFacility {
         auto tangent = sbtData.m_mesh.GetTangent(triangleBarycentricsInternal, indices);
         auto hitPoint = sbtData.m_mesh.GetPosition(triangleBarycentricsInternal, indices);
 #pragma endregion
-        IlluminationEstimationRayData &perRayData = *GetRayDataPointer<IlluminationEstimationRayData>();
+        PerRayData<float> &perRayData = *GetRayDataPointer<PerRayData<float>>();
         unsigned hitCount = perRayData.m_hitCount + 1;
         auto energy = 0.0f;
         uint32_t u0, u1;
         PackRayDataPointer(&perRayData, u0, u1);
         perRayData.m_hitCount = hitCount;
-        perRayData.m_energy = 0;
+        perRayData.m_energy = 0.0f;
         switch (sbtData.m_materialType) {
             case MaterialType::Default: {
                 static_cast<DefaultMaterial*>(sbtData.m_material)->ApplyNormalTexture(normal, texCoord, tangent);
@@ -112,7 +104,7 @@ namespace RayTracerFacility {
 #pragma endregion
 #pragma region Miss functions
     extern "C" __global__ void __miss__illuminationEstimation() {
-        IlluminationEstimationRayData &prd = *GetRayDataPointer<IlluminationEstimationRayData>();
+        PerRayData<float> &prd = *GetRayDataPointer<PerRayData<float>>();
         const float3 rayDir = optixGetWorldRayDirection();
         float3 rayOrigin = optixGetWorldRayOrigin();
         glm::vec3 rayOrig = glm::vec3(rayOrigin.x, rayOrigin.y, rayOrigin.z);
@@ -132,7 +124,7 @@ namespace RayTracerFacility {
         float pointEnergy = 0.0f;
         auto pointDirection = glm::vec3(0.0f);
 
-        IlluminationEstimationRayData perRayData;
+        PerRayData<float> perRayData;
         perRayData.m_random.Init(ix,
                                  defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_seed);
         uint32_t u0, u1;

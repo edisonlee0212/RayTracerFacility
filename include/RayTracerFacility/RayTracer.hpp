@@ -74,28 +74,11 @@ namespace RayTracerFacility {
         void OnInspect();
     };
 
-    struct RAY_TRACER_FACILITY_API Ground {
-        bool m_enableGround = true;
-        glm::vec3 m_groundColor = glm::vec3(1.0f);
-        float m_groundMetallic = 0.3;
-        float m_groundRoughness = 0.3;
-        float m_groundHeight = 0.0f;
-        [[nodiscard]] bool
-        Changed(const Ground &properties) const {
-            return properties.m_enableGround != m_enableGround ||
-                   properties.m_groundColor != m_groundColor ||
-                   properties.m_groundMetallic != m_groundMetallic ||
-                   properties.m_groundRoughness != m_groundRoughness ||
-                   properties.m_groundHeight != m_groundHeight;
-        }
-        void OnInspect();
-    };
-
-    struct RAY_TRACER_FACILITY_API RayTracerProperties{
+    struct RAY_TRACER_FACILITY_API RayProperties{
         int m_bounces = 4;
         int m_samples = 1;
         [[nodiscard]] bool
-        Changed(const RayTracerProperties &properties) const {
+        Changed(const RayProperties &properties) const {
             return properties.m_bounces != m_bounces ||
                    properties.m_samples != m_samples;
         }
@@ -109,8 +92,7 @@ namespace RayTracerFacility {
         glm::ivec2 m_frameSize = glm::vec2(0, 0);
         OutputType m_outputType = OutputType::Color;
         Environment m_environment;
-        Ground m_ground;
-        RayTracerProperties m_rayTracerProperties;
+        RayProperties m_rayTracerProperties;
         [[nodiscard]] bool
         Changed(const DefaultRenderingProperties &properties) const {
             return properties.m_accumulate != m_accumulate ||
@@ -119,7 +101,6 @@ namespace RayTracerFacility {
                    properties.m_outputType != m_outputType ||
                    properties.m_camera != m_camera ||
                    m_environment.Changed(properties.m_environment) ||
-                   m_ground.Changed(properties.m_ground) ||
                     m_rayTracerProperties.Changed(properties.m_rayTracerProperties);
         }
         void OnInspect();
@@ -127,8 +108,7 @@ namespace RayTracerFacility {
 
     struct RAY_TRACER_FACILITY_API IlluminationEstimationProperties {
         Environment m_environment;
-        Ground m_ground;
-        RayTracerProperties m_rayTracerProperties;
+        RayProperties m_rayTracerProperties;
         unsigned m_seed = 0;
         int m_numPointSamples = 100;
         int m_numScatterSamples = 10;
@@ -141,7 +121,6 @@ namespace RayTracerFacility {
                    properties.m_numScatterSamples != m_numScatterSamples ||
                    properties.m_pushNormal != m_pushNormal ||
                    m_environment.Changed(properties.m_environment) ||
-                   m_ground.Changed(properties.m_ground) ||
                    m_rayTracerProperties.Changed(properties.m_rayTracerProperties);
         }
     };
