@@ -187,8 +187,8 @@ namespace RayTracerFacility {
         auto hitPoint =
                 sbtData.m_mesh.GetPosition(triangleBarycentricsInternal, indices);
 #pragma endregion
-        PerRayData<glm::vec3> &perRayData =
-                *GetRayDataPointer<PerRayData<glm::vec3>>();
+        PerRayData <glm::vec3> &perRayData =
+                *GetRayDataPointer < PerRayData < glm::vec3 >> ();
         unsigned hitCount = perRayData.m_hitCount + 1;
 
 
@@ -336,8 +336,8 @@ namespace RayTracerFacility {
 #pragma endregion
 #pragma region Miss functions
     extern "C" __global__ void __miss__radiance() {
-        PerRayData<glm::vec3> &perRayData =
-                *GetRayDataPointer<PerRayData<glm::vec3>>();
+        PerRayData <glm::vec3> &perRayData =
+                *GetRayDataPointer < PerRayData < glm::vec3 >> ();
         const float3 rayDir = optixGetWorldRayDirection();
         float3 rayOrigin = optixGetWorldRayOrigin();
         glm::vec3 rayOrig = glm::vec3(rayOrigin.x, rayOrigin.y, rayOrigin.z);
@@ -355,15 +355,14 @@ namespace RayTracerFacility {
         float ix = optixGetLaunchIndex().x;
         float iy = optixGetLaunchIndex().y;
         const uint32_t fbIndex =
-                ix + iy * defaultRenderingLaunchParams.m_frame.size.x;
+                ix + iy * defaultRenderingLaunchParams.m_frame.m_size.x;
 
         // compute a test pattern based on pixel ID
 
-        PerRayData<glm::vec3> cameraRayData;
+        PerRayData <glm::vec3> cameraRayData;
         cameraRayData.m_hitCount = 0;
         cameraRayData.m_random.Init(
-                ix + defaultRenderingLaunchParams.m_defaultRenderingProperties
-                             .m_frameSize.x *
+                ix + defaultRenderingLaunchParams.m_frame.m_size.x *
                      iy,
                 defaultRenderingLaunchParams.m_frame.m_frameId);
         cameraRayData.m_energy = glm::vec3(0);
@@ -389,24 +388,20 @@ namespace RayTracerFacility {
             glm::vec2 screen;
             screen = glm::vec2(ix + cameraRayData.m_random(),
                                iy + cameraRayData.m_random()) /
-                     glm::vec2(defaultRenderingLaunchParams
-                                       .m_defaultRenderingProperties.m_frameSize);
+                     glm::vec2(defaultRenderingLaunchParams.m_frame.m_size);
             glm::vec3 rayDir = glm::normalize(
-                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
+                    defaultRenderingLaunchParams.m_camera
                             .m_direction +
                     (screen.x - 0.5f) *
-                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
+                    defaultRenderingLaunchParams.m_camera
                             .m_horizontal +
                     (screen.y - 0.5f) *
-                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_camera
+                    defaultRenderingLaunchParams.m_camera
                             .m_vertical);
             float3 rayOrigin =
-                    make_float3(defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                        .m_camera.m_from.x,
-                                defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                        .m_camera.m_from.y,
-                                defaultRenderingLaunchParams.m_defaultRenderingProperties
-                                        .m_camera.m_from.z);
+                    make_float3(defaultRenderingLaunchParams.m_camera.m_from.x,
+                                defaultRenderingLaunchParams.m_camera.m_from.y,
+                                defaultRenderingLaunchParams.m_camera.m_from.z);
             float3 rayDirection = make_float3(rayDir.x, rayDir.y, rayDir.z);
 
             optixTrace(
@@ -435,8 +430,7 @@ namespace RayTracerFacility {
 
 
         // and write/accumulate to frame buffer ...
-        if (defaultRenderingLaunchParams.m_defaultRenderingProperties
-                .m_accumulate) {
+        if (defaultRenderingLaunchParams.m_accumulate) {
             if (defaultRenderingLaunchParams.m_frame.m_frameId > 1) {
                 glm::vec4 currentColor =
                         defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex];

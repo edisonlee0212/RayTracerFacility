@@ -408,23 +408,21 @@ void RayTracerManager::LateUpdate() {
     UpdateScene();
     if (m_defaultWindow.m_renderingEnabled) {
         const auto size = m_defaultWindow.Resize();
-        m_defaultRenderingProperties.m_camera.Set(
+        m_defaultWindow.m_camera.Set(
                 editorLayer->m_sceneCameraRotation,
                 editorLayer->m_sceneCameraPosition,
                 editorLayer->m_sceneCamera->m_fov, size);
         auto environmentalMap = m_environmentalMap.Get<Cubemap>();
         if (environmentalMap) {
-            m_defaultRenderingProperties.m_environment.m_environmentalMapId =
+            m_defaultWindow.m_defaultRenderingProperties.m_environment.m_environmentalMapId =
                     environmentalMap->Texture()->Id();
         }
-        m_defaultRenderingProperties.m_frameSize = size;
-        m_defaultRenderingProperties.m_outputTextureId =
-                m_defaultWindow.m_output->Id();
+        m_defaultWindow.m_size = size;
         if (!CudaModule::GetRayTracer()->m_instances.empty() ||
             !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
             m_defaultWindow.m_rendered =
                     CudaModule::GetRayTracer()->RenderDefault(
-                            m_defaultRenderingProperties);
+                            m_defaultWindow.m_defaultRenderingProperties, m_defaultWindow.m_accumulate, m_defaultWindow.m_camera, m_defaultWindow.m_output->Id(), m_defaultWindow.m_size);
         }
     }
 }
@@ -439,79 +437,7 @@ void RayTracerManager::OnInspect() {
     }
     ImGui::Begin("Ray Tracer Manager");
     {
-        m_defaultRenderingProperties.OnInspect();
-        if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
-            EnvironmentalLightingType::Skydome) {
-            if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                static bool manualControl = false;
-                ImGui::Checkbox("Manual control", &manualControl);
-                static glm::vec2 angles = glm::vec2(90, 0);
-                if (manualControl) {
-                    if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
-                                          1.0f, 0.0f, 180.0f)) {
-                        m_defaultRenderingProperties.m_environment.m_sunDirection =
-                                glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
-                                glm::vec3(0, 0, -1);
-                    }
-                    ImGui::DragFloat(
-                            "Zenith radiance",
-                            &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f,
-                            0.0f, 10.0f);
-                } else {
-                    static bool autoUpdate = true;
-                    ImGui::Checkbox("Auto update", &autoUpdate);
-                    static int hour = 12;
-                    static int minute = 0;
-                    static bool updated = false;
-                    static float zenithIntensityFactor = 1.0f;
-                    static bool useDayRange = true;
-                    ImGui::Checkbox("Use day range", &useDayRange);
-                    if (useDayRange) {
-                        static float dayRange = 0.5f;
-                        if (ImGui::DragFloat("Day range", &dayRange, 0.001f, 0.0f, 1.0f)) {
-                            dayRange = glm::clamp(dayRange, 0.0f, 1.0f);
-                            hour = (dayRange * 24.0f);
-                            minute = ((dayRange * 24.0f) - static_cast<int>(dayRange * 24.0f)) * 60;
-                            updated = true;
-                        }
-                    } else {
-                        if (ImGui::DragInt("Hour", &hour, 1, 0, 23)) {
-                            hour = glm::clamp(hour, 0, 23);
-                            updated = true;
-                        }
-                        if (ImGui::DragInt("Minute", &minute, 1, 0, 59)) {
-                            minute = glm::clamp(minute, 0, 59);
-                            updated = true;
-                        }
-                    }
-                    if (ImGui::DragFloat("Zenith radiance factor", &zenithIntensityFactor,
-                                         0.01f, 0.0f, 3.0f)) {
-                        zenithIntensityFactor =
-                                glm::clamp(zenithIntensityFactor, 0.0f, 3.0f);
-                        updated = true;
-                    }
-                    if (ImGui::Button("Update") || (autoUpdate && updated)) {
-                        updated = false;
-                        SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
-                        SunlightCalculator::CalculateSunlightIntensity(
-                                hour, minute,
-                                m_defaultRenderingProperties.m_environment.m_skylightIntensity);
-                        m_defaultRenderingProperties.m_environment.m_skylightIntensity *=
-                                zenithIntensityFactor;
-                        m_defaultRenderingProperties.m_environment.m_sunDirection =
-                                glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
-                                glm::vec3(0, 0, -1);
-                    }
-                    ImGui::Text(
-                            ("Intensity: " +
-                             std::to_string(
-                                     m_defaultRenderingProperties.m_environment.m_skylightIntensity))
-                                    .c_str());
-                    ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
-                }
-                ImGui::TreePop();
-            }
-        }
+
         EditorManager::DragAndDropButton<Cubemap>(
                 m_environmentalMap,
                 "Environmental Map");
@@ -640,7 +566,79 @@ void RayTracerRenderWindow::OnInspect() {
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::BeginMenu("Settings")) {
-
+                    m_defaultRenderingProperties.OnInspect();
+                    if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
+                        EnvironmentalLightingType::Skydome) {
+                        if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                            static bool manualControl = false;
+                            ImGui::Checkbox("Manual control", &manualControl);
+                            static glm::vec2 angles = glm::vec2(90, 0);
+                            if (manualControl) {
+                                if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
+                                                      1.0f, 0.0f, 180.0f)) {
+                                    m_defaultRenderingProperties.m_environment.m_sunDirection =
+                                            glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
+                                            glm::vec3(0, 0, -1);
+                                }
+                                ImGui::DragFloat(
+                                        "Zenith radiance",
+                                        &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f,
+                                        0.0f, 10.0f);
+                            } else {
+                                static bool autoUpdate = true;
+                                ImGui::Checkbox("Auto update", &autoUpdate);
+                                static int hour = 12;
+                                static int minute = 0;
+                                static bool updated = false;
+                                static float zenithIntensityFactor = 1.0f;
+                                static bool useDayRange = true;
+                                ImGui::Checkbox("Use day range", &useDayRange);
+                                if (useDayRange) {
+                                    static float dayRange = 0.5f;
+                                    if (ImGui::DragFloat("Day range", &dayRange, 0.001f, 0.0f, 1.0f)) {
+                                        dayRange = glm::clamp(dayRange, 0.0f, 1.0f);
+                                        hour = (dayRange * 24.0f);
+                                        minute = ((dayRange * 24.0f) - static_cast<int>(dayRange * 24.0f)) * 60;
+                                        updated = true;
+                                    }
+                                } else {
+                                    if (ImGui::DragInt("Hour", &hour, 1, 0, 23)) {
+                                        hour = glm::clamp(hour, 0, 23);
+                                        updated = true;
+                                    }
+                                    if (ImGui::DragInt("Minute", &minute, 1, 0, 59)) {
+                                        minute = glm::clamp(minute, 0, 59);
+                                        updated = true;
+                                    }
+                                }
+                                if (ImGui::DragFloat("Zenith radiance factor", &zenithIntensityFactor,
+                                                     0.01f, 0.0f, 3.0f)) {
+                                    zenithIntensityFactor =
+                                            glm::clamp(zenithIntensityFactor, 0.0f, 3.0f);
+                                    updated = true;
+                                }
+                                if (ImGui::Button("Update") || (autoUpdate && updated)) {
+                                    updated = false;
+                                    SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
+                                    SunlightCalculator::CalculateSunlightIntensity(
+                                            hour, minute,
+                                            m_defaultRenderingProperties.m_environment.m_skylightIntensity);
+                                    m_defaultRenderingProperties.m_environment.m_skylightIntensity *=
+                                            zenithIntensityFactor;
+                                    m_defaultRenderingProperties.m_environment.m_sunDirection =
+                                            glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
+                                            glm::vec3(0, 0, -1);
+                                }
+                                ImGui::Text(
+                                        ("Intensity: " +
+                                         std::to_string(
+                                                 m_defaultRenderingProperties.m_environment.m_skylightIntensity))
+                                                .c_str());
+                                ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
+                            }
+                            ImGui::TreePop();
+                        }
+                    }
                     ImGui::EndMenu();
                 }
                 ImGui::EndMenuBar();

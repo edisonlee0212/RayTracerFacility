@@ -62,6 +62,7 @@ namespace RayTracerFacility {
         glm::vec3 m_sunColor = glm::vec3(1, 1, 1);
         unsigned m_environmentalMapId = 0;
         cudaTextureObject_t m_environmentalMaps[6];
+
         [[nodiscard]] bool
         Changed(const Environment &properties) const {
             return properties.m_environmentalLightingType !=
@@ -71,38 +72,34 @@ namespace RayTracerFacility {
                    properties.m_environmentalMapId != m_environmentalMapId ||
                    properties.m_sunColor != m_sunColor;
         }
+
         void OnInspect();
     };
 
-    struct RAY_TRACER_FACILITY_API RayProperties{
+    struct RAY_TRACER_FACILITY_API RayProperties {
         int m_bounces = 4;
         int m_samples = 1;
+
         [[nodiscard]] bool
         Changed(const RayProperties &properties) const {
             return properties.m_bounces != m_bounces ||
                    properties.m_samples != m_samples;
         }
+
         void OnInspect();
     };
 
     struct RAY_TRACER_FACILITY_API DefaultRenderingProperties {
-        bool m_accumulate = true;
-        Camera m_camera;
-        unsigned m_outputTextureId = 0;
-        glm::ivec2 m_frameSize = glm::vec2(0, 0);
         OutputType m_outputType = OutputType::Color;
         Environment m_environment;
         RayProperties m_rayTracerProperties;
         [[nodiscard]] bool
         Changed(const DefaultRenderingProperties &properties) const {
-            return properties.m_accumulate != m_accumulate ||
-                   properties.m_outputTextureId != m_outputTextureId ||
-                   properties.m_frameSize != m_frameSize ||
-                   properties.m_outputType != m_outputType ||
-                   properties.m_camera != m_camera ||
+            return properties.m_outputType != m_outputType ||
                    m_environment.Changed(properties.m_environment) ||
-                    m_rayTracerProperties.Changed(properties.m_rayTracerProperties);
+                   m_rayTracerProperties.Changed(properties.m_rayTracerProperties);
         }
+
         void OnInspect();
     };
 
@@ -138,13 +135,16 @@ namespace RayTracerFacility {
     struct VertexInfo;
 
     struct DefaultRenderingLaunchParams {
+        bool m_accumulate = true;
+        Camera m_camera;
+        unsigned m_outputTextureId = 0;
         DefaultRenderingProperties m_defaultRenderingProperties;
         struct {
             glm::vec4 *m_colorBuffer;
             glm::vec4 *m_normalBuffer;
             glm::vec4 *m_albedoBuffer;
             /*! the size of the frame buffer to render */
-            glm::ivec2 size;
+            glm::ivec2 m_size;
             size_t m_frameId;
         } m_frame;
         OptixTraversableHandle m_traversable;
@@ -271,7 +271,8 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderDefault(const DefaultRenderingProperties &properties);
+        RenderDefault(const DefaultRenderingProperties &properties, bool accumulate, Camera camera,
+                      unsigned outputTextureId, glm::ivec2 frameSize);
 
         void EstimateIllumination(const size_t &size,
                                   const IlluminationEstimationProperties &properties,

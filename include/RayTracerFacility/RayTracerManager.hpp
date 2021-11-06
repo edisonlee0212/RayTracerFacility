@@ -30,7 +30,10 @@ namespace RayTracerFacility {
         std::unique_ptr<OpenGLUtils::GLTexture2D> m_output;
         glm::ivec2 m_outputSize = glm::ivec2(1024, 1024);
         bool m_rendered = false;
-
+        DefaultRenderingProperties m_defaultRenderingProperties;
+        RayTracerFacility::Camera m_camera;
+        glm::ivec2 m_size;
+        bool m_accumulate = true;
         void Init(const std::string &name);
 
         [[nodiscard]] glm::ivec2 Resize() const;
@@ -65,7 +68,7 @@ namespace RayTracerFacility {
     public:
         AssetRef m_environmentalMap;
         bool m_enableMenus = true;
-        DefaultRenderingProperties m_defaultRenderingProperties;
+
         RayTracerRenderWindow m_defaultWindow;
 
         void UpdateScene() const;
