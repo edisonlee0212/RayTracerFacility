@@ -25,7 +25,7 @@ namespace RayTracerFacility {
         bool m_startMouse = false;
         bool m_startScroll = false;
         bool m_rightMouseButtonHold = false;
-
+        float m_gamma = 2.2f;
         float m_resolutionMultiplier = 0.5f;
         std::unique_ptr<OpenGLUtils::GLTexture2D> m_output;
         glm::ivec2 m_outputSize = glm::ivec2(1024, 1024);

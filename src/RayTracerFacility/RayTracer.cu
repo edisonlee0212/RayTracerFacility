@@ -65,8 +65,8 @@ void RayTracerProperties::OnInspect() {
     m_rayProperties.OnInspect();
 }
 
-bool RayTracer::RenderDefault(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
-                              unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType) {
+bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
+                               unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType, float gamma) {
     if (frameSize.x == 0 | frameSize.y == 0)
         return true;
     if (!m_hasAccelerationStructure)
@@ -81,6 +81,10 @@ bool RayTracer::RenderDefault(const RayTracerProperties &properties, bool accumu
     }
     if(outputTextureId != m_defaultRenderingLaunchParams.m_outputTextureId){
         m_defaultRenderingLaunchParams.m_outputTextureId = outputTextureId;
+        m_defaultRenderingPipeline.m_statusChanged = true;
+    }
+    if(gamma != m_defaultRenderingLaunchParams.m_gamma){
+        m_defaultRenderingLaunchParams.m_gamma = gamma;
         m_defaultRenderingPipeline.m_statusChanged = true;
     }
     if(outputType != m_defaultRenderingLaunchParams.m_outputType){

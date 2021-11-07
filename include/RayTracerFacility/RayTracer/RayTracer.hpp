@@ -119,6 +119,7 @@ namespace RayTracerFacility {
         unsigned m_outputTextureId = 0;
         RayTracerProperties m_rayTracerProperties;
         OutputType m_outputType = OutputType::Color;
+        float m_gamma = 2.2f;
         struct {
             glm::vec4 *m_colorBuffer;
             glm::vec4 *m_normalBuffer;
@@ -256,8 +257,8 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderDefault(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
-                      unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType);
+        RenderToCamera(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
+                       unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType, float gamma);
 
         void EstimateIllumination(const size_t &size,
                                   const RayTracerProperties &properties,
@@ -272,10 +273,6 @@ namespace RayTracerFacility {
         void BuildShaderBindingTable(
                 std::vector<std::pair<unsigned, cudaTextureObject_t>> &boundTextures,
                 std::vector<cudaGraphicsResource_t> &boundResources);
-
-        void SetSkylightSize(const float &value);
-
-        void SetSkylightDir(const glm::vec3 &value);
 
         void ClearAccumulate();
 

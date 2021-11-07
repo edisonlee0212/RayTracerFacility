@@ -421,8 +421,10 @@ void RayTracerManager::LateUpdate() {
         if (!CudaModule::GetRayTracer()->m_instances.empty() ||
             !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
             m_defaultWindow.m_rendered =
-                    CudaModule::GetRayTracer()->RenderDefault(
-                            m_defaultWindow.m_defaultRenderingProperties, m_defaultWindow.m_accumulate, m_defaultWindow.m_camera, m_defaultWindow.m_output->Id(), m_defaultWindow.m_size, m_defaultWindow.m_outputType);
+                    CudaModule::GetRayTracer()->RenderToCamera(
+                            m_defaultWindow.m_defaultRenderingProperties, m_defaultWindow.m_accumulate,
+                            m_defaultWindow.m_camera, m_defaultWindow.m_output->Id(), m_defaultWindow.m_size,
+                            m_defaultWindow.m_outputType, m_defaultWindow.m_gamma);
         }
     }
 }
@@ -568,13 +570,7 @@ void RayTracerRenderWindow::OnInspect() {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::BeginMenu("Settings")) {
-                    ImGui::Checkbox("Accumulate", &m_accumulate);
 
-                    static int outputType = 0;
-                    if (ImGui::Combo("Output Type", &outputType, OutputTypes,
-                                     IM_ARRAYSIZE(OutputTypes))) {
-                        m_outputType = static_cast<OutputType>(outputType);
-                    }
                     m_defaultRenderingProperties.OnInspect();
                     if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
                         EnvironmentalLightingType::Skydome) {
@@ -621,9 +617,7 @@ void RayTracerRenderWindow::OnInspect() {
                                     }
                                 }
                                 if (ImGui::DragFloat("Zenith radiance factor", &zenithIntensityFactor,
-                                                     0.01f, 0.0f, 3.0f)) {
-                                    zenithIntensityFactor =
-                                            glm::clamp(zenithIntensityFactor, 0.0f, 3.0f);
+                                                     0.01f, 0.0f, 10.0f)) {
                                     updated = true;
                                 }
                                 if (ImGui::Button("Update") || (autoUpdate && updated)) {
@@ -647,6 +641,14 @@ void RayTracerRenderWindow::OnInspect() {
                             }
                             ImGui::TreePop();
                         }
+                    }
+                    ImGui::Checkbox("Accumulate", &m_accumulate);
+                    ImGui::DragFloat("Gamma", &m_gamma,
+                                     0.01f, 0.1f, 3.0f);
+                    static int outputType = 0;
+                    if (ImGui::Combo("Output Type", &outputType, OutputTypes,
+                                     IM_ARRAYSIZE(OutputTypes))) {
+                        m_outputType = static_cast<OutputType>(outputType);
                     }
                     ImGui::DragFloat("Resolution multiplier", &m_resolutionMultiplier,
                                      0.01f, 0.1f, 1.0f);

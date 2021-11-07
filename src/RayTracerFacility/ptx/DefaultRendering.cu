@@ -191,8 +191,6 @@ namespace RayTracerFacility {
                 *GetRayDataPointer < PerRayData < glm::vec3 >> ();
         unsigned hitCount = perRayData.m_hitCount + 1;
 
-
-
         // start with some ambient term
         auto energy = glm::vec3(0.0f);
         uint32_t u0, u1;
@@ -372,9 +370,7 @@ namespace RayTracerFacility {
         uint32_t u0, u1;
         PackRayDataPointer(&cameraRayData, u0, u1);
 
-        const auto numPixelSamples =
-                defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
-                        .m_samples;
+        const auto numPixelSamples = defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties.m_samples;
         auto pixelColor = glm::vec3(0.f);
         auto pixelNormal = glm::vec3(0.f);
         auto pixelAlbedo = glm::vec3(0.f);
@@ -417,40 +413,34 @@ namespace RayTracerFacility {
                     static_cast<int>(
                             DefaultRenderingRayType::RadianceRayType), // missSBTIndex
                     u0, u1);
-            pixelColor += cameraRayData.m_energy;
-            pixelNormal += cameraRayData.m_normal;
-            pixelAlbedo += cameraRayData.m_albedo;
+            pixelColor += cameraRayData.m_energy / static_cast<float>(numPixelSamples);
+            pixelNormal += cameraRayData.m_normal / static_cast<float>(numPixelSamples);
+            pixelAlbedo += cameraRayData.m_albedo / static_cast<float>(numPixelSamples);
             cameraRayData.m_energy = glm::vec3(0.0f);
             cameraRayData.m_normal = glm::vec3(0.0f);
             cameraRayData.m_albedo = glm::vec3(0.0f);
             cameraRayData.m_hitCount = 0;
         }
-        glm::vec3 rgb(pixelColor / static_cast<float>(numPixelSamples));
-        rgb = glm::pow(rgb, glm::vec3(1.0 / 2.2));
-
 
         // and write/accumulate to frame buffer ...
         if (defaultRenderingLaunchParams.m_accumulate) {
             if (defaultRenderingLaunchParams.m_frame.m_frameId > 1) {
-                glm::vec4 currentColor =
+                glm::vec3 currentGammaCorrectedColor =
                         defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex];
-                glm::vec3 transferredCurrentColor = currentColor;
-                rgb +=
-                        static_cast<float>(defaultRenderingLaunchParams.m_frame.m_frameId) *
-                        transferredCurrentColor;
-                rgb /= static_cast<float>(
-                        defaultRenderingLaunchParams.m_frame.m_frameId + 1);
+                glm::vec3 accumulatedColor = glm::vec3(
+                        glm::pow(currentGammaCorrectedColor, glm::vec3(defaultRenderingLaunchParams.m_gamma)));
+                pixelColor += static_cast<float>(defaultRenderingLaunchParams.m_frame.m_frameId) * accumulatedColor;
+                pixelColor /= static_cast<float>(defaultRenderingLaunchParams.m_frame.m_frameId + 1);
             }
         }
-        float4 data = make_float4(rgb.r, rgb.g, rgb.b, 1.0f);
+        auto gammaCorrectedColor = glm::pow(pixelColor, glm::vec3(1.0 / defaultRenderingLaunchParams.m_gamma));
         // and write to frame buffer ...
-
         defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex] =
-                glm::vec4(rgb, 1.0);
+                glm::vec4(gammaCorrectedColor, 1.0f);
         defaultRenderingLaunchParams.m_frame.m_albedoBuffer[fbIndex] =
-                glm::vec4(pixelAlbedo / static_cast<float>(numPixelSamples), 1.0f);
+                glm::vec4(pixelAlbedo, 1.0f);
         defaultRenderingLaunchParams.m_frame.m_normalBuffer[fbIndex] =
-                glm::vec4(pixelNormal / static_cast<float>(numPixelSamples), 1.0f);
+                glm::vec4(pixelNormal, 1.0f);
     }
 #pragma endregion
 } // namespace RayTracerFacility
