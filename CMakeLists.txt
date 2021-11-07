@@ -55,7 +55,6 @@ if (BUILD_RAY_TRACER_FACILITY)
     enable_language(CUDA)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/MLVQ)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/RayTracer)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/Utilities)
 
     file(GLOB RAY_TRACER_FACILITY_SOURCES_LOCAL
             "src/RayTracerFacility/*.cpp"
@@ -106,6 +105,8 @@ if (BUILD_RAY_TRACER_FACILITY)
             ${CUDA_TOOLKIT_ROOT_DIR}/include
             ${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility
             ${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/MLVQ
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/RayTracer
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/Utilities
             ${UNIENGINE_INCLUDES}
             ${CMAKE_CURRENT_BINARY_DIR}
             )
