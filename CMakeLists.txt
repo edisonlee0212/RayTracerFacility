@@ -54,7 +54,8 @@ set(CMAKE_CXX_STANDARD 17)
 if (BUILD_RAY_TRACER_FACILITY)
     enable_language(CUDA)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/MLVQ)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/RayTracer)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include/RayTracerFacility/Utilities)
 
     file(GLOB RAY_TRACER_FACILITY_SOURCES_LOCAL
             "src/RayTracerFacility/*.cpp"

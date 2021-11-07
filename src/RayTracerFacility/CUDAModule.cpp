@@ -36,15 +36,15 @@ void CudaModule::Terminate() {
 }
 
 
-void CudaModule::EstimateIlluminationRayTracing(const IlluminationEstimationProperties &properties,
-                                                std::vector<LightSensor<float>> &lightProbes) {
+void CudaModule::EstimateIlluminationRayTracing(const RayTracerProperties &properties,
+                                                std::vector<LightProbe<float>> &lightProbes, unsigned seed, int numPointSamples, int numScatterSamples, bool pushNormal) {
     auto &cudaModule = GetInstance();
 #pragma region Prepare light probes
     size_t size = lightProbes.size();
     CudaBuffer deviceLightProbes;
     deviceLightProbes.Upload(lightProbes);
 #pragma endregion
-    cudaModule.m_rayTracer->EstimateIllumination(size, properties, deviceLightProbes);
+    cudaModule.m_rayTracer->EstimateIllumination(size, properties, deviceLightProbes, seed, numPointSamples, numScatterSamples, pushNormal);
     deviceLightProbes.Download(lightProbes.data(), size);
     deviceLightProbes.Free();
 }

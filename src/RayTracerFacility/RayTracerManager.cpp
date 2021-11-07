@@ -422,7 +422,7 @@ void RayTracerManager::LateUpdate() {
             !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
             m_defaultWindow.m_rendered =
                     CudaModule::GetRayTracer()->RenderDefault(
-                            m_defaultWindow.m_defaultRenderingProperties, m_defaultWindow.m_accumulate, m_defaultWindow.m_camera, m_defaultWindow.m_output->Id(), m_defaultWindow.m_size);
+                            m_defaultWindow.m_defaultRenderingProperties, m_defaultWindow.m_accumulate, m_defaultWindow.m_camera, m_defaultWindow.m_output->Id(), m_defaultWindow.m_size, m_defaultWindow.m_outputType);
         }
     }
 }
@@ -548,6 +548,7 @@ SunlightCalculator &SunlightCalculator::GetInstance() {
     static SunlightCalculator instance;
     return instance;
 }
+const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
 
 void RayTracerRenderWindow::OnInspect() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
@@ -564,8 +565,16 @@ void RayTracerRenderWindow::OnInspect() {
     {
         if (ImGui::BeginChild("CameraRenderer", ImVec2(0, 0), false,
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::BeginMenu("Settings")) {
+                    ImGui::Checkbox("Accumulate", &m_accumulate);
+
+                    static int outputType = 0;
+                    if (ImGui::Combo("Output Type", &outputType, OutputTypes,
+                                     IM_ARRAYSIZE(OutputTypes))) {
+                        m_outputType = static_cast<OutputType>(outputType);
+                    }
                     m_defaultRenderingProperties.OnInspect();
                     if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
                         EnvironmentalLightingType::Skydome) {
@@ -639,13 +648,6 @@ void RayTracerRenderWindow::OnInspect() {
                             ImGui::TreePop();
                         }
                     }
-                    ImGui::EndMenu();
-                }
-                ImGui::EndMenuBar();
-            }
-            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
-            if (ImGui::BeginMenuBar()) {
-                if (ImGui::BeginMenu("Settings")) {
                     ImGui::DragFloat("Resolution multiplier", &m_resolutionMultiplier,
                                      0.01f, 0.1f, 1.0f);
                     ImGui::DragFloat("FOV",

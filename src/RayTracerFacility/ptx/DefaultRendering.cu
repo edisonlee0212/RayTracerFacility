@@ -211,7 +211,7 @@ namespace RayTracerFacility {
                 glm::vec3 albedoColor = static_cast<DefaultMaterial *>(sbtData.m_material)
                         ->GetAlbedo(texCoord);
                 if (perRayData.m_hitCount <=
-                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_rayTracerProperties
+                    defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
                             .m_bounces) {
                     energy = glm::vec3(0.0f);
                     float f = 1.0f;
@@ -261,7 +261,7 @@ namespace RayTracerFacility {
             case MaterialType::MLVQ: {
                 glm::vec3 btfColor;
                 if (perRayData.m_hitCount <=
-                    defaultRenderingLaunchParams.m_defaultRenderingProperties.m_rayTracerProperties
+                    defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
                             .m_bounces) {
                     energy = glm::vec3(0.0f);
                     float f = 1.0f;
@@ -344,7 +344,7 @@ namespace RayTracerFacility {
         glm::vec3 rayDirection = glm::vec3(rayDir.x, rayDir.y, rayDir.z);
 
         glm::vec3 environmentalLightColor = CalculateEnvironmentalLight(rayOrig, rayDirection,
-                                                                        defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment);
+                                                                        defaultRenderingLaunchParams.m_rayTracerProperties.m_environment);
         perRayData.m_albedo = perRayData.m_energy = environmentalLightColor;
 
     }
@@ -373,7 +373,7 @@ namespace RayTracerFacility {
         PackRayDataPointer(&cameraRayData, u0, u1);
 
         const auto numPixelSamples =
-                defaultRenderingLaunchParams.m_defaultRenderingProperties.m_rayTracerProperties
+                defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
                         .m_samples;
         auto pixelColor = glm::vec3(0.f);
         auto pixelNormal = glm::vec3(0.f);

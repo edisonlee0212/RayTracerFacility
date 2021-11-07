@@ -33,7 +33,7 @@ namespace RayTracerFacility {
                 float metallic = static_cast<DefaultMaterial*>(sbtData.m_material)->m_metallic;
                 float roughness = static_cast<DefaultMaterial*>(sbtData.m_material)->m_roughness;
                 glm::vec3 albedoColor = static_cast<DefaultMaterial*>(sbtData.m_material)->GetAlbedo(texCoord);
-                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_rayTracerProperties.m_bounces) {
+                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties.m_bounces) {
                     energy = 0.0f;
                     float f = 1.0f;
                     if (metallic >= 0.0f) f = (metallic + 2) / (metallic + 1);
@@ -64,7 +64,7 @@ namespace RayTracerFacility {
                 break;
             case MaterialType::MLVQ: {
                 glm::vec3 btfColor;
-                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_rayTracerProperties.m_bounces) {
+                if (perRayData.m_hitCount <= defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties.m_bounces) {
                     energy = 0.0f;
                     float f = 1.0f;
                     glm::vec3 reflected = Reflect(rayDirection, normal);
@@ -110,23 +110,23 @@ namespace RayTracerFacility {
         glm::vec3 rayOrig = glm::vec3(rayOrigin.x, rayOrigin.y, rayOrigin.z);
         glm::vec3 rayDirection = glm::vec3(rayDir.x, rayDir.y, rayDir.z);
         glm::vec3 environmentalLightColor = CalculateEnvironmentalLight(rayOrig, rayDirection,
-                                                                        defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_environment);
+                                                                        defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment);
         prd.m_energy = glm::length(environmentalLightColor);
     }
 #pragma endregion
 #pragma region Main ray generation
     extern "C" __global__ void __raygen__illuminationEstimation() {
         unsigned ix = optixGetLaunchIndex().x;
-        const auto numPointSamples = defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_numPointSamples;
+        const auto numPointSamples = defaultIlluminationEstimationLaunchParams.m_numPointSamples;
         const auto position = defaultIlluminationEstimationLaunchParams.m_lightProbes[ix].m_position;
         const auto surfaceNormal = defaultIlluminationEstimationLaunchParams.m_lightProbes[ix].m_surfaceNormal;
-        const bool pushNormal = defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_pushNormal;
+        const bool pushNormal = defaultIlluminationEstimationLaunchParams.m_pushNormal;
         float pointEnergy = 0.0f;
         auto pointDirection = glm::vec3(0.0f);
 
         PerRayData<float> perRayData;
         perRayData.m_random.Init(ix,
-                                 defaultIlluminationEstimationLaunchParams.m_defaultIlluminationEstimationProperties.m_seed);
+                                 defaultIlluminationEstimationLaunchParams.m_seed);
         uint32_t u0, u1;
         PackRayDataPointer(&perRayData, u0, u1);
         for (int sampleID = 0; sampleID < numPointSamples; sampleID++) {

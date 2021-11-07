@@ -30,10 +30,11 @@ namespace RayTracerFacility {
         std::unique_ptr<OpenGLUtils::GLTexture2D> m_output;
         glm::ivec2 m_outputSize = glm::ivec2(1024, 1024);
         bool m_rendered = false;
-        DefaultRenderingProperties m_defaultRenderingProperties;
+        RayTracerProperties m_defaultRenderingProperties;
         RayTracerFacility::Camera m_camera;
         glm::ivec2 m_size;
         bool m_accumulate = true;
+        OutputType m_outputType = OutputType::DenoisedColor;
         void Init(const std::string &name);
 
         [[nodiscard]] glm::ivec2 Resize() const;

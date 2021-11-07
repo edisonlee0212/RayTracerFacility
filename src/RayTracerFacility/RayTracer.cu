@@ -37,7 +37,6 @@ void Camera::Set(const glm::quat &rotation, const glm::vec3 &position,
 }
 
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
-const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
 
 void Environment::OnInspect() {
     static int type = 0;
@@ -61,18 +60,13 @@ void RayProperties::OnInspect() {
     }
 }
 
-void DefaultRenderingProperties::OnInspect() {
-    static int outputType = 0;
-    if (ImGui::Combo("Output Type", &outputType, OutputTypes,
-                     IM_ARRAYSIZE(OutputTypes))) {
-        m_outputType = static_cast<OutputType>(outputType);
-    }
+void RayTracerProperties::OnInspect() {
     m_environment.OnInspect();
-    m_rayTracerProperties.OnInspect();
+    m_rayProperties.OnInspect();
 }
 
-bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool accumulate, Camera camera,
-                              unsigned outputTextureId, glm::ivec2 frameSize) {
+bool RayTracer::RenderDefault(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
+                              unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType) {
     if (frameSize.x == 0 | frameSize.y == 0)
         return true;
     if (!m_hasAccelerationStructure)
@@ -89,6 +83,10 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool
         m_defaultRenderingLaunchParams.m_outputTextureId = outputTextureId;
         m_defaultRenderingPipeline.m_statusChanged = true;
     }
+    if(outputType != m_defaultRenderingLaunchParams.m_outputType){
+        m_defaultRenderingLaunchParams.m_outputType = outputType;
+        m_defaultRenderingPipeline.m_statusChanged = true;
+    }
     if(camera != m_defaultRenderingLaunchParams.m_camera){
         m_defaultRenderingLaunchParams.m_camera = camera;
         m_defaultRenderingPipeline.m_statusChanged = true;
@@ -97,9 +95,9 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool
         m_defaultRenderingLaunchParams.m_accumulate = accumulate;
         m_defaultRenderingPipeline.m_statusChanged = true;
     }
-    if (m_defaultRenderingLaunchParams.m_defaultRenderingProperties.Changed(
+    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.Changed(
             properties)) {
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties = properties;
+        m_defaultRenderingLaunchParams.m_rayTracerProperties = properties;
         m_defaultRenderingPipeline.m_statusChanged = true;
     }
     if (!m_defaultRenderingLaunchParams.m_accumulate ||
@@ -116,11 +114,11 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool
     cudaArray_t environmentalMapPosZArray;
     cudaArray_t environmentalMapNegZArray;
     cudaGraphicsResource_t environmentalMapTexture;
-    if (m_defaultRenderingLaunchParams.m_defaultRenderingProperties
+    if (m_defaultRenderingLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(GraphicsGLRegisterImage(
                 &environmentalMapTexture,
-                m_defaultRenderingLaunchParams.m_defaultRenderingProperties
+                m_defaultRenderingLaunchParams.m_rayTracerProperties
                         .m_environment.m_environmentalMapId,
                 GL_TEXTURE_CUBE_MAP, cudaGraphicsRegisterFlagsNone));
         CUDA_CHECK(GraphicsMapResources(1, &environmentalMapTexture, nullptr));
@@ -154,35 +152,35 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool
         // Create texture object
         cudaResourceDesc.res.array.array = environmentalMapPosXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0],
+                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1],
+                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2],
+                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3],
+                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4],
+                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5],
+                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
     } else {
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0] = 0;
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1] = 0;
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2] = 0;
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3] = 0;
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4] = 0;
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5] = 0;
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
     }
 #pragma endregion
 #pragma region Upload parameters
@@ -206,26 +204,26 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool
 #pragma endregion
     CUDA_SYNC_CHECK();
 #pragma region Remove textures binding.
-    if (m_defaultRenderingLaunchParams.m_defaultRenderingProperties
+    if (m_defaultRenderingLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0]));
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[0] = 0;
+                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1]));
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[1] = 0;
+                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2]));
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[2] = 0;
+                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3]));
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[3] = 0;
+                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4]));
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[4] = 0;
+                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5]));
-        m_defaultRenderingLaunchParams.m_defaultRenderingProperties.m_environment.m_environmentalMaps[5] = 0;
+                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
 
         CUDA_CHECK(GraphicsUnmapResources(1, &environmentalMapTexture, 0));
         CUDA_CHECK(GraphicsUnregisterResource(environmentalMapTexture));
@@ -322,8 +320,7 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool
     outputLayer.pixelStrideInBytes = sizeof(glm::vec4);
     /// Pixel format.
     outputLayer.format = OPTIX_PIXEL_FORMAT_FLOAT4;
-    switch (m_defaultRenderingLaunchParams.m_defaultRenderingProperties
-            .m_outputType) {
+    switch (m_defaultRenderingLaunchParams.m_outputType) {
         case OutputType::Color: {
             CUDA_CHECK(MemcpyToArray(
                     outputArray, 0, 0, (void *) m_frameBufferColor.DevicePointer(),
@@ -403,30 +400,109 @@ bool RayTracer::RenderDefault(const DefaultRenderingProperties &properties, bool
     return true;
 }
 
-void RayTracer::EstimateIllumination(
-        const size_t &size, const IlluminationEstimationProperties &properties,
-        CudaBuffer &lightProbes) {
+void RayTracer::EstimateIllumination(const size_t &size,
+                                     const RayTracerProperties &properties,
+                                     CudaBuffer &lightProbes, unsigned seed, int numPointSamples, int numScatterSamples, bool pushNormal) {
     if (!m_hasAccelerationStructure)
         return;
+    if (size == 0) {
+        std::cout << "Error: Lightprobe is empty" << std::endl;
+        return;
+    }
     std::vector<std::pair<unsigned, cudaTextureObject_t>> boundTextures;
     std::vector<cudaGraphicsResource_t> boundResources;
     BuildShaderBindingTable(boundTextures, boundResources);
-
+#pragma region Bind environmental map as cudaTexture
+    struct cudaResourceDesc cudaResourceDesc;
+    cudaArray_t environmentalMapPosXArray;
+    cudaArray_t environmentalMapNegXArray;
+    cudaArray_t environmentalMapPosYArray;
+    cudaArray_t environmentalMapNegYArray;
+    cudaArray_t environmentalMapPosZArray;
+    cudaArray_t environmentalMapNegZArray;
+    cudaGraphicsResource_t environmentalMapTexture;
+    if (m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties
+                .m_environment.m_environmentalMapId != 0) {
+        CUDA_CHECK(GraphicsGLRegisterImage(
+                &environmentalMapTexture,
+                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties
+                        .m_environment.m_environmentalMapId,
+                GL_TEXTURE_CUBE_MAP, cudaGraphicsRegisterFlagsNone));
+        CUDA_CHECK(GraphicsMapResources(1, &environmentalMapTexture, nullptr));
+        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
+                &environmentalMapPosXArray, environmentalMapTexture,
+                cudaGraphicsCubeFacePositiveX, 0));
+        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
+                &environmentalMapNegXArray, environmentalMapTexture,
+                cudaGraphicsCubeFaceNegativeX, 0));
+        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
+                &environmentalMapPosYArray, environmentalMapTexture,
+                cudaGraphicsCubeFacePositiveY, 0));
+        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
+                &environmentalMapNegYArray, environmentalMapTexture,
+                cudaGraphicsCubeFaceNegativeY, 0));
+        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
+                &environmentalMapPosZArray, environmentalMapTexture,
+                cudaGraphicsCubeFacePositiveZ, 0));
+        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
+                &environmentalMapNegZArray, environmentalMapTexture,
+                cudaGraphicsCubeFaceNegativeZ, 0));
+        memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
+        cudaResourceDesc.resType = cudaResourceTypeArray;
+        struct cudaTextureDesc cudaTextureDesc;
+        memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
+        cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
+        cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
+        cudaTextureDesc.filterMode = cudaFilterModeLinear;
+        cudaTextureDesc.readMode = cudaReadModeElementType;
+        cudaTextureDesc.normalizedCoords = 1;
+        // Create texture object
+        cudaResourceDesc.res.array.array = environmentalMapPosXArray;
+        CUDA_CHECK(CreateTextureObject(
+                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
+                &cudaResourceDesc, &cudaTextureDesc, nullptr));
+        cudaResourceDesc.res.array.array = environmentalMapNegXArray;
+        CUDA_CHECK(CreateTextureObject(
+                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
+                &cudaResourceDesc, &cudaTextureDesc, nullptr));
+        cudaResourceDesc.res.array.array = environmentalMapPosYArray;
+        CUDA_CHECK(CreateTextureObject(
+                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
+                &cudaResourceDesc, &cudaTextureDesc, nullptr));
+        cudaResourceDesc.res.array.array = environmentalMapNegYArray;
+        CUDA_CHECK(CreateTextureObject(
+                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
+                &cudaResourceDesc, &cudaTextureDesc, nullptr));
+        cudaResourceDesc.res.array.array = environmentalMapPosZArray;
+        CUDA_CHECK(CreateTextureObject(
+                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
+                &cudaResourceDesc, &cudaTextureDesc, nullptr));
+        cudaResourceDesc.res.array.array = environmentalMapNegZArray;
+        CUDA_CHECK(CreateTextureObject(
+                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
+                &cudaResourceDesc, &cudaTextureDesc, nullptr));
+    } else {
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+    }
+#pragma endregion
 #pragma region Upload parameters
+    m_defaultIlluminationEstimationLaunchParams.m_seed = seed;
+    m_defaultIlluminationEstimationLaunchParams.m_numPointSamples = numPointSamples;
+    m_defaultIlluminationEstimationLaunchParams.m_numScatterSamples = numScatterSamples;
+    m_defaultIlluminationEstimationLaunchParams.m_pushNormal = pushNormal;
     m_defaultIlluminationEstimationLaunchParams.m_size = size;
-    m_defaultIlluminationEstimationLaunchParams
-            .m_defaultIlluminationEstimationProperties = properties;
+    m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties = properties;
     m_defaultIlluminationEstimationLaunchParams.m_lightProbes =
-            reinterpret_cast<LightSensor<float> *>(lightProbes.DevicePointer());
+            reinterpret_cast<LightProbe<float> *>(lightProbes.DevicePointer());
     m_defaultIlluminationEstimationPipeline.m_launchParamsBuffer.Upload(
             &m_defaultIlluminationEstimationLaunchParams, 1);
 #pragma endregion
-#pragma endregion
-    if (size == 0) {
-        std::cout << "Error!" << std::endl;
-        return;
-    }
-#pragma region Launch rays from camera
+#pragma region Launch rays from light probes
     OPTIX_CHECK(optixLaunch(/*! pipeline we're launching launch: */
             m_defaultIlluminationEstimationPipeline.m_pipeline,
             m_stream,
@@ -438,13 +514,39 @@ void RayTracer::EstimateIllumination(
             &m_defaultIlluminationEstimationPipeline.m_sbt,
             /*! dimensions of the launch: */
             size, 1, 1));
-#pragma endregion
     CUDA_SYNC_CHECK();
+#pragma endregion
+#pragma region Remove textures binding.
+    if (m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties
+                .m_environment.m_environmentalMapId != 0) {
+        CUDA_CHECK(DestroyTextureObject(
+                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+        CUDA_CHECK(DestroyTextureObject(
+                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+        CUDA_CHECK(DestroyTextureObject(
+                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+        CUDA_CHECK(DestroyTextureObject(
+                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+        CUDA_CHECK(DestroyTextureObject(
+                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+        CUDA_CHECK(DestroyTextureObject(
+                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
+        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+
+        CUDA_CHECK(GraphicsUnmapResources(1, &environmentalMapTexture, 0));
+        CUDA_CHECK(GraphicsUnregisterResource(environmentalMapTexture));
+    }
     for (int i = 0; i < boundResources.size(); i++) {
         CUDA_CHECK(DestroySurfaceObject(boundTextures[i].second));
         CUDA_CHECK(GraphicsUnmapResources(1, &boundResources[i], 0));
         CUDA_CHECK(GraphicsUnregisterResource(boundResources[i]));
     }
+#pragma endregion
 }
 
 RayTracer::RayTracer() {

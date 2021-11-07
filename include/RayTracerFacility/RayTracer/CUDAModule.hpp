@@ -22,8 +22,7 @@ public:
   static CudaModule &GetInstance();
   static void Init();
   static void Terminate();
-  static void EstimateIlluminationRayTracing(
-      const IlluminationEstimationProperties &properties,
-      std::vector<LightSensor<float>> &lightProbes);
+  static void EstimateIlluminationRayTracing(const RayTracerProperties &properties,
+                                             std::vector<LightProbe<float>> &lightProbes, unsigned seed, int numPointSamples, int numScatterSamples, bool pushNormal);
 };
 } // namespace RayTracerFacility

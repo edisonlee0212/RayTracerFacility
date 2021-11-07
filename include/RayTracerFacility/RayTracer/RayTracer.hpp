@@ -89,37 +89,16 @@ namespace RayTracerFacility {
         void OnInspect();
     };
 
-    struct RAY_TRACER_FACILITY_API DefaultRenderingProperties {
-        OutputType m_outputType = OutputType::Color;
+    struct RAY_TRACER_FACILITY_API RayTracerProperties {
         Environment m_environment;
-        RayProperties m_rayTracerProperties;
+        RayProperties m_rayProperties;
         [[nodiscard]] bool
-        Changed(const DefaultRenderingProperties &properties) const {
-            return properties.m_outputType != m_outputType ||
-                   m_environment.Changed(properties.m_environment) ||
-                   m_rayTracerProperties.Changed(properties.m_rayTracerProperties);
+        Changed(const RayTracerProperties &properties) const {
+            return m_environment.Changed(properties.m_environment) ||
+                   m_rayProperties.Changed(properties.m_rayProperties);
         }
 
         void OnInspect();
-    };
-
-    struct RAY_TRACER_FACILITY_API IlluminationEstimationProperties {
-        Environment m_environment;
-        RayProperties m_rayTracerProperties;
-        unsigned m_seed = 0;
-        int m_numPointSamples = 100;
-        int m_numScatterSamples = 10;
-        bool m_pushNormal = true;
-
-        [[nodiscard]] bool
-        Changed(const IlluminationEstimationProperties &properties) const {
-            return properties.m_seed != m_seed ||
-                   properties.m_numPointSamples != m_numPointSamples ||
-                   properties.m_numScatterSamples != m_numScatterSamples ||
-                   properties.m_pushNormal != m_pushNormal ||
-                   m_environment.Changed(properties.m_environment) ||
-                   m_rayTracerProperties.Changed(properties.m_rayTracerProperties);
-        }
     };
 
     enum class DefaultRenderingRayType {
@@ -138,7 +117,8 @@ namespace RayTracerFacility {
         bool m_accumulate = true;
         Camera m_camera;
         unsigned m_outputTextureId = 0;
-        DefaultRenderingProperties m_defaultRenderingProperties;
+        RayTracerProperties m_rayTracerProperties;
+        OutputType m_outputType = OutputType::Color;
         struct {
             glm::vec4 *m_colorBuffer;
             glm::vec4 *m_normalBuffer;
@@ -151,7 +131,7 @@ namespace RayTracerFacility {
     };
 
     template<typename T>
-    struct RAY_TRACER_FACILITY_API LightSensor {
+    struct RAY_TRACER_FACILITY_API LightProbe {
         glm::vec3 m_surfaceNormal;
         /**
          * \brief The position of the light probe.
@@ -169,9 +149,14 @@ namespace RayTracerFacility {
     };
 
     struct DefaultIlluminationEstimationLaunchParams {
+        unsigned m_seed = 0;
+        int m_numPointSamples = 100;
+        int m_numScatterSamples = 10;
+        bool m_pushNormal = true;
+
         size_t m_size;
-        IlluminationEstimationProperties m_defaultIlluminationEstimationProperties;
-        LightSensor<float> *m_lightProbes;
+        RayTracerProperties m_rayTracerProperties;
+        LightProbe<float> *m_lightProbes;
         OptixTraversableHandle m_traversable;
     };
 
@@ -271,12 +256,12 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderDefault(const DefaultRenderingProperties &properties, bool accumulate, Camera camera,
-                      unsigned outputTextureId, glm::ivec2 frameSize);
+        RenderDefault(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
+                      unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType);
 
         void EstimateIllumination(const size_t &size,
-                                  const IlluminationEstimationProperties &properties,
-                                  CudaBuffer &lightProbes);
+                                  const RayTracerProperties &properties,
+                                  CudaBuffer &lightProbes, unsigned seed, int numPointSamples, int numScatterSamples, bool pushNormal);
 
         RayTracer();
 
