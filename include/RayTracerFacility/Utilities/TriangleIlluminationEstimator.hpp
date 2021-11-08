@@ -10,15 +10,18 @@ namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API TriangleIlluminationEstimator : public IPrivateComponent {
         LightSensorsGroup m_lightSensorsGroup;
     public:
-        std::vector<Entity> m_entities;
         std::vector<glm::mat4> m_probeTransforms;
         std::vector<glm::vec4> m_probeColors;
-
-        void CalculateIlluminationForDescendents();
-        void CalculateIllumination();
+        void CalculateIlluminationForDescendents(int seed, float pushNormalDistance, int sampleAmount);
+        void CalculateIllumination(int seed, float pushNormalDistance, int sampleAmount);
         float m_totalArea = 0.0f;
         float m_totalEnergy = 0.0f;
         float m_radiantFlux = 0.0f;
         void OnInspect() override;
+
+        void Serialize(YAML::Emitter &out) override;
+        void Deserialize(const YAML::Node &in) override;
     };
+
+
 } // namespace SorghumFactory
