@@ -23,6 +23,6 @@ public:
   static void Init();
   static void Terminate();
   static void EstimateIlluminationRayTracing(const RayTracerProperties &properties,
-                                             std::vector<LightProbe<float>> &lightProbes, unsigned seed, int numPointSamples, int numScatterSamples, bool pushNormal);
+                                             std::vector<LightProbe<float>> &lightProbes, unsigned seed, int numPointSamples, float pushNormalDistance);
 };
 } // namespace RayTracerFacility

@@ -406,7 +406,7 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
 
 void RayTracer::EstimateIllumination(const size_t &size,
                                      const RayTracerProperties &properties,
-                                     CudaBuffer &lightProbes, unsigned seed, int numPointSamples, int numScatterSamples, bool pushNormal) {
+                                     CudaBuffer &lightProbes, unsigned seed, int numPointSamples, float pushNormalDistance) {
     if (!m_hasAccelerationStructure)
         return;
     if (size == 0) {
@@ -497,8 +497,7 @@ void RayTracer::EstimateIllumination(const size_t &size,
 #pragma region Upload parameters
     m_defaultIlluminationEstimationLaunchParams.m_seed = seed;
     m_defaultIlluminationEstimationLaunchParams.m_numPointSamples = numPointSamples;
-    m_defaultIlluminationEstimationLaunchParams.m_numScatterSamples = numScatterSamples;
-    m_defaultIlluminationEstimationLaunchParams.m_pushNormal = pushNormal;
+    m_defaultIlluminationEstimationLaunchParams.m_pushNormalDistance = pushNormalDistance;
     m_defaultIlluminationEstimationLaunchParams.m_size = size;
     m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties = properties;
     m_defaultIlluminationEstimationLaunchParams.m_lightProbes =

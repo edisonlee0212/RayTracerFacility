@@ -149,6 +149,10 @@ if (${CMAKE_BINARY_DIR} STREQUAL ${PROJECT_BINARY_DIR})
             ${UNIENGINE_PCH}
             )
     if (BUILD_RAY_TRACER_FACILITY)
+        target_include_directories(Application
+                PRIVATE
+                ${RAY_TRACER_FACILITY_INCLUDES_LOCAL}
+                )
         target_link_libraries(Application
                 uniengine
                 RayTracerFacility

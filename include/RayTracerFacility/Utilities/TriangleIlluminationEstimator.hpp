@@ -8,13 +8,12 @@
 using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API TriangleIlluminationEstimator : public IPrivateComponent {
+        LightSensorsGroup m_lightSensorsGroup;
     public:
         std::vector<Entity> m_entities;
         std::vector<glm::mat4> m_probeTransforms;
         std::vector<glm::vec4> m_probeColors;
-        std::vector<float> m_triangleAreas;
-        LightSensorsGroup m_lightSensorsGroup;
-        void CollectLightSensorsFromDescendents();
+
         void CalculateIlluminationForDescendents();
         void CalculateIllumination();
         float m_totalArea = 0.0f;

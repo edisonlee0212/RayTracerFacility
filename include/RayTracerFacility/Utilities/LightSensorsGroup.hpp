@@ -10,8 +10,7 @@ namespace RayTracerFacility {
     struct LightSensorsGroup {
         int m_seed = 0;
         int m_numPointSamples = 100;
-        int m_numScatterSamples = 1;
-        bool m_pushNormal = true;
+        float m_pushNormalDistance = 0.001f;
         std::vector<RayTracerFacility::LightProbe<float>> m_lightProbes;
         void CalculateIllumination();
         void OnInspect();

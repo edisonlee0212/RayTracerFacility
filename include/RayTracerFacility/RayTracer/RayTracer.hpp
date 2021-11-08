@@ -147,14 +147,16 @@ namespace RayTracerFacility {
          * \brief The total energy received at this point.
          */
         T m_energy = 0;
+        /*
+         * If the lightprobe covers entire sphere or just a hemisphere.
+         */
+        bool m_doubleFace = false;
     };
 
     struct DefaultIlluminationEstimationLaunchParams {
         unsigned m_seed = 0;
         int m_numPointSamples = 100;
-        int m_numScatterSamples = 10;
-        bool m_pushNormal = true;
-
+        float m_pushNormalDistance = 0.001f;
         size_t m_size;
         RayTracerProperties m_rayTracerProperties;
         LightProbe<float> *m_lightProbes;
@@ -262,7 +264,7 @@ namespace RayTracerFacility {
 
         void EstimateIllumination(const size_t &size,
                                   const RayTracerProperties &properties,
-                                  CudaBuffer &lightProbes, unsigned seed, int numPointSamples, int numScatterSamples, bool pushNormal);
+                                  CudaBuffer &lightProbes, unsigned seed, int numPointSamples, float pushNormalDistance);
 
         RayTracer();
 

@@ -132,6 +132,18 @@ namespace RayTracerFacility {
         return GetTangentSpace(normal) * tangentSpaceDir;
     }
 
+    static __forceinline__ __device__ glm::vec3
+    RandomSampleHemisphere(Random &random, const glm::vec3 &normal) {
+        // Uniformly sample hemisphere direction
+        auto cosTheta = random();
+        const auto sinTheta = sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
+        const auto phi = 2.0f * glm::pi<float>() * random();
+        const auto tangentSpaceDir =
+                glm::vec3(glm::cos(phi) * sinTheta, glm::sin(phi) * sinTheta, cosTheta);
+        // Transform direction to world space
+        return GetTangentSpace(normal) * tangentSpaceDir;
+    }
+
     static __forceinline__ __device__ glm::vec3 RandomSampleSphere(Random &random) {
         const float theta = 2 * glm::pi<float>() * random();
         const float phi = glm::acos(1.0f - 2.0f * random());

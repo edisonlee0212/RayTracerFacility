@@ -8,13 +8,12 @@ using namespace RayTracerFacility;
 void LightSensorsGroup::CalculateIllumination() {
 #pragma region Illumination estimation
     if (m_lightProbes.empty()) return;
-    CudaModule::EstimateIlluminationRayTracing(Application::GetLayer<RayTracerManager>()->m_defaultWindow.m_defaultRenderingProperties, m_lightProbes, m_seed, m_numPointSamples, m_numScatterSamples, m_pushNormal);
+    CudaModule::EstimateIlluminationRayTracing(Application::GetLayer<RayTracerManager>()->m_defaultWindow.m_defaultRenderingProperties, m_lightProbes, m_seed, m_numPointSamples, m_pushNormalDistance);
 }
 
 void LightSensorsGroup::OnInspect() {
-    ImGui::Text("Light probes size: %d", m_lightProbes.size());
+    ImGui::Text("Light probes size: %llu", m_lightProbes.size());
     ImGui::DragInt("Seed", &m_seed);
     ImGui::DragInt("Point sample", &m_numPointSamples);
-    ImGui::DragInt("Scatter sample", &m_numScatterSamples);
-    ImGui::Checkbox("Push Normal", &m_pushNormal);
+    ImGui::DragFloat("Push Normal Distance", &m_pushNormalDistance, 0.0001f, 0.0f, 1.0f, "%.5f");
 }
