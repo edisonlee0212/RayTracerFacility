@@ -44,9 +44,41 @@ void Environment::OnInspect() {
                      IM_ARRAYSIZE(EnvironmentalLightingTypes))) {
         m_environmentalLightingType = static_cast<EnvironmentalLightingType>(type);
     }
-    if (m_environmentalLightingType != EnvironmentalLightingType::Skydome)
-        ImGui::DragFloat("Light intensity", &m_skylightIntensity, 0.01f, 0.0f,
-                         5.0f);
+    if (m_environmentalLightingType == EnvironmentalLightingType::Skydome) {
+        if (ImGui::TreeNodeEx("Atmosphere Settings", ImGuiTreeNodeFlags_DefaultOpen)){
+            if(ImGui::DragFloat("Earth Radius (km)", &m_atmosphere.m_earthRadius, 1.0f, 0.0f, m_atmosphere.m_atmosphereRadius - 1.0f)){
+                m_atmosphere.m_earthRadius = glm::clamp(m_atmosphere.m_earthRadius, 1.0f, m_atmosphere.m_atmosphereRadius - 1.0f);
+            }
+            if(ImGui::DragFloat("Atmosphere Radius (km)", &m_atmosphere.m_atmosphereRadius, 1.0f, m_atmosphere.m_earthRadius + 1.0f, 100000.0f)){
+                m_atmosphere.m_atmosphereRadius =  glm::clamp(m_atmosphere.m_atmosphereRadius, m_atmosphere.m_earthRadius + 1.0f, 100000.0f);
+            }
+            if(ImGui::DragFloat("Rayleigh scale height (m)", &m_atmosphere.m_Hr, 1.0f, 0.0f, 100000.0f)){
+                m_atmosphere.m_Hr = glm::clamp(m_atmosphere.m_Hr, 0.0f, 10000.0f);
+            }
+            if(ImGui::DragFloat("Mie scale height (m)", &m_atmosphere.m_Hm, 1.0f, 0.0f, 100000.0f)){
+                m_atmosphere.m_Hm = glm::clamp(m_atmosphere.m_Hm, 0.0f, 10000.0f);
+            }
+            if(ImGui::DragFloat("Mie scattering mean cosine", &m_atmosphere.m_g, 0.001f, 0.0f, 0.999f, "%.4f")){
+                m_atmosphere.m_g = glm::clamp(m_atmosphere.m_g, 0.0f, 0.999f);
+            }
+            if(ImGui::DragInt("Samples", &m_atmosphere.m_numSamples, 1, 128)){
+                m_atmosphere.m_numSamples = glm::clamp(m_atmosphere.m_numSamples, 1, 128);
+            }
+            if(ImGui::DragInt("Samples light", &m_atmosphere.m_numSamplesLight, 1, 128)){
+                m_atmosphere.m_numSamplesLight = glm::clamp(m_atmosphere.m_numSamplesLight, 1, 128);
+            }
+            ImGui::TreePop();
+        }
+        if(ImGui::Button("Reset Atmosphere")){
+            m_atmosphere.m_earthRadius = 6360;      // In the paper this is usually Rg or Re (radius ground, eart)
+            m_atmosphere.m_atmosphereRadius = 6420; // In the paper this is usually R or Ra (radius atmosphere)
+            m_atmosphere.m_Hr = 7994;               // Thickness of the atmosphere if density was uniform (Hr)
+            m_atmosphere.m_Hm = 1200;               // Same as above but for Mie scattering (Hm)
+            m_atmosphere.m_g = 0.76f;               // Mean cosine for Mie scattering
+            m_atmosphere.m_numSamples = 16;
+            m_atmosphere.m_numSamplesLight = 8;
+        }
+    }
     if (m_environmentalLightingType ==
         EnvironmentalLightingType::Color) {
         ImGui::ColorEdit3("Sky light color", &m_sunColor.x);

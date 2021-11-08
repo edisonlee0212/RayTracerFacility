@@ -227,15 +227,15 @@ namespace RayTracerFacility {
      * From https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/simulating-sky/simulating-colors-of-the-sky
      * @param position
      * @param rayDir
-     * @param sunDirection
+     * @param environment
      * @return
      */
     static __forceinline__ __device__ glm::vec3
-    NishitaSkyIncidentLight(const glm::vec3 &position, const glm::vec3 &rayDir, const glm::vec3 &sunDirection) {
-        float earthRadius = 6360e3;      // In the paper this is usually Rg or Re (radius ground, eart)
-        float atmosphereRadius = 6420e3; // In the paper this is usually R or Ra (radius atmosphere)
-        float Hr = 7994;               // Thickness of the atmosphere if density was uniform (Hr)
-        float Hm = 1200;               // Same as above but for Mie scattering (Hm)
+    NishitaSkyIncidentLight(const glm::vec3 &position, const glm::vec3 &rayDir, const const Environment &environment) {
+        float earthRadius = environment.m_atmosphere.m_earthRadius * 1000.0f;      // In the paper this is usually Rg or Re (radius ground, eart)
+        float atmosphereRadius = environment.m_atmosphere.m_atmosphereRadius * 1000.0f; // In the paper this is usually R or Ra (radius atmosphere)
+        float Hr = environment.m_atmosphere.m_Hr;               // Thickness of the atmosphere if density was uniform (Hr)
+        float Hm = environment.m_atmosphere.m_Hm;               // Same as above but for Mie scattering (Hm)
 
         glm::vec3 betaR = glm::vec3(3.8e-6f, 13.5e-6f, 33.1e-6f);
         glm::vec3 betaM = glm::vec3(21e-6f);
@@ -247,17 +247,17 @@ namespace RayTracerFacility {
             return glm::vec3(0.0f, 0.0f, 0.0f);
         if (t0 > tmin && t0 > 0.0f) tmin = t0;
         if (t1 < tmax) tmax = t1;
-        unsigned numSamples = 16;
-        unsigned numSamplesLight = 8;
+        unsigned numSamples = environment.m_atmosphere.m_numSamples;
+        unsigned numSamplesLight = environment.m_atmosphere.m_numSamplesLight;
         float segmentLength = (tmax - tmin) / numSamples;
         float tCurrent = tmin;
         glm::vec3 sumR = glm::vec3(0.0f);
         glm::vec3 sumM = glm::vec3(0.0f); // mie and rayleigh contribution
         float opticalDepthR = 0, opticalDepthM = 0;
         float mu = glm::dot(rayDir,
-                            sunDirection); // mu in the paper which is the cosine of the angle between the sun direction and the ray direction
+                            environment.m_sunDirection); // mu in the paper which is the cosine of the angle between the sun direction and the ray direction
         float phaseR = 3.f / (16.f * 3.1415926f) * (1.0f + mu * mu);
-        float g = 0.76f;
+        float g = environment.m_atmosphere.m_g;
         float phaseM = 3.f / (8.f * 3.1415926f) * ((1.f - g * g) * (1.f + mu * mu)) /
                        ((2.f + g * g) * glm::pow(1.f + g * g - 2.f * g * mu, 1.5f));
         for (unsigned i = 0; i < numSamples; ++i) {
@@ -270,13 +270,13 @@ namespace RayTracerFacility {
             opticalDepthM += hm;
             // light optical depth
             float t0Light, t1Light;
-            RaySphereIntersect(samplePosition, sunDirection, atmosphereRadius, t0Light, t1Light);
+            RaySphereIntersect(samplePosition, environment.m_sunDirection, atmosphereRadius, t0Light, t1Light);
             float segmentLengthLight = t1Light / numSamplesLight, tCurrentLight = 0;
             float opticalDepthLightR = 0, opticalDepthLightM = 0;
             unsigned j;
             for (j = 0; j < numSamplesLight; ++j) {
                 glm::vec3 samplePositionLight =
-                        samplePosition + (tCurrentLight + segmentLengthLight * 0.5f) * sunDirection;
+                        samplePosition + (tCurrentLight + segmentLengthLight * 0.5f) * environment.m_sunDirection;
                 float heightLight = glm::length(samplePositionLight) - earthRadius;
                 if (heightLight < 0) break;
                 opticalDepthLightR += glm::exp(-heightLight / Hr) * segmentLengthLight;
@@ -316,7 +316,7 @@ namespace RayTracerFacility {
                 break;
             case EnvironmentalLightingType::Skydome:
                 environmentalLightColor = NishitaSkyIncidentLight(position, rayDir,
-                                                                  environment.m_sunDirection);
+                                                                  environment);
                 break;
         }
         return environmentalLightColor * environment.m_skylightIntensity;

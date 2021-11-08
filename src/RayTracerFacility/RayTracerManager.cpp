@@ -570,7 +570,6 @@ void RayTracerRenderWindow::OnInspect() {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::BeginMenu("Settings")) {
-
                     m_defaultRenderingProperties.OnInspect();
                     if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
                         EnvironmentalLightingType::Skydome) {
@@ -641,6 +640,9 @@ void RayTracerRenderWindow::OnInspect() {
                             }
                             ImGui::TreePop();
                         }
+                    }else{
+                        ImGui::DragFloat("Sun intensity", &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f, 0.0f,
+                                         100.0f);
                     }
                     ImGui::Checkbox("Accumulate", &m_accumulate);
                     ImGui::DragFloat("Gamma", &m_gamma,

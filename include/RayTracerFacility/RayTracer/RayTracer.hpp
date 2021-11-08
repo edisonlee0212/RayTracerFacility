@@ -63,6 +63,16 @@ namespace RayTracerFacility {
         unsigned m_environmentalMapId = 0;
         cudaTextureObject_t m_environmentalMaps[6];
 
+        struct {
+            float m_earthRadius = 6360;      // In the paper this is usually Rg or Re (radius ground, eart)
+            float m_atmosphereRadius = 6420; // In the paper this is usually R or Ra (radius atmosphere)
+            float m_Hr = 7994;               // Thickness of the atmosphere if density was uniform (Hr)
+            float m_Hm = 1200;               // Same as above but for Mie scattering (Hm)
+            float m_g = 0.76f;               // Mean cosine for Mie scattering
+            int m_numSamples = 16;
+            int m_numSamplesLight = 8;
+        } m_atmosphere;
+
         [[nodiscard]] bool
         Changed(const Environment &properties) const {
             return properties.m_environmentalLightingType !=
@@ -70,7 +80,14 @@ namespace RayTracerFacility {
                    properties.m_skylightIntensity != m_skylightIntensity ||
                    properties.m_sunDirection != m_sunDirection ||
                    properties.m_environmentalMapId != m_environmentalMapId ||
-                   properties.m_sunColor != m_sunColor;
+                   properties.m_sunColor != m_sunColor ||
+                   properties.m_atmosphere.m_earthRadius != m_atmosphere.m_earthRadius ||
+                    properties.m_atmosphere.m_atmosphereRadius != m_atmosphere.m_atmosphereRadius ||
+                    properties.m_atmosphere.m_Hr != m_atmosphere.m_Hr ||
+                    properties.m_atmosphere.m_Hm != m_atmosphere.m_Hm ||
+                    properties.m_atmosphere.m_g != m_atmosphere.m_g ||
+                    properties.m_atmosphere.m_numSamples != m_atmosphere.m_numSamples ||
+                    properties.m_atmosphere.m_numSamplesLight != m_atmosphere.m_numSamplesLight;
         }
 
         void OnInspect();
