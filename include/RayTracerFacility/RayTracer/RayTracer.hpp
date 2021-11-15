@@ -21,8 +21,33 @@
 #include <filesystem>
 
 namespace RayTracerFacility {
-    struct RAY_TRACER_FACILITY_API Camera {
-        bool m_modified = false;
+    enum class OutputType {
+        Color,
+        Normal,
+        Albedo,
+        DenoisedColor
+    };
+
+    struct RAY_TRACER_FACILITY_API CameraProperties {
+#pragma region FrameBuffer
+        /*! the color buffer we use during _rendering_, which is a bit
+        larger than the actual displayed frame buffer (to account for
+        the border), and in float4 format (the denoiser requires
+        floats) */
+        CudaBuffer m_frameBufferColor;
+        CudaBuffer m_frameBufferNormal;
+        CudaBuffer m_frameBufferAlbedo;
+#pragma endregion
+#pragma region Denoiser
+        /*! output of the denoiser pass, in float4 */
+        CudaBuffer m_denoisedBuffer;
+        OptixDenoiser m_denoiser = nullptr;
+        CudaBuffer m_denoiserScratch;
+        CudaBuffer m_denoiserState;
+        CudaBuffer m_denoiserIntensity;
+#pragma endregion
+        bool m_accumulate = true;
+
         float m_fov = 60;
         /*! camera position - *from* where we are looking */
         glm::vec3 m_from = glm::vec3(0.0f);
@@ -32,27 +57,45 @@ namespace RayTracerFacility {
         glm::vec3 m_horizontal;
         glm::vec3 m_vertical;
 
-        bool operator!=(const Camera &other) const {
-            return other.m_fov != this->m_fov || other.m_from != this->m_from ||
+        unsigned m_outputTextureId = 0;
+        OutputType m_outputType = OutputType::Color;
+        float m_gamma = 2.2f;
+        struct {
+            glm::vec4 *m_colorBuffer;
+            glm::vec4 *m_normalBuffer;
+            glm::vec4 *m_albedoBuffer;
+            /*! the size of the frame buffer to render */
+            glm::ivec2 m_size;
+            size_t m_frameId;
+        } m_frame;
+
+        bool operator!=(const CameraProperties &other) const {
+            return other.m_accumulate != this->m_accumulate ||
+                   other.m_fov != this->m_fov ||
+                   other.m_from != this->m_from ||
                    other.m_direction != this->m_direction ||
                    other.m_horizontal != this->m_horizontal ||
-                   other.m_vertical != this->m_vertical;
+                   other.m_vertical != this->m_vertical ||
+
+                   other.m_outputTextureId != this->m_outputTextureId ||
+                   other.m_outputType != this->m_outputType ||
+                   other.m_gamma != this->m_gamma ||
+
+                   other.m_frame.m_colorBuffer != this->m_frame.m_colorBuffer ||
+                   other.m_frame.m_normalBuffer != this->m_frame.m_normalBuffer ||
+                   other.m_frame.m_albedoBuffer != this->m_frame.m_albedoBuffer ||
+                   other.m_frame.m_size != this->m_frame.m_size;
         }
 
-        void Set(const glm::quat &rotation, const glm::vec3 &position,
-                 const float &fov, const glm::ivec2 &size);
+        void Resize(const glm::ivec2 &newSize);
+        void Set(const glm::vec3 &position, const glm::quat &rotation);
     };
 
 #pragma region MyRegion
     enum class EnvironmentalLightingType {
         Skydome, EnvironmentalMap, Color
     };
-    enum class OutputType {
-        Color,
-        Normal,
-        Albedo,
-        DenoisedColor
-    };
+
 
     struct RAY_TRACER_FACILITY_API Environment {
         EnvironmentalLightingType m_environmentalLightingType =
@@ -82,12 +125,12 @@ namespace RayTracerFacility {
                    properties.m_environmentalMapId != m_environmentalMapId ||
                    properties.m_sunColor != m_sunColor ||
                    properties.m_atmosphere.m_earthRadius != m_atmosphere.m_earthRadius ||
-                    properties.m_atmosphere.m_atmosphereRadius != m_atmosphere.m_atmosphereRadius ||
-                    properties.m_atmosphere.m_Hr != m_atmosphere.m_Hr ||
-                    properties.m_atmosphere.m_Hm != m_atmosphere.m_Hm ||
-                    properties.m_atmosphere.m_g != m_atmosphere.m_g ||
-                    properties.m_atmosphere.m_numSamples != m_atmosphere.m_numSamples ||
-                    properties.m_atmosphere.m_numSamplesLight != m_atmosphere.m_numSamplesLight;
+                   properties.m_atmosphere.m_atmosphereRadius != m_atmosphere.m_atmosphereRadius ||
+                   properties.m_atmosphere.m_Hr != m_atmosphere.m_Hr ||
+                   properties.m_atmosphere.m_Hm != m_atmosphere.m_Hm ||
+                   properties.m_atmosphere.m_g != m_atmosphere.m_g ||
+                   properties.m_atmosphere.m_numSamples != m_atmosphere.m_numSamples ||
+                   properties.m_atmosphere.m_numSamplesLight != m_atmosphere.m_numSamplesLight;
         }
 
         void OnInspect();
@@ -109,6 +152,7 @@ namespace RayTracerFacility {
     struct RAY_TRACER_FACILITY_API RayTracerProperties {
         Environment m_environment;
         RayProperties m_rayProperties;
+
         [[nodiscard]] bool
         Changed(const RayTracerProperties &properties) const {
             return m_environment.Changed(properties.m_environment) ||
@@ -131,20 +175,8 @@ namespace RayTracerFacility {
     struct VertexInfo;
 
     struct DefaultRenderingLaunchParams {
-        bool m_accumulate = true;
-        Camera m_camera;
-        unsigned m_outputTextureId = 0;
+        CameraProperties m_cameraProperties;
         RayTracerProperties m_rayTracerProperties;
-        OutputType m_outputType = OutputType::Color;
-        float m_gamma = 2.2f;
-        struct {
-            glm::vec4 *m_colorBuffer;
-            glm::vec4 *m_normalBuffer;
-            glm::vec4 *m_albedoBuffer;
-            /*! the size of the frame buffer to render */
-            glm::ivec2 m_size;
-            size_t m_frameId;
-        } m_frame;
         OptixTraversableHandle m_traversable;
     };
 
@@ -276,12 +308,12 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderToCamera(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
-                       unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType, float gamma);
+        RenderToCamera(const RayTracerProperties &properties, const CameraProperties &cameraProperties);
 
         void EstimateIllumination(const size_t &size,
                                   const RayTracerProperties &properties,
-                                  CudaBuffer &lightProbes, unsigned seed, int numPointSamples, float pushNormalDistance);
+                                  CudaBuffer &lightProbes, unsigned seed, int numPointSamples,
+                                  float pushNormalDistance);
 
         RayTracer();
 
@@ -311,7 +343,7 @@ namespace RayTracerFacility {
         /*! @} */
         //! the optix context that our pipeline will run in.
         OptixDeviceContext m_optixDeviceContext;
-
+        friend class CameraProperties;
         /*! creates and configures a optix device context (in this simple
           example, only for the primary GPU device) */
         void CreateContext();
@@ -374,26 +406,8 @@ namespace RayTracerFacility {
         CudaBuffer m_acceleratedStructuresBuffer;
 #pragma endregion
 
-#pragma region FrameBuffer
+        friend class RayTracerCamera;
 
-        void Resize(const glm::ivec2 &newSize);
-
-        /*! the color buffer we use during _rendering_, which is a bit
-        larger than the actual displayed frame buffer (to account for
-        the border), and in float4 format (the denoiser requires
-        floats) */
-        CudaBuffer m_frameBufferColor;
-        CudaBuffer m_frameBufferNormal;
-        CudaBuffer m_frameBufferAlbedo;
-#pragma endregion
-#pragma region Denoiser
-        /*! output of the denoiser pass, in float4 */
-        CudaBuffer m_denoisedBuffer;
-        OptixDenoiser m_denoiser = nullptr;
-        CudaBuffer m_denoiserScratch;
-        CudaBuffer m_denoiserState;
-        CudaBuffer m_denoiserIntensity;
-#pragma endregion
     };
 
 } // namespace RayTracerFacility

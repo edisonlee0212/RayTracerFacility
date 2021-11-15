@@ -21,19 +21,66 @@
 #include <filesystem>
 
 #include <imgui.h>
+#include <CUDAModule.hpp>
 
 using namespace RayTracerFacility;
 
-void Camera::Set(const glm::quat &rotation, const glm::vec3 &position,
-                 const float &fov, const glm::ivec2 &size) {
+void CameraProperties::Set(const glm::vec3& position, const glm::quat& rotation) {
     m_from = position;
     m_direction = glm::normalize(rotation * glm::vec3(0, 0, -1));
-    const float cosFovY = glm::radians(fov * 0.5f);
-    const float aspect = static_cast<float>(size.x) / static_cast<float>(size.y);
+    const float cosFovY = glm::radians(m_fov * 0.5f);
+    const float aspect = static_cast<float>(m_frame.m_size.x) / static_cast<float>(m_frame.m_size.y);
     m_horizontal =
             cosFovY * aspect *
             glm::normalize(glm::cross(m_direction, rotation * glm::vec3(0, 1, 0)));
     m_vertical = cosFovY * glm::normalize(glm::cross(m_horizontal, m_direction));
+}
+
+void CameraProperties::Resize(const glm::ivec2 &newSize) {
+    if(m_frame.m_size == newSize) return;
+    m_frame.m_size = newSize;
+
+    if (m_denoiser) {
+        OPTIX_CHECK(optixDenoiserDestroy(m_denoiser));
+    };
+    // ------------------------------------------------------------------
+    // create the denoiser:
+    OptixDenoiserOptions denoiserOptions = {};
+    OPTIX_CHECK(optixDenoiserCreate(CudaModule::GetRayTracer()->m_optixDeviceContext,
+                                    OPTIX_DENOISER_MODEL_KIND_LDR,
+                                    &denoiserOptions, &m_denoiser));
+    // .. then compute and allocate memory resources for the denoiser
+    OptixDenoiserSizes denoiserReturnSizes;
+    OPTIX_CHECK(optixDenoiserComputeMemoryResources(
+            m_denoiser, newSize.x, newSize.y, &denoiserReturnSizes));
+
+    m_denoiserScratch.Resize(
+            std::max(denoiserReturnSizes.withOverlapScratchSizeInBytes,
+                     denoiserReturnSizes.withoutOverlapScratchSizeInBytes));
+
+    m_denoiserState.Resize(denoiserReturnSizes.stateSizeInBytes);
+    // ------------------------------------------------------------------
+    // resize our cuda frame buffer
+    m_denoisedBuffer.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
+    m_frameBufferColor.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
+    m_frameBufferNormal.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
+    m_frameBufferAlbedo.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
+
+    // update the launch parameters that we'll pass to the optix
+    // launch:
+    m_frame.m_size = newSize;
+    m_frame.m_colorBuffer =
+            (glm::vec4 *) m_frameBufferColor.DevicePointer();
+    m_frame.m_normalBuffer =
+            (glm::vec4 *) m_frameBufferNormal.DevicePointer();
+    m_frame.m_albedoBuffer =
+            (glm::vec4 *) m_frameBufferAlbedo.DevicePointer();
+
+    // ------------------------------------------------------------------
+    OPTIX_CHECK(optixDenoiserSetup(
+            m_denoiser, 0, newSize.x, newSize.y, m_denoiserState.DevicePointer(),
+            m_denoiserState.m_sizeInBytes, m_denoiserScratch.DevicePointer(),
+            m_denoiserScratch.m_sizeInBytes));
 }
 
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
@@ -97,38 +144,16 @@ void RayTracerProperties::OnInspect() {
     m_rayProperties.OnInspect();
 }
 
-bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accumulate, const Camera &camera,
-                               unsigned outputTextureId, const glm::ivec2 &frameSize, OutputType outputType, float gamma) {
-    if (frameSize.x == 0 | frameSize.y == 0)
+bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const CameraProperties &cameraProperties) {
+    if (cameraProperties.m_frame.m_size.x == 0 | cameraProperties.m_frame.m_size.y == 0)
         return true;
     if (!m_hasAccelerationStructure)
         return false;
     std::vector<std::pair<unsigned, cudaTextureObject_t>> boundTextures;
     std::vector<cudaGraphicsResource_t> boundResources;
     BuildShaderBindingTable(boundTextures, boundResources);
-    if (frameSize !=
-        m_defaultRenderingLaunchParams.m_frame.m_size) {
-        Resize(frameSize);
-        m_defaultRenderingPipeline.m_statusChanged = true;
-    }
-    if(outputTextureId != m_defaultRenderingLaunchParams.m_outputTextureId){
-        m_defaultRenderingLaunchParams.m_outputTextureId = outputTextureId;
-        m_defaultRenderingPipeline.m_statusChanged = true;
-    }
-    if(gamma != m_defaultRenderingLaunchParams.m_gamma){
-        m_defaultRenderingLaunchParams.m_gamma = gamma;
-        m_defaultRenderingPipeline.m_statusChanged = true;
-    }
-    if(outputType != m_defaultRenderingLaunchParams.m_outputType){
-        m_defaultRenderingLaunchParams.m_outputType = outputType;
-        m_defaultRenderingPipeline.m_statusChanged = true;
-    }
-    if(camera != m_defaultRenderingLaunchParams.m_camera){
-        m_defaultRenderingLaunchParams.m_camera = camera;
-        m_defaultRenderingPipeline.m_statusChanged = true;
-    }
-    if(accumulate != m_defaultRenderingLaunchParams.m_accumulate){
-        m_defaultRenderingLaunchParams.m_accumulate = accumulate;
+    if(cameraProperties != m_defaultRenderingLaunchParams.m_cameraProperties){
+        m_defaultRenderingLaunchParams.m_cameraProperties = cameraProperties;
         m_defaultRenderingPipeline.m_statusChanged = true;
     }
     if (m_defaultRenderingLaunchParams.m_rayTracerProperties.Changed(
@@ -136,9 +161,9 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
         m_defaultRenderingLaunchParams.m_rayTracerProperties = properties;
         m_defaultRenderingPipeline.m_statusChanged = true;
     }
-    if (!m_defaultRenderingLaunchParams.m_accumulate ||
+    if (!m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate ||
         m_defaultRenderingPipeline.m_statusChanged) {
-        m_defaultRenderingLaunchParams.m_frame.m_frameId = 0;
+        m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId = 0;
         m_defaultRenderingPipeline.m_statusChanged = false;
     }
 #pragma region Bind environmental map as cudaTexture
@@ -222,7 +247,7 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
 #pragma region Upload parameters
     m_defaultRenderingPipeline.m_launchParamsBuffer.Upload(
             &m_defaultRenderingLaunchParams, 1);
-    m_defaultRenderingLaunchParams.m_frame.m_frameId++;
+    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId++;
 #pragma endregion
 #pragma region Launch rays from camera
     OPTIX_CHECK(
@@ -234,8 +259,8 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
                     m_defaultRenderingPipeline.m_launchParamsBuffer.m_sizeInBytes,
                     &m_defaultRenderingPipeline.m_sbt,
                     /*! dimensions of the launch: */
-                    m_defaultRenderingLaunchParams.m_frame.m_size.x,
-                    m_defaultRenderingLaunchParams.m_frame.m_size.y,
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x,
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     1));
 #pragma endregion
     CUDA_SYNC_CHECK();
@@ -275,7 +300,7 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
     cudaGraphicsResource_t outputTexture;
     CUDA_CHECK(GraphicsGLRegisterImage(
             &outputTexture,
-            m_defaultRenderingLaunchParams.m_outputTextureId,
+            m_defaultRenderingLaunchParams.m_cameraProperties.m_outputTextureId,
             GL_TEXTURE_2D, cudaGraphicsRegisterFlagsNone));
     CUDA_CHECK(GraphicsMapResources(1, &outputTexture, nullptr));
     CUDA_CHECK(
@@ -293,14 +318,14 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
 #pragma endregion
 #pragma region Copy results to output texture
     OptixImage2D inputLayer[3];
-    inputLayer[0].data = m_frameBufferColor.DevicePointer();
+    inputLayer[0].data = m_defaultRenderingLaunchParams.m_cameraProperties.m_frameBufferColor.DevicePointer();
     /// Width of the image (in pixels)
-    inputLayer[0].width = m_defaultRenderingLaunchParams.m_frame.m_size.x;
+    inputLayer[0].width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    inputLayer[0].height = m_defaultRenderingLaunchParams.m_frame.m_size.y;
+    inputLayer[0].height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     inputLayer[0].rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_frame.m_size.x * sizeof(glm::vec4);
+            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
@@ -309,14 +334,14 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
     inputLayer[0].format = OPTIX_PIXEL_FORMAT_FLOAT4;
 
     // ..................................................................
-    inputLayer[1].data = m_frameBufferAlbedo.DevicePointer();
+    inputLayer[1].data = m_defaultRenderingLaunchParams.m_cameraProperties.m_frameBufferAlbedo.DevicePointer();
     /// Width of the image (in pixels)
-    inputLayer[1].width = m_defaultRenderingLaunchParams.m_frame.m_size.x;
+    inputLayer[1].width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    inputLayer[1].height = m_defaultRenderingLaunchParams.m_frame.m_size.y;
+    inputLayer[1].height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     inputLayer[1].rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_frame.m_size.x * sizeof(glm::vec4);
+            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
@@ -325,14 +350,14 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
     inputLayer[1].format = OPTIX_PIXEL_FORMAT_FLOAT4;
 
     // ..................................................................
-    inputLayer[2].data = m_frameBufferNormal.DevicePointer();
+    inputLayer[2].data = m_defaultRenderingLaunchParams.m_cameraProperties.m_frameBufferNormal.DevicePointer();
     /// Width of the image (in pixels)
-    inputLayer[2].width = m_defaultRenderingLaunchParams.m_frame.m_size.x;
+    inputLayer[2].width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    inputLayer[2].height = m_defaultRenderingLaunchParams.m_frame.m_size.y;
+    inputLayer[2].height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     inputLayer[2].rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_frame.m_size.x * sizeof(glm::vec4);
+            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
@@ -342,65 +367,65 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
 
     // -------------------------------------------------------
     OptixImage2D outputLayer;
-    outputLayer.data = m_denoisedBuffer.DevicePointer();
+    outputLayer.data = m_defaultRenderingLaunchParams.m_cameraProperties.m_denoisedBuffer.DevicePointer();
     /// Width of the image (in pixels)
-    outputLayer.width = m_defaultRenderingLaunchParams.m_frame.m_size.x;
+    outputLayer.width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    outputLayer.height = m_defaultRenderingLaunchParams.m_frame.m_size.y;
+    outputLayer.height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     outputLayer.rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_frame.m_size.x * sizeof(glm::vec4);
+            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
     outputLayer.pixelStrideInBytes = sizeof(glm::vec4);
     /// Pixel format.
     outputLayer.format = OPTIX_PIXEL_FORMAT_FLOAT4;
-    switch (m_defaultRenderingLaunchParams.m_outputType) {
+    switch (m_defaultRenderingLaunchParams.m_cameraProperties.m_outputType) {
         case OutputType::Color: {
             CUDA_CHECK(MemcpyToArray(
-                    outputArray, 0, 0, (void *) m_frameBufferColor.DevicePointer(),
-                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_frame.m_size.x *
-                    m_defaultRenderingLaunchParams.m_frame.m_size.y,
+                    outputArray, 0, 0, (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer,
+                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
         }
             break;
         case OutputType::Normal: {
             CUDA_CHECK(MemcpyToArray(
-                    outputArray, 0, 0, (void *) m_frameBufferNormal.DevicePointer(),
-                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_frame.m_size.x *
-                    m_defaultRenderingLaunchParams.m_frame.m_size.y,
+                    outputArray, 0, 0, (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_normalBuffer,
+                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
         }
             break;
         case OutputType::Albedo: {
             CUDA_CHECK(MemcpyToArray(
-                    outputArray, 0, 0, (void *) m_frameBufferAlbedo.DevicePointer(),
-                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_frame.m_size.x *
-                    m_defaultRenderingLaunchParams.m_frame.m_size.y,
+                    outputArray, 0, 0, (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_albedoBuffer,
+                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
         }
             break;
         case OutputType::DenoisedColor: {
             OptixDenoiserParams denoiserParams;
             denoiserParams.denoiseAlpha = 1;
-            m_denoiserIntensity.Resize(sizeof(float));
-            if (m_denoiserIntensity.m_sizeInBytes != sizeof(float))
-                m_denoiserIntensity.Resize(sizeof(float));
-            denoiserParams.hdrIntensity = m_denoiserIntensity.DevicePointer();
-            if (m_defaultRenderingLaunchParams.m_accumulate &&
-                m_defaultRenderingLaunchParams.m_frame.m_frameId > 1)
+            m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
+            if (m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes != sizeof(float))
+                m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
+            denoiserParams.hdrIntensity = m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer();
+            if (m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate &&
+                m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId > 1)
                 denoiserParams.blendFactor =
-                        1.f / m_defaultRenderingLaunchParams.m_frame.m_frameId;
+                        1.f / m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId;
             else
                 denoiserParams.blendFactor = 0.0f;
 
             OPTIX_CHECK(optixDenoiserComputeIntensity(
-                    m_denoiser,
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
                     /*stream*/ 0, &inputLayer[0],
-                    (CUdeviceptr) m_denoiserIntensity.DevicePointer(),
-                    (CUdeviceptr) m_denoiserScratch.DevicePointer(),
-                    m_denoiserScratch.m_sizeInBytes));
+                    (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer(),
+                    (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
 
             OptixDenoiserLayer denoiserLayer = {};
             denoiserLayer.input = inputLayer[0];
@@ -411,16 +436,16 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, bool accum
             denoiserGuideLayer.normal = inputLayer[2];
 
             OPTIX_CHECK(optixDenoiserInvoke(
-                    m_denoiser,
-                    /*stream*/ 0, &denoiserParams, m_denoiserState.DevicePointer(),
-                    m_denoiserState.m_sizeInBytes, &denoiserGuideLayer, &denoiserLayer, 1,
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
+                    /*stream*/ 0, &denoiserParams, m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.DevicePointer(),
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.m_sizeInBytes, &denoiserGuideLayer, &denoiserLayer, 1,
                     /*inputOffsetX*/ 0,
-                    /*inputOffsetY*/ 0, m_denoiserScratch.DevicePointer(),
-                    m_denoiserScratch.m_sizeInBytes));
+                    /*inputOffsetY*/ 0, m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
             CUDA_CHECK(MemcpyToArray(outputArray, 0, 0, (void *) outputLayer.data,
                                      sizeof(glm::vec4) *
-                                     m_defaultRenderingLaunchParams.m_frame.m_size.x *
-                                     m_defaultRenderingLaunchParams.m_frame.m_size.y,
+                                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                                      cudaMemcpyDeviceToDevice));
         }
             break;
@@ -585,7 +610,7 @@ void RayTracer::EstimateIllumination(const size_t &size,
 }
 
 RayTracer::RayTracer() {
-    m_defaultRenderingLaunchParams.m_frame.m_frameId = 0;
+    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId = 0;
     // std::cout << "#Optix: creating optix context ..." << std::endl;
     CreateContext();
     // std::cout << "#Optix: setting up module ..." << std::endl;
@@ -1705,49 +1730,7 @@ void RayTracer::BuildShaderBindingTable(
     }
 }
 
-void RayTracer::Resize(const glm::ivec2 &newSize) {
-    if (m_denoiser) {
-        OPTIX_CHECK(optixDenoiserDestroy(m_denoiser));
-    };
-    // ------------------------------------------------------------------
-    // create the denoiser:
-    OptixDenoiserOptions denoiserOptions = {};
-    OPTIX_CHECK(optixDenoiserCreate(m_optixDeviceContext,
-                                    OPTIX_DENOISER_MODEL_KIND_LDR,
-                                    &denoiserOptions, &m_denoiser));
-    // .. then compute and allocate memory resources for the denoiser
-    OptixDenoiserSizes denoiserReturnSizes;
-    OPTIX_CHECK(optixDenoiserComputeMemoryResources(
-            m_denoiser, newSize.x, newSize.y, &denoiserReturnSizes));
 
-    m_denoiserScratch.Resize(
-            std::max(denoiserReturnSizes.withOverlapScratchSizeInBytes,
-                     denoiserReturnSizes.withoutOverlapScratchSizeInBytes));
-
-    m_denoiserState.Resize(denoiserReturnSizes.stateSizeInBytes);
-    // ------------------------------------------------------------------
-    // resize our cuda frame buffer
-    m_denoisedBuffer.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
-    m_frameBufferColor.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
-    m_frameBufferNormal.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
-    m_frameBufferAlbedo.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
-
-    // update the launch parameters that we'll pass to the optix
-    // launch:
-    m_defaultRenderingLaunchParams.m_frame.m_size = newSize;
-    m_defaultRenderingLaunchParams.m_frame.m_colorBuffer =
-            (glm::vec4 *) m_frameBufferColor.DevicePointer();
-    m_defaultRenderingLaunchParams.m_frame.m_normalBuffer =
-            (glm::vec4 *) m_frameBufferNormal.DevicePointer();
-    m_defaultRenderingLaunchParams.m_frame.m_albedoBuffer =
-            (glm::vec4 *) m_frameBufferAlbedo.DevicePointer();
-
-    // ------------------------------------------------------------------
-    OPTIX_CHECK(optixDenoiserSetup(
-            m_denoiser, 0, newSize.x, newSize.y, m_denoiserState.DevicePointer(),
-            m_denoiserState.m_sizeInBytes, m_denoiserScratch.DevicePointer(),
-            m_denoiserScratch.m_sizeInBytes));
-}
 
 void RayTracer::LoadBtfMaterials(const std::vector<std::string> &folderPathes) {
     for (const auto &entry: folderPathes) {

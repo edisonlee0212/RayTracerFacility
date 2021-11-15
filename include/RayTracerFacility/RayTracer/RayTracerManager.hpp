@@ -15,33 +15,6 @@
 
 using namespace UniEngine;
 namespace RayTracerFacility {
-    class RayTracerRenderWindow {
-    public:
-        std::string m_name;
-        bool m_renderingEnabled = true;
-        float m_lastX = 0;
-        float m_lastY = 0;
-        float m_lastScrollY = 0;
-        bool m_startMouse = false;
-        bool m_startScroll = false;
-        bool m_rightMouseButtonHold = false;
-        float m_gamma = 2.2f;
-        float m_resolutionMultiplier = 0.5f;
-        std::unique_ptr<OpenGLUtils::GLTexture2D> m_output;
-        glm::ivec2 m_outputSize = glm::ivec2(1024, 1024);
-        bool m_rendered = false;
-        RayTracerProperties m_defaultRenderingProperties;
-        RayTracerFacility::Camera m_camera;
-        glm::ivec2 m_size;
-        bool m_accumulate = true;
-        OutputType m_outputType = OutputType::DenoisedColor;
-        void Init(const std::string &name);
-
-        [[nodiscard]] glm::ivec2 Resize() const;
-
-        void OnInspect();
-    };
-
     class RAY_TRACER_FACILITY_API SunlightCalculator {
       SunlightCalculator() = default;
       SunlightCalculator(SunlightCalculator &&) = default;
@@ -66,12 +39,25 @@ namespace RayTracerFacility {
         void
         UpdateSkinnedMeshesStorage(std::vector<SkinnedRayTracerInstance>& meshesStorage, bool &rebuildAccelerationStructure,
                                    bool &updateShaderBindingTable) const;
+
+        void SceneCameraWindow();
+
     public:
         AssetRef m_environmentalMap;
         bool m_enableMenus = true;
+        RayTracerProperties m_defaultRenderingProperties;
 
-        RayTracerRenderWindow m_defaultWindow;
 
+        bool m_renderingEnabled = true;
+        float m_lastX = 0;
+        float m_lastY = 0;
+        float m_lastScrollY = 0;
+        bool m_startMouse = false;
+        bool m_startScroll = false;
+        bool m_rightMouseButtonHold = false;
+        float m_resolutionMultiplier = 0.5f;
+        glm::ivec2 m_outputSize = glm::ivec2(10, 10);
+        std::shared_ptr<RayTracerCamera> m_sceneCamera;
         void UpdateScene() const;
 
         void OnCreate() override;

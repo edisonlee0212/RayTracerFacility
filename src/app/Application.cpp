@@ -14,12 +14,6 @@ using namespace RayTracerFacility;
 #endif
 
 int main() {
-#ifdef RAYTRACERFACILITY
-    ClassRegistry::RegisterPrivateComponent<MLVQRenderer>(
-            "MLVQRenderer");
-    ClassRegistry::RegisterPrivateComponent<TriangleIlluminationEstimator>(
-            "TriangleIlluminationEstimator");
-#endif
     const bool enableRayTracing = true;
     ApplicationConfigs applicationConfigs;
     Application::Create(applicationConfigs);

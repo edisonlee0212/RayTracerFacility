@@ -2,6 +2,8 @@
 #include <RayTracerManager.hpp>
 #include <ProjectManager.hpp>
 #include "EditorLayer.hpp"
+#include "RayTracerCamera.hpp"
+#include "TriangleIlluminationEstimator.hpp"
 
 using namespace RayTracerFacility;
 
@@ -227,7 +229,8 @@ void RayTracerManager::UpdateSkinnedMeshesStorage(
                 continue;
             auto mesh = skinnedMeshRenderer->m_skinnedMesh.Get<SkinnedMesh>();
             auto material = skinnedMeshRenderer->m_material.Get<Material>();
-            if (!mesh || mesh->UnsafeGetSkinnedVertices().empty() || skinnedMeshRenderer->m_finalResults->m_value.empty())
+            if (!mesh || mesh->UnsafeGetSkinnedVertices().empty() ||
+                skinnedMeshRenderer->m_finalResults->m_value.empty())
                 continue;
             auto globalTransform =
                     skinnedMeshRenderer->RagDoll()
@@ -367,9 +370,12 @@ void RayTracerManager::UpdateScene() const {
 
 void RayTracerManager::OnCreate() {
     CudaModule::Init();
-    m_defaultWindow.Init("Ray Tracer");
-
-
+    ClassRegistry::RegisterPrivateComponent<MLVQRenderer>(
+            "MLVQRenderer");
+    ClassRegistry::RegisterPrivateComponent<TriangleIlluminationEstimator>(
+            "TriangleIlluminationEstimator");
+    ClassRegistry::RegisterPrivateComponent<RayTracerCamera>(
+            "RayTracerCamera");
     SunlightCalculator::GetInstance().m_database.insert({4, {0, 90}});
     SunlightCalculator::GetInstance().m_database.insert({5, {7.12, 87.78}});
     SunlightCalculator::GetInstance().m_database.insert({6, {79, 77.19}});
@@ -388,43 +394,40 @@ void RayTracerManager::OnCreate() {
     SunlightCalculator::GetInstance().m_database.insert({19, {7.15, 87.79}});
     SunlightCalculator::GetInstance().m_database.insert({20, {0, 90}});
     SunlightCalculator::GetInstance().m_intensityFactor = 0.002f;
+
+    m_sceneCamera = SerializationManager::ProduceSerializable<RayTracerCamera>();
+    m_sceneCamera->OnCreate();
 }
 
-void RayTracerRenderWindow::Init(const std::string &name) {
-    m_output =
-            std::make_unique<OpenGLUtils::GLTexture2D>(0, GL_RGBA32F, 1, 1, false);
-    m_output->SetData(0, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0);
-    m_output->SetInt(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    m_output->SetInt(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    m_output->SetInt(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    m_output->SetInt(GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    m_name = name;
-}
 
 void RayTracerManager::LateUpdate() {
-    auto editorLayer = Application::GetLayer<EditorLayer>();
-    if (!editorLayer) return;
     UpdateScene();
-    if (m_defaultWindow.m_renderingEnabled) {
-        const auto size = m_defaultWindow.Resize();
-        m_defaultWindow.m_camera.Set(
-                editorLayer->m_sceneCameraRotation,
-                editorLayer->m_sceneCameraPosition,
-                editorLayer->m_sceneCamera->m_fov, size);
-        auto environmentalMap = m_environmentalMap.Get<Cubemap>();
-        if (environmentalMap) {
-            m_defaultWindow.m_defaultRenderingProperties.m_environment.m_environmentalMapId =
-                    environmentalMap->Texture()->Id();
+    auto environmentalMap = m_environmentalMap.Get<Cubemap>();
+    if (environmentalMap) {
+        m_defaultRenderingProperties.m_environment.m_environmentalMapId =
+                environmentalMap->Texture()->Id();
+    }
+    if (!CudaModule::GetRayTracer()->m_instances.empty() ||
+        !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
+        auto editorLayer = Application::GetLayer<EditorLayer>();
+        if (editorLayer && m_renderingEnabled) {
+            m_sceneCamera->Resize(m_outputSize);
+            m_sceneCamera->m_cameraSettings.Set(editorLayer->m_sceneCameraPosition, editorLayer->m_sceneCameraRotation);
+            m_sceneCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_defaultRenderingProperties,
+                                                                                   m_sceneCamera->m_cameraSettings);
         }
-        m_defaultWindow.m_size = size;
-        if (!CudaModule::GetRayTracer()->m_instances.empty() ||
-            !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
-            m_defaultWindow.m_rendered =
-                    CudaModule::GetRayTracer()->RenderToCamera(
-                            m_defaultWindow.m_defaultRenderingProperties, m_defaultWindow.m_accumulate,
-                            m_defaultWindow.m_camera, m_defaultWindow.m_output->Id(), m_defaultWindow.m_size,
-                            m_defaultWindow.m_outputType, m_defaultWindow.m_gamma);
+        auto *entities = EntityManager::UnsafeGetPrivateComponentOwnersList<RayTracerCamera>(
+                EntityManager::GetCurrentScene());
+        if (entities) {
+            for (const auto &entity: *entities) {
+                if (!entity.IsEnabled()) continue;
+                auto rayTracerCamera = entity.GetOrSetPrivateComponent<RayTracerCamera>().lock();
+                if (!rayTracerCamera->IsEnabled()) continue;
+                auto globalTransform = rayTracerCamera->GetOwner().GetDataComponent<GlobalTransform>().m_value;
+                rayTracerCamera->m_cameraSettings.Set(globalTransform[3], glm::quat_cast(globalTransform));
+                rayTracerCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_defaultRenderingProperties,
+                                                                                         rayTracerCamera->m_cameraSettings);
+            }
         }
     }
 }
@@ -437,13 +440,85 @@ void RayTracerManager::OnInspect() {
         }
         ImGui::EndMainMenuBar();
     }
-    ImGui::Begin("Ray Tracer Manager");
-    {
-
+    if (ImGui::Begin("Ray Tracer Manager")) {
         EditorManager::DragAndDropButton<Cubemap>(
                 m_environmentalMap,
                 "Environmental Map");
-
+        m_defaultRenderingProperties.OnInspect();
+        if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
+            EnvironmentalLightingType::Skydome) {
+            if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                static bool manualControl = false;
+                ImGui::Checkbox("Manual control", &manualControl);
+                static glm::vec2 angles = glm::vec2(90, 0);
+                if (manualControl) {
+                    if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
+                                          1.0f, 0.0f, 180.0f)) {
+                        m_defaultRenderingProperties.m_environment.m_sunDirection =
+                                glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
+                                glm::vec3(0, 0, -1);
+                    }
+                    ImGui::DragFloat(
+                            "Zenith radiance",
+                            &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f,
+                            0.0f, 10.0f);
+                } else {
+                    static bool autoUpdate = true;
+                    ImGui::Checkbox("Auto update", &autoUpdate);
+                    static int hour = 12;
+                    static int minute = 0;
+                    static bool updated = false;
+                    static float zenithIntensityFactor = 1.0f;
+                    static bool useDayRange = true;
+                    ImGui::Checkbox("Use day range", &useDayRange);
+                    if (useDayRange) {
+                        static float dayRange = 0.5f;
+                        if (ImGui::DragFloat("Day range", &dayRange, 0.001f, 0.0f, 1.0f)) {
+                            dayRange = glm::clamp(dayRange, 0.0f, 1.0f);
+                            hour = (dayRange * 24.0f);
+                            minute = ((dayRange * 24.0f) - static_cast<int>(dayRange * 24.0f)) * 60;
+                            updated = true;
+                        }
+                    } else {
+                        if (ImGui::DragInt("Hour", &hour, 1, 0, 23)) {
+                            hour = glm::clamp(hour, 0, 23);
+                            updated = true;
+                        }
+                        if (ImGui::DragInt("Minute", &minute, 1, 0, 59)) {
+                            minute = glm::clamp(minute, 0, 59);
+                            updated = true;
+                        }
+                    }
+                    if (ImGui::DragFloat("Zenith radiance factor", &zenithIntensityFactor,
+                                         0.01f, 0.0f, 10.0f)) {
+                        updated = true;
+                    }
+                    if (ImGui::Button("Update") || (autoUpdate && updated)) {
+                        updated = false;
+                        SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
+                        SunlightCalculator::CalculateSunlightIntensity(
+                                hour, minute,
+                                m_defaultRenderingProperties.m_environment.m_skylightIntensity);
+                        m_defaultRenderingProperties.m_environment.m_skylightIntensity *=
+                                zenithIntensityFactor;
+                        m_defaultRenderingProperties.m_environment.m_sunDirection =
+                                glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
+                                glm::vec3(0, 0, -1);
+                    }
+                    ImGui::Text(
+                            ("Intensity: " +
+                             std::to_string(
+                                     m_defaultRenderingProperties.m_environment.m_skylightIntensity))
+                                    .c_str());
+                    ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
+                }
+                ImGui::TreePop();
+            }
+        } else {
+            ImGui::DragFloat("Sun intensity",
+                             &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f, 0.0f,
+                             100.0f);
+        }
         if (ImGui::Button("Load all MLVQ Materials")) {
             std::vector<std::string> pathes;
             std::filesystem::path folder("../Resources/btfs");
@@ -454,208 +529,45 @@ void RayTracerManager::OnInspect() {
         }
     }
     ImGui::End();
-    m_defaultWindow.OnInspect();
+
+    SceneCameraWindow();
 }
 
 void RayTracerManager::OnDestroy() { CudaModule::Terminate(); }
 
-glm::ivec2 RayTracerRenderWindow::Resize() const {
-    glm::ivec2 size = glm::vec2(m_outputSize) * m_resolutionMultiplier;
-    if (size.x < 1)
-        size.x = 1;
-    if (size.y < 1)
-        size.y = 1;
-    m_output->ReSize(0, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, size.x, size.y);
-    return size;
-}
-
-float LerpHelper(float x, float y, float t) { return x * (1.f - t) + y * t; }
-
-void SunlightCalculator::CalculateSunlightIntensity(int hour, int minute,
-                                                    float &intensity) {
-    float actualHour = glm::clamp(hour, 0, 23);
-    float actualMinute = glm::clamp(minute, 0, 59) / 60.0f;
-    float combinedTime = actualHour + actualMinute;
-    auto &sunlightCalculator = GetInstance();
-
-    if (sunlightCalculator.m_database.empty()) {
-        intensity = 1.0f;
-        return;
-    }
-
-    if (combinedTime < sunlightCalculator.m_database.begin()->first) {
-        intensity = sunlightCalculator.m_database.begin()->second.first;
-    } else {
-        float lastVal = sunlightCalculator.m_database.begin()->second.first;
-        float lastTime = sunlightCalculator.m_database.begin()->first;
-        int index = 0;
-        bool found = false;
-        for (const auto &i: sunlightCalculator.m_database) {
-            if (index != 0) {
-                if (combinedTime < i.first) {
-                    intensity = LerpHelper(lastVal, i.second.first, (combinedTime - lastTime) / (i.first - lastTime));
-                    found = true;
-                    break;
-                }
-            }
-            lastVal = i.second.first;
-            lastTime = i.first;
-            index++;
-        }
-        if (!found)
-            intensity = lastVal;
-    }
-    intensity *= sunlightCalculator.m_intensityFactor;
-}
-
-void SunlightCalculator::CalculateSunlightAngle(int hour, int minute,
-                                                float &angle) {
-    float actualHour = glm::clamp(hour, 0, 23);
-    float actualMinute = glm::clamp(minute, 0, 59) / 60.0f;
-    float combinedTime = actualHour + actualMinute;
-    auto &sunlightCalculator = GetInstance();
-
-    if (sunlightCalculator.m_database.empty()) {
-        angle = 90;
-        return;
-    }
-    if (combinedTime < sunlightCalculator.m_database.begin()->first) {
-        angle = sunlightCalculator.m_database.begin()->second.second;
-    } else {
-        float lastVal = sunlightCalculator.m_database.begin()->second.second;
-        float lastTime = sunlightCalculator.m_database.begin()->first;
-        int index = 0;
-        bool found = false;
-        for (const auto &i: sunlightCalculator.m_database) {
-            if (index != 0) {
-                if (combinedTime < i.first) {
-                    angle = LerpHelper(lastVal, i.second.second, (combinedTime - lastTime) / (i.first - lastTime));
-                    found = true;
-                    break;
-                }
-            }
-            lastVal = i.second.second;
-            lastTime = i.first;
-            index++;
-        }
-
-        if (!found) {
-            angle = lastVal;
-        }
-    }
-    angle = combinedTime > 12.0f ? 90.0f - angle : 90 + angle;
-}
-
-SunlightCalculator &SunlightCalculator::GetInstance() {
-    static SunlightCalculator instance;
-    return instance;
-}
 const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
 
-void RayTracerRenderWindow::OnInspect() {
+void RayTracerManager::SceneCameraWindow() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
-
     if (m_rightMouseButtonHold &&
         !InputManager::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT,
                                         WindowManager::GetWindow())) {
         m_rightMouseButtonHold = false;
         m_startMouse = false;
     }
+
+
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
-    ImGui::Begin(m_name.c_str());
-    {
+    if (ImGui::Begin("RayTracedScene")) {
         if (ImGui::BeginChild("CameraRenderer", ImVec2(0, 0), false,
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::BeginMenu("Settings")) {
-                    m_defaultRenderingProperties.OnInspect();
-                    if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
-                        EnvironmentalLightingType::Skydome) {
-                        if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                            static bool manualControl = false;
-                            ImGui::Checkbox("Manual control", &manualControl);
-                            static glm::vec2 angles = glm::vec2(90, 0);
-                            if (manualControl) {
-                                if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
-                                                      1.0f, 0.0f, 180.0f)) {
-                                    m_defaultRenderingProperties.m_environment.m_sunDirection =
-                                            glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
-                                            glm::vec3(0, 0, -1);
-                                }
-                                ImGui::DragFloat(
-                                        "Zenith radiance",
-                                        &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f,
-                                        0.0f, 10.0f);
-                            } else {
-                                static bool autoUpdate = true;
-                                ImGui::Checkbox("Auto update", &autoUpdate);
-                                static int hour = 12;
-                                static int minute = 0;
-                                static bool updated = false;
-                                static float zenithIntensityFactor = 1.0f;
-                                static bool useDayRange = true;
-                                ImGui::Checkbox("Use day range", &useDayRange);
-                                if (useDayRange) {
-                                    static float dayRange = 0.5f;
-                                    if (ImGui::DragFloat("Day range", &dayRange, 0.001f, 0.0f, 1.0f)) {
-                                        dayRange = glm::clamp(dayRange, 0.0f, 1.0f);
-                                        hour = (dayRange * 24.0f);
-                                        minute = ((dayRange * 24.0f) - static_cast<int>(dayRange * 24.0f)) * 60;
-                                        updated = true;
-                                    }
-                                } else {
-                                    if (ImGui::DragInt("Hour", &hour, 1, 0, 23)) {
-                                        hour = glm::clamp(hour, 0, 23);
-                                        updated = true;
-                                    }
-                                    if (ImGui::DragInt("Minute", &minute, 1, 0, 59)) {
-                                        minute = glm::clamp(minute, 0, 59);
-                                        updated = true;
-                                    }
-                                }
-                                if (ImGui::DragFloat("Zenith radiance factor", &zenithIntensityFactor,
-                                                     0.01f, 0.0f, 10.0f)) {
-                                    updated = true;
-                                }
-                                if (ImGui::Button("Update") || (autoUpdate && updated)) {
-                                    updated = false;
-                                    SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
-                                    SunlightCalculator::CalculateSunlightIntensity(
-                                            hour, minute,
-                                            m_defaultRenderingProperties.m_environment.m_skylightIntensity);
-                                    m_defaultRenderingProperties.m_environment.m_skylightIntensity *=
-                                            zenithIntensityFactor;
-                                    m_defaultRenderingProperties.m_environment.m_sunDirection =
-                                            glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
-                                            glm::vec3(0, 0, -1);
-                                }
-                                ImGui::Text(
-                                        ("Intensity: " +
-                                         std::to_string(
-                                                 m_defaultRenderingProperties.m_environment.m_skylightIntensity))
-                                                .c_str());
-                                ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
-                            }
-                            ImGui::TreePop();
-                        }
-                    }else{
-                        ImGui::DragFloat("Sun intensity", &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f, 0.0f,
-                                         100.0f);
-                    }
-                    ImGui::Checkbox("Accumulate", &m_accumulate);
-                    ImGui::DragFloat("Gamma", &m_gamma,
+
+                    ImGui::Checkbox("Accumulate", &m_sceneCamera->m_cameraSettings.m_accumulate);
+                    ImGui::DragFloat("Gamma", &m_sceneCamera->m_cameraSettings.m_gamma,
                                      0.01f, 0.1f, 3.0f);
                     static int outputType = 0;
                     if (ImGui::Combo("Output Type", &outputType, OutputTypes,
                                      IM_ARRAYSIZE(OutputTypes))) {
-                        m_outputType = static_cast<OutputType>(outputType);
+                        m_sceneCamera->m_cameraSettings.m_outputType = static_cast<OutputType>(outputType);
                     }
                     ImGui::DragFloat("Resolution multiplier", &m_resolutionMultiplier,
                                      0.01f, 0.1f, 1.0f);
                     ImGui::DragFloat("FOV",
-                                     &editorLayer->m_sceneCamera->m_fov,
+                                     &m_sceneCamera->m_cameraSettings.m_fov,
                                      1, 1, 120);
                     ImGui::EndMenu();
                 }
@@ -667,8 +579,8 @@ void RayTracerRenderWindow::OnInspect() {
             if (viewPortSize.y < 0)
                 viewPortSize.y = 0;
             m_outputSize = glm::ivec2(viewPortSize.x, viewPortSize.y);
-            if (m_rendered)
-                ImGui::Image(reinterpret_cast<ImTextureID>(m_output->Id()),
+            if (m_sceneCamera->m_rendered)
+                ImGui::Image(reinterpret_cast<ImTextureID>(m_sceneCamera->m_cameraSettings.m_outputTextureId),
                              viewPortSize, ImVec2(0, 1), ImVec2(1, 0));
             else
                 ImGui::Text("No mesh in the scene!");
@@ -759,9 +671,93 @@ void RayTracerRenderWindow::OnInspect() {
             }
         }
         ImGui::EndChild();
-        auto *window = ImGui::FindWindowByName(m_name.c_str());
+        auto *window = ImGui::FindWindowByName("RayTracedScene");
         m_renderingEnabled = !(window->Hidden && !window->Collapsed);
     }
     ImGui::End();
     ImGui::PopStyleVar();
+
 }
+
+float LerpHelper(float x, float y, float t) { return x * (1.f - t) + y * t; }
+
+void SunlightCalculator::CalculateSunlightIntensity(int hour, int minute,
+                                                    float &intensity) {
+    float actualHour = glm::clamp(hour, 0, 23);
+    float actualMinute = glm::clamp(minute, 0, 59) / 60.0f;
+    float combinedTime = actualHour + actualMinute;
+    auto &sunlightCalculator = GetInstance();
+
+    if (sunlightCalculator.m_database.empty()) {
+        intensity = 1.0f;
+        return;
+    }
+
+    if (combinedTime < sunlightCalculator.m_database.begin()->first) {
+        intensity = sunlightCalculator.m_database.begin()->second.first;
+    } else {
+        float lastVal = sunlightCalculator.m_database.begin()->second.first;
+        float lastTime = sunlightCalculator.m_database.begin()->first;
+        int index = 0;
+        bool found = false;
+        for (const auto &i: sunlightCalculator.m_database) {
+            if (index != 0) {
+                if (combinedTime < i.first) {
+                    intensity = LerpHelper(lastVal, i.second.first, (combinedTime - lastTime) / (i.first - lastTime));
+                    found = true;
+                    break;
+                }
+            }
+            lastVal = i.second.first;
+            lastTime = i.first;
+            index++;
+        }
+        if (!found)
+            intensity = lastVal;
+    }
+    intensity *= sunlightCalculator.m_intensityFactor;
+}
+
+void SunlightCalculator::CalculateSunlightAngle(int hour, int minute,
+                                                float &angle) {
+    float actualHour = glm::clamp(hour, 0, 23);
+    float actualMinute = glm::clamp(minute, 0, 59) / 60.0f;
+    float combinedTime = actualHour + actualMinute;
+    auto &sunlightCalculator = GetInstance();
+
+    if (sunlightCalculator.m_database.empty()) {
+        angle = 90;
+        return;
+    }
+    if (combinedTime < sunlightCalculator.m_database.begin()->first) {
+        angle = sunlightCalculator.m_database.begin()->second.second;
+    } else {
+        float lastVal = sunlightCalculator.m_database.begin()->second.second;
+        float lastTime = sunlightCalculator.m_database.begin()->first;
+        int index = 0;
+        bool found = false;
+        for (const auto &i: sunlightCalculator.m_database) {
+            if (index != 0) {
+                if (combinedTime < i.first) {
+                    angle = LerpHelper(lastVal, i.second.second, (combinedTime - lastTime) / (i.first - lastTime));
+                    found = true;
+                    break;
+                }
+            }
+            lastVal = i.second.second;
+            lastTime = i.first;
+            index++;
+        }
+
+        if (!found) {
+            angle = lastVal;
+        }
+    }
+    angle = combinedTime > 12.0f ? 90.0f - angle : 90 + angle;
+}
+
+SunlightCalculator &SunlightCalculator::GetInstance() {
+    static SunlightCalculator instance;
+    return instance;
+}
+

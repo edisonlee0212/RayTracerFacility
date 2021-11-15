@@ -7,7 +7,7 @@
 using namespace RayTracerFacility;
 void LightSensorsGroup::CalculateIllumination(int seed, float pushNormalDistance, int sampleAmount) {
     if (m_lightProbes.empty()) return;
-    CudaModule::EstimateIlluminationRayTracing(Application::GetLayer<RayTracerManager>()->m_defaultWindow.m_defaultRenderingProperties, m_lightProbes, seed, sampleAmount, pushNormalDistance);
+    CudaModule::EstimateIlluminationRayTracing(Application::GetLayer<RayTracerManager>()->m_defaultRenderingProperties, m_lightProbes, seed, sampleAmount, pushNormalDistance);
 }
 
 void LightSensorsGroup::OnInspect() {

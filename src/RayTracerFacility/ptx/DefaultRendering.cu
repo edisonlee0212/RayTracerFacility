@@ -353,16 +353,16 @@ namespace RayTracerFacility {
         float ix = optixGetLaunchIndex().x;
         float iy = optixGetLaunchIndex().y;
         const uint32_t fbIndex =
-                ix + iy * defaultRenderingLaunchParams.m_frame.m_size.x;
+                ix + iy * defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
 
         // compute a test pattern based on pixel ID
 
         PerRayData <glm::vec3> cameraRayData;
         cameraRayData.m_hitCount = 0;
         cameraRayData.m_random.Init(
-                ix + defaultRenderingLaunchParams.m_frame.m_size.x *
+                ix + defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
                      iy,
-                defaultRenderingLaunchParams.m_frame.m_frameId);
+                defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId);
         cameraRayData.m_energy = glm::vec3(0);
         cameraRayData.m_normal = glm::vec3(0);
         cameraRayData.m_albedo = glm::vec3(0);
@@ -384,20 +384,20 @@ namespace RayTracerFacility {
             glm::vec2 screen;
             screen = glm::vec2(ix + cameraRayData.m_random(),
                                iy + cameraRayData.m_random()) /
-                     glm::vec2(defaultRenderingLaunchParams.m_frame.m_size);
+                     glm::vec2(defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size);
             glm::vec3 rayDir = glm::normalize(
-                    defaultRenderingLaunchParams.m_camera
+                    defaultRenderingLaunchParams.m_cameraProperties
                             .m_direction +
                     (screen.x - 0.5f) *
-                    defaultRenderingLaunchParams.m_camera
+                    defaultRenderingLaunchParams.m_cameraProperties
                             .m_horizontal +
                     (screen.y - 0.5f) *
-                    defaultRenderingLaunchParams.m_camera
+                    defaultRenderingLaunchParams.m_cameraProperties
                             .m_vertical);
             float3 rayOrigin =
-                    make_float3(defaultRenderingLaunchParams.m_camera.m_from.x,
-                                defaultRenderingLaunchParams.m_camera.m_from.y,
-                                defaultRenderingLaunchParams.m_camera.m_from.z);
+                    make_float3(defaultRenderingLaunchParams.m_cameraProperties.m_from.x,
+                                defaultRenderingLaunchParams.m_cameraProperties.m_from.y,
+                                defaultRenderingLaunchParams.m_cameraProperties.m_from.z);
             float3 rayDirection = make_float3(rayDir.x, rayDir.y, rayDir.z);
 
             optixTrace(
@@ -423,23 +423,23 @@ namespace RayTracerFacility {
         }
 
         // and write/accumulate to frame buffer ...
-        if (defaultRenderingLaunchParams.m_accumulate) {
-            if (defaultRenderingLaunchParams.m_frame.m_frameId > 1) {
+        if (defaultRenderingLaunchParams.m_cameraProperties.m_accumulate) {
+            if (defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId > 1) {
                 glm::vec3 currentGammaCorrectedColor =
-                        defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex];
+                        defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer[fbIndex];
                 glm::vec3 accumulatedColor = glm::vec3(
-                        glm::pow(currentGammaCorrectedColor, glm::vec3(defaultRenderingLaunchParams.m_gamma)));
-                pixelColor += static_cast<float>(defaultRenderingLaunchParams.m_frame.m_frameId) * accumulatedColor;
-                pixelColor /= static_cast<float>(defaultRenderingLaunchParams.m_frame.m_frameId + 1);
+                        glm::pow(currentGammaCorrectedColor, glm::vec3(defaultRenderingLaunchParams.m_cameraProperties.m_gamma)));
+                pixelColor += static_cast<float>(defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId) * accumulatedColor;
+                pixelColor /= static_cast<float>(defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId + 1);
             }
         }
-        auto gammaCorrectedColor = glm::pow(pixelColor, glm::vec3(1.0 / defaultRenderingLaunchParams.m_gamma));
+        auto gammaCorrectedColor = glm::pow(pixelColor, glm::vec3(1.0 / defaultRenderingLaunchParams.m_cameraProperties.m_gamma));
         // and write to frame buffer ...
-        defaultRenderingLaunchParams.m_frame.m_colorBuffer[fbIndex] =
+        defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer[fbIndex] =
                 glm::vec4(gammaCorrectedColor, 1.0f);
-        defaultRenderingLaunchParams.m_frame.m_albedoBuffer[fbIndex] =
+        defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_albedoBuffer[fbIndex] =
                 glm::vec4(pixelAlbedo, 1.0f);
-        defaultRenderingLaunchParams.m_frame.m_normalBuffer[fbIndex] =
+        defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_normalBuffer[fbIndex] =
                 glm::vec4(pixelNormal, 1.0f);
     }
 #pragma endregion
