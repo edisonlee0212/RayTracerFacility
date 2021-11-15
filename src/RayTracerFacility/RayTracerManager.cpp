@@ -358,13 +358,13 @@ void RayTracerManager::UpdateScene() const {
                         updateShaderBindingTable);
     UpdateSkinnedMeshesStorage(skinnedMeshesStorage, rebuildAccelerationStructure,
                                updateShaderBindingTable);
-
+    CudaModule::GetRayTracer()->m_requireUpdate = false;
     if (rebuildAccelerationStructure &&
         (!meshesStorage.empty() || !skinnedMeshesStorage.empty())) {
         CudaModule::GetRayTracer()->BuildAccelerationStructure();
-        CudaModule::GetRayTracer()->ClearAccumulate();
+        CudaModule::GetRayTracer()->m_requireUpdate = true;
     } else if (updateShaderBindingTable) {
-        CudaModule::GetRayTracer()->ClearAccumulate();
+        CudaModule::GetRayTracer()->m_requireUpdate = true;
     }
 }
 
@@ -411,8 +411,7 @@ void RayTracerManager::LateUpdate() {
         !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
         auto editorLayer = Application::GetLayer<EditorLayer>();
         if (editorLayer && m_renderingEnabled) {
-            m_sceneCamera->Resize(m_outputSize);
-            m_sceneCamera->m_cameraSettings.Set(editorLayer->m_sceneCameraPosition, editorLayer->m_sceneCameraRotation);
+            m_sceneCamera->Ready(editorLayer->m_sceneCameraPosition, editorLayer->m_sceneCameraRotation);
             m_sceneCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_defaultRenderingProperties,
                                                                                    m_sceneCamera->m_cameraSettings);
         }
@@ -424,7 +423,7 @@ void RayTracerManager::LateUpdate() {
                 auto rayTracerCamera = entity.GetOrSetPrivateComponent<RayTracerCamera>().lock();
                 if (!rayTracerCamera->IsEnabled()) continue;
                 auto globalTransform = rayTracerCamera->GetOwner().GetDataComponent<GlobalTransform>().m_value;
-                rayTracerCamera->m_cameraSettings.Set(globalTransform[3], glm::quat_cast(globalTransform));
+                rayTracerCamera->Ready(globalTransform[3], glm::quat_cast(globalTransform));
                 rayTracerCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_defaultRenderingProperties,
                                                                                          rayTracerCamera->m_cameraSettings);
             }
@@ -535,8 +534,6 @@ void RayTracerManager::OnInspect() {
 
 void RayTracerManager::OnDestroy() { CudaModule::Terminate(); }
 
-const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
-
 void RayTracerManager::SceneCameraWindow() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
@@ -546,8 +543,6 @@ void RayTracerManager::SceneCameraWindow() {
         m_rightMouseButtonHold = false;
         m_startMouse = false;
     }
-
-
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
     if (ImGui::Begin("RayTracedScene")) {
         if (ImGui::BeginChild("CameraRenderer", ImVec2(0, 0), false,
@@ -555,20 +550,9 @@ void RayTracerManager::SceneCameraWindow() {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
             if (ImGui::BeginMenuBar()) {
                 if (ImGui::BeginMenu("Settings")) {
-
-                    ImGui::Checkbox("Accumulate", &m_sceneCamera->m_cameraSettings.m_accumulate);
-                    ImGui::DragFloat("Gamma", &m_sceneCamera->m_cameraSettings.m_gamma,
-                                     0.01f, 0.1f, 3.0f);
-                    static int outputType = 0;
-                    if (ImGui::Combo("Output Type", &outputType, OutputTypes,
-                                     IM_ARRAYSIZE(OutputTypes))) {
-                        m_sceneCamera->m_cameraSettings.m_outputType = static_cast<OutputType>(outputType);
-                    }
                     ImGui::DragFloat("Resolution multiplier", &m_resolutionMultiplier,
                                      0.01f, 0.1f, 1.0f);
-                    ImGui::DragFloat("FOV",
-                                     &m_sceneCamera->m_cameraSettings.m_fov,
-                                     1, 1, 120);
+                    m_sceneCamera->OnInspect();
                     ImGui::EndMenu();
                 }
                 ImGui::EndMenuBar();
@@ -578,7 +562,7 @@ void RayTracerManager::SceneCameraWindow() {
             viewPortSize.y -= 20;
             if (viewPortSize.y < 0)
                 viewPortSize.y = 0;
-            m_outputSize = glm::ivec2(viewPortSize.x, viewPortSize.y);
+            if(m_sceneCamera->m_allowAutoResize) m_sceneCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y) * m_resolutionMultiplier;
             if (m_sceneCamera->m_rendered)
                 ImGui::Image(reinterpret_cast<ImTextureID>(m_sceneCamera->m_cameraSettings.m_outputTextureId),
                              viewPortSize, ImVec2(0, 1), ImVec2(1, 0));

@@ -7,16 +7,21 @@
 
 using namespace UniEngine;
 namespace RayTracerFacility {
-    class RAY_TRACER_FACILITY_API RayTracerCamera : public IPrivateComponent{
+    class RAY_TRACER_FACILITY_API RayTracerCamera : public IPrivateComponent {
         friend class RayTracerManager;
-        friend class RayTracer;
-        glm::ivec2 m_frameSize;
-        CameraProperties m_cameraSettings;
-        void Resize(const glm::ivec2 &newSize);
-        bool m_rendered = false;
-    public:
 
+        friend class RayTracer;
+
+
+        CameraProperties m_cameraSettings;
+        bool m_rendered = false;
         std::shared_ptr<Texture2D> m_colorTexture;
+
+        bool m_allowAutoResize = true;
+    public:
+        [[nodiscard]] std::shared_ptr<Texture2D> &UnsafeGetColorTexture();
+        glm::ivec2 m_frameSize;
+        void Ready(const glm::vec3& position, const glm::quat& rotation);
 
         void OnInspect() override;
 

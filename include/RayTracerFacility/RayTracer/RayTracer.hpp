@@ -301,6 +301,7 @@ namespace RayTracerFacility {
 
     class RayTracer {
     public:
+        bool m_requireUpdate = false;
         std::vector<RayTracerInstance> m_instances;
         std::vector<SkinnedRayTracerInstance> m_skinnedInstances;
 
@@ -325,7 +326,6 @@ namespace RayTracerFacility {
                 std::vector<std::pair<unsigned, cudaTextureObject_t>> &boundTextures,
                 std::vector<cudaGraphicsResource_t> &boundResources);
 
-        void ClearAccumulate();
 
         void LoadBtfMaterials(const std::vector<std::string> &folderPathes);
 

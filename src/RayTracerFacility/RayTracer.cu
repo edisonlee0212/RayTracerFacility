@@ -25,7 +25,7 @@
 
 using namespace RayTracerFacility;
 
-void CameraProperties::Set(const glm::vec3& position, const glm::quat& rotation) {
+void CameraProperties::Set(const glm::vec3 &position, const glm::quat &rotation) {
     m_from = position;
     m_direction = glm::normalize(rotation * glm::vec3(0, 0, -1));
     const float cosFovY = glm::radians(m_fov * 0.5f);
@@ -37,9 +37,8 @@ void CameraProperties::Set(const glm::vec3& position, const glm::quat& rotation)
 }
 
 void CameraProperties::Resize(const glm::ivec2 &newSize) {
-    if(m_frame.m_size == newSize) return;
+    if (m_frame.m_size == newSize) return;
     m_frame.m_size = newSize;
-
     if (m_denoiser) {
         OPTIX_CHECK(optixDenoiserDestroy(m_denoiser));
     };
@@ -52,7 +51,7 @@ void CameraProperties::Resize(const glm::ivec2 &newSize) {
     // .. then compute and allocate memory resources for the denoiser
     OptixDenoiserSizes denoiserReturnSizes;
     OPTIX_CHECK(optixDenoiserComputeMemoryResources(
-            m_denoiser, newSize.x, newSize.y, &denoiserReturnSizes));
+            m_denoiser, m_frame.m_size.x, m_frame.m_size.y, &denoiserReturnSizes));
 
     m_denoiserScratch.Resize(
             std::max(denoiserReturnSizes.withOverlapScratchSizeInBytes,
@@ -61,14 +60,13 @@ void CameraProperties::Resize(const glm::ivec2 &newSize) {
     m_denoiserState.Resize(denoiserReturnSizes.stateSizeInBytes);
     // ------------------------------------------------------------------
     // resize our cuda frame buffer
-    m_denoisedBuffer.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
-    m_frameBufferColor.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
-    m_frameBufferNormal.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
-    m_frameBufferAlbedo.Resize(newSize.x * newSize.y * sizeof(glm::vec4));
+    m_denoisedBuffer.Resize(m_frame.m_size.x * m_frame.m_size.y * sizeof(glm::vec4));
+    m_frameBufferColor.Resize(m_frame.m_size.x * m_frame.m_size.y * sizeof(glm::vec4));
+    m_frameBufferNormal.Resize(m_frame.m_size.x * m_frame.m_size.y * sizeof(glm::vec4));
+    m_frameBufferAlbedo.Resize(m_frame.m_size.x * m_frame.m_size.y * sizeof(glm::vec4));
 
     // update the launch parameters that we'll pass to the optix
     // launch:
-    m_frame.m_size = newSize;
     m_frame.m_colorBuffer =
             (glm::vec4 *) m_frameBufferColor.DevicePointer();
     m_frame.m_normalBuffer =
@@ -78,7 +76,7 @@ void CameraProperties::Resize(const glm::ivec2 &newSize) {
 
     // ------------------------------------------------------------------
     OPTIX_CHECK(optixDenoiserSetup(
-            m_denoiser, 0, newSize.x, newSize.y, m_denoiserState.DevicePointer(),
+            m_denoiser, 0, m_frame.m_size.x, m_frame.m_size.y, m_denoiserState.DevicePointer(),
             m_denoiserState.m_sizeInBytes, m_denoiserScratch.DevicePointer(),
             m_denoiserScratch.m_sizeInBytes));
 }
@@ -92,31 +90,35 @@ void Environment::OnInspect() {
         m_environmentalLightingType = static_cast<EnvironmentalLightingType>(type);
     }
     if (m_environmentalLightingType == EnvironmentalLightingType::Skydome) {
-        if (ImGui::TreeNodeEx("Atmosphere Settings", ImGuiTreeNodeFlags_DefaultOpen)){
-            if(ImGui::DragFloat("Earth Radius (km)", &m_atmosphere.m_earthRadius, 1.0f, 0.0f, m_atmosphere.m_atmosphereRadius - 1.0f)){
-                m_atmosphere.m_earthRadius = glm::clamp(m_atmosphere.m_earthRadius, 1.0f, m_atmosphere.m_atmosphereRadius - 1.0f);
+        if (ImGui::TreeNodeEx("Atmosphere Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+            if (ImGui::DragFloat("Earth Radius (km)", &m_atmosphere.m_earthRadius, 1.0f, 0.0f,
+                                 m_atmosphere.m_atmosphereRadius - 1.0f)) {
+                m_atmosphere.m_earthRadius = glm::clamp(m_atmosphere.m_earthRadius, 1.0f,
+                                                        m_atmosphere.m_atmosphereRadius - 1.0f);
             }
-            if(ImGui::DragFloat("Atmosphere Radius (km)", &m_atmosphere.m_atmosphereRadius, 1.0f, m_atmosphere.m_earthRadius + 1.0f, 100000.0f)){
-                m_atmosphere.m_atmosphereRadius =  glm::clamp(m_atmosphere.m_atmosphereRadius, m_atmosphere.m_earthRadius + 1.0f, 100000.0f);
+            if (ImGui::DragFloat("Atmosphere Radius (km)", &m_atmosphere.m_atmosphereRadius, 1.0f,
+                                 m_atmosphere.m_earthRadius + 1.0f, 100000.0f)) {
+                m_atmosphere.m_atmosphereRadius = glm::clamp(m_atmosphere.m_atmosphereRadius,
+                                                             m_atmosphere.m_earthRadius + 1.0f, 100000.0f);
             }
-            if(ImGui::DragFloat("Rayleigh scale height (m)", &m_atmosphere.m_Hr, 1.0f, 0.0f, 100000.0f)){
+            if (ImGui::DragFloat("Rayleigh scale height (m)", &m_atmosphere.m_Hr, 1.0f, 0.0f, 100000.0f)) {
                 m_atmosphere.m_Hr = glm::clamp(m_atmosphere.m_Hr, 0.0f, 10000.0f);
             }
-            if(ImGui::DragFloat("Mie scale height (m)", &m_atmosphere.m_Hm, 1.0f, 0.0f, 100000.0f)){
+            if (ImGui::DragFloat("Mie scale height (m)", &m_atmosphere.m_Hm, 1.0f, 0.0f, 100000.0f)) {
                 m_atmosphere.m_Hm = glm::clamp(m_atmosphere.m_Hm, 0.0f, 10000.0f);
             }
-            if(ImGui::DragFloat("Mie scattering mean cosine", &m_atmosphere.m_g, 0.001f, 0.0f, 0.999f, "%.4f")){
+            if (ImGui::DragFloat("Mie scattering mean cosine", &m_atmosphere.m_g, 0.001f, 0.0f, 0.999f, "%.4f")) {
                 m_atmosphere.m_g = glm::clamp(m_atmosphere.m_g, 0.0f, 0.999f);
             }
-            if(ImGui::DragInt("Samples", &m_atmosphere.m_numSamples, 1, 128)){
+            if (ImGui::DragInt("Samples", &m_atmosphere.m_numSamples, 1, 128)) {
                 m_atmosphere.m_numSamples = glm::clamp(m_atmosphere.m_numSamples, 1, 128);
             }
-            if(ImGui::DragInt("Samples light", &m_atmosphere.m_numSamplesLight, 1, 128)){
+            if (ImGui::DragInt("Samples light", &m_atmosphere.m_numSamplesLight, 1, 128)) {
                 m_atmosphere.m_numSamplesLight = glm::clamp(m_atmosphere.m_numSamplesLight, 1, 128);
             }
             ImGui::TreePop();
         }
-        if(ImGui::Button("Reset Atmosphere")){
+        if (ImGui::Button("Reset Atmosphere")) {
             m_atmosphere.m_earthRadius = 6360;      // In the paper this is usually Rg or Re (radius ground, eart)
             m_atmosphere.m_atmosphereRadius = 6420; // In the paper this is usually R or Ra (radius atmosphere)
             m_atmosphere.m_Hr = 7994;               // Thickness of the atmosphere if density was uniform (Hr)
@@ -152,7 +154,8 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const Came
     std::vector<std::pair<unsigned, cudaTextureObject_t>> boundTextures;
     std::vector<cudaGraphicsResource_t> boundResources;
     BuildShaderBindingTable(boundTextures, boundResources);
-    if(cameraProperties != m_defaultRenderingLaunchParams.m_cameraProperties){
+    if (m_requireUpdate) m_defaultRenderingPipeline.m_statusChanged = true;
+    if (cameraProperties != m_defaultRenderingLaunchParams.m_cameraProperties) {
         m_defaultRenderingLaunchParams.m_cameraProperties = cameraProperties;
         m_defaultRenderingPipeline.m_statusChanged = true;
     }
@@ -392,7 +395,8 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const Came
             break;
         case OutputType::Normal: {
             CUDA_CHECK(MemcpyToArray(
-                    outputArray, 0, 0, (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_normalBuffer,
+                    outputArray, 0, 0,
+                    (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_normalBuffer,
                     sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
@@ -400,7 +404,8 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const Came
             break;
         case OutputType::Albedo: {
             CUDA_CHECK(MemcpyToArray(
-                    outputArray, 0, 0, (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_albedoBuffer,
+                    outputArray, 0, 0,
+                    (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_albedoBuffer,
                     sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
@@ -437,10 +442,13 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const Came
 
             OPTIX_CHECK(optixDenoiserInvoke(
                     m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
-                    /*stream*/ 0, &denoiserParams, m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.DevicePointer(),
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.m_sizeInBytes, &denoiserGuideLayer, &denoiserLayer, 1,
+                    /*stream*/ 0, &denoiserParams,
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.DevicePointer(),
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.m_sizeInBytes,
+                    &denoiserGuideLayer, &denoiserLayer, 1,
                     /*inputOffsetX*/ 0,
-                    /*inputOffsetY*/ 0, m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
+                    /*inputOffsetY*/ 0,
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
                     m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
             CUDA_CHECK(MemcpyToArray(outputArray, 0, 0, (void *) outputLayer.data,
                                      sizeof(glm::vec4) *
@@ -463,7 +471,8 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const Came
 
 void RayTracer::EstimateIllumination(const size_t &size,
                                      const RayTracerProperties &properties,
-                                     CudaBuffer &lightProbes, unsigned seed, int numPointSamples, float pushNormalDistance) {
+                                     CudaBuffer &lightProbes, unsigned seed, int numPointSamples,
+                                     float pushNormalDistance) {
     if (!m_hasAccelerationStructure)
         return;
     if (size == 0) {
@@ -631,10 +640,6 @@ RayTracer::RayTracer() {
     storage.m_material = std::make_shared<MLVQMaterial>();
     storage.m_buffer.Upload(storage.m_material.get(), 1);
     m_MLVQMaterialStorage.push_back(storage);
-}
-
-void RayTracer::ClearAccumulate() {
-    m_defaultRenderingPipeline.m_statusChanged = true;
 }
 
 static void context_log_cb(const unsigned int level, const char *tag,
@@ -1729,7 +1734,6 @@ void RayTracer::BuildShaderBindingTable(
                 static_cast<int>(hitGroupRecords.size());
     }
 }
-
 
 
 void RayTracer::LoadBtfMaterials(const std::vector<std::string> &folderPathes) {

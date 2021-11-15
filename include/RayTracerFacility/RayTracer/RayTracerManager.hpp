@@ -56,7 +56,6 @@ namespace RayTracerFacility {
         bool m_startScroll = false;
         bool m_rightMouseButtonHold = false;
         float m_resolutionMultiplier = 0.5f;
-        glm::ivec2 m_outputSize = glm::ivec2(10, 10);
         std::shared_ptr<RayTracerCamera> m_sceneCamera;
         void UpdateScene() const;
 
