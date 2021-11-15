@@ -227,7 +227,7 @@ void RayTracerManager::UpdateSkinnedMeshesStorage(
                 continue;
             auto mesh = skinnedMeshRenderer->m_skinnedMesh.Get<SkinnedMesh>();
             auto material = skinnedMeshRenderer->m_material.Get<Material>();
-            if (!mesh || mesh->UnsafeGetSkinnedVertices().empty())
+            if (!mesh || mesh->UnsafeGetSkinnedVertices().empty() || skinnedMeshRenderer->m_finalResults->m_value.empty())
                 continue;
             auto globalTransform =
                     skinnedMeshRenderer->RagDoll()
