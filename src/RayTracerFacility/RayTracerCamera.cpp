@@ -14,6 +14,7 @@ void RayTracerCamera::Ready(const glm::vec3& position, const glm::quat& rotation
         m_colorTexture->UnsafeGetGLTexture()->ReSize(0, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, m_frameSize.x, m_frameSize.y);
     }
     m_cameraSettings.Set(position, rotation);
+
 }
 
 const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
@@ -26,7 +27,9 @@ void RayTracerCamera::OnInspect() {
                      IM_ARRAYSIZE(OutputTypes))) {
         m_cameraSettings.m_outputType = static_cast<OutputType>(outputType);
     }
-    ImGui::DragFloat("FOV", &m_cameraSettings.m_fov, 1.0f, 1, 359);
+    if(ImGui::DragFloat("FOV", &m_cameraSettings.m_fov, 1.0f, 1, 359)){
+        m_cameraSettings.SetFov(m_cameraSettings.m_fov);
+    }
     if (ImGui::TreeNode("Debug"))
     {
         static float debugSacle = 0.25f;

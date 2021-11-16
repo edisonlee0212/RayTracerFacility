@@ -26,19 +26,24 @@
 using namespace RayTracerFacility;
 
 void CameraProperties::Set(const glm::vec3 &position, const glm::quat &rotation) {
+    auto newFront = glm::normalize(rotation * glm::vec3(0, 0, -1));
+    auto newUp = glm::normalize(rotation * glm::vec3(0, 1, 0));
+    if (m_from != position || newFront != m_direction || m_up != newUp) m_modified = true;
     m_from = position;
-    m_direction = glm::normalize(rotation * glm::vec3(0, 0, -1));
+    m_direction = newFront;
+    m_up = newUp;
     const float cosFovY = glm::radians(m_fov * 0.5f);
     const float aspect = static_cast<float>(m_frame.m_size.x) / static_cast<float>(m_frame.m_size.y);
     m_horizontal =
             cosFovY * aspect *
-            glm::normalize(glm::cross(m_direction, rotation * glm::vec3(0, 1, 0)));
-    m_vertical = cosFovY * glm::normalize(glm::cross(m_horizontal, m_direction));
+            glm::normalize(glm::cross(m_direction, newUp));
+    m_vertical = cosFovY * glm::normalize(m_up);
 }
 
 void CameraProperties::Resize(const glm::ivec2 &newSize) {
     if (m_frame.m_size == newSize) return;
     m_frame.m_size = newSize;
+    m_modified = true;
     if (m_denoiser) {
         OPTIX_CHECK(optixDenoiserDestroy(m_denoiser));
     };
@@ -79,6 +84,11 @@ void CameraProperties::Resize(const glm::ivec2 &newSize) {
             m_denoiser, 0, m_frame.m_size.x, m_frame.m_size.y, m_denoiserState.DevicePointer(),
             m_denoiserState.m_sizeInBytes, m_denoiserScratch.DevicePointer(),
             m_denoiserScratch.m_sizeInBytes));
+}
+
+void CameraProperties::SetFov(float value) {
+    m_modified = true;
+    m_fov = value;
 }
 
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
@@ -146,7 +156,7 @@ void RayTracerProperties::OnInspect() {
     m_rayProperties.OnInspect();
 }
 
-bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const CameraProperties &cameraProperties) {
+bool RayTracer::RenderToCamera(const RayTracerProperties &properties, CameraProperties &cameraProperties) {
     if (cameraProperties.m_frame.m_size.x == 0 | cameraProperties.m_frame.m_size.y == 0)
         return true;
     if (!m_hasAccelerationStructure)
@@ -154,20 +164,18 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const Came
     std::vector<std::pair<unsigned, cudaTextureObject_t>> boundTextures;
     std::vector<cudaGraphicsResource_t> boundResources;
     BuildShaderBindingTable(boundTextures, boundResources);
-    if (m_requireUpdate) m_defaultRenderingPipeline.m_statusChanged = true;
-    if (cameraProperties != m_defaultRenderingLaunchParams.m_cameraProperties) {
-        m_defaultRenderingLaunchParams.m_cameraProperties = cameraProperties;
-        m_defaultRenderingPipeline.m_statusChanged = true;
-    }
-    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.Changed(
-            properties)) {
+    bool statusChanged = false;
+    if (m_requireUpdate) statusChanged = true;
+    m_defaultRenderingLaunchParams.m_cameraProperties = cameraProperties;
+    statusChanged = cameraProperties.m_modified;
+    cameraProperties.m_modified = false;
+    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.Changed(properties)) {
         m_defaultRenderingLaunchParams.m_rayTracerProperties = properties;
-        m_defaultRenderingPipeline.m_statusChanged = true;
+        statusChanged = true;
     }
-    if (!m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate ||
-        m_defaultRenderingPipeline.m_statusChanged) {
+    if (!m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate || statusChanged) {
         m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId = 0;
-        m_defaultRenderingPipeline.m_statusChanged = false;
+        cameraProperties.m_frame.m_frameId = 0;
     }
 #pragma region Bind environmental map as cudaTexture
     struct cudaResourceDesc cudaResourceDesc;
@@ -251,6 +259,7 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, const Came
     m_defaultRenderingPipeline.m_launchParamsBuffer.Upload(
             &m_defaultRenderingLaunchParams, 1);
     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId++;
+    cameraProperties.m_frame.m_frameId++;
 #pragma endregion
 #pragma region Launch rays from camera
     OPTIX_CHECK(

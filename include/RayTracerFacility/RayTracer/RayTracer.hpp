@@ -53,6 +53,8 @@ namespace RayTracerFacility {
         glm::vec3 m_from = glm::vec3(0.0f);
         /*! which direction we are looking *at* */
         glm::vec3 m_direction = glm::vec3(0.0f);
+        /*! which direction we are looking *at* */
+        glm::vec3 m_up = glm::vec3(0.0f);
         /*! general up-vector */
         glm::vec3 m_horizontal;
         glm::vec3 m_vertical;
@@ -69,24 +71,8 @@ namespace RayTracerFacility {
             size_t m_frameId;
         } m_frame;
 
-        bool operator!=(const CameraProperties &other) const {
-            return other.m_accumulate != this->m_accumulate ||
-                   other.m_fov != this->m_fov ||
-                   other.m_from != this->m_from ||
-                   other.m_direction != this->m_direction ||
-                   other.m_horizontal != this->m_horizontal ||
-                   other.m_vertical != this->m_vertical ||
-
-                   other.m_outputTextureId != this->m_outputTextureId ||
-                   other.m_outputType != this->m_outputType ||
-                   other.m_gamma != this->m_gamma ||
-
-                   other.m_frame.m_colorBuffer != this->m_frame.m_colorBuffer ||
-                   other.m_frame.m_normalBuffer != this->m_frame.m_normalBuffer ||
-                   other.m_frame.m_albedoBuffer != this->m_frame.m_albedoBuffer ||
-                   other.m_frame.m_size != this->m_frame.m_size;
-        }
-
+        bool m_modified = false;
+        void SetFov(float value);
         void Resize(const glm::ivec2 &newSize);
         void Set(const glm::vec3 &position, const glm::quat &rotation);
     };
@@ -286,7 +272,6 @@ namespace RayTracerFacility {
         CudaBuffer m_hitGroupRecordsBuffer;
         OptixShaderBindingTable m_sbt = {};
         CudaBuffer m_launchParamsBuffer;
-        bool m_statusChanged = false;
     };
     struct MLVQMaterial;
     struct MLVQMaterialStorage {
@@ -309,7 +294,7 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderToCamera(const RayTracerProperties &properties, const CameraProperties &cameraProperties);
+        RenderToCamera(const RayTracerProperties &properties, CameraProperties &cameraProperties);
 
         void EstimateIllumination(const size_t &size,
                                   const RayTracerProperties &properties,
