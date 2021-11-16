@@ -41,9 +41,12 @@ namespace RayTracerFacility {
                                    bool &updateShaderBindingTable) const;
 
         void SceneCameraWindow();
-
+        void RayCameraWindow();
     public:
         AssetRef m_environmentalMap;
+
+        PrivateComponentRef m_rayTracerCamera;
+
         bool m_enableMenus = true;
         EnvironmentProperties m_environmentProperties;
 

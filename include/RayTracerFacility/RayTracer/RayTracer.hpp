@@ -76,6 +76,8 @@ namespace RayTracerFacility {
         void Resize(const glm::ivec2 &newSize);
         void Set(const glm::vec3 &position, const glm::quat &rotation);
         void OnInspect();
+
+
     };
 
 #pragma region MyRegion

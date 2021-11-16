@@ -1,6 +1,8 @@
 #include "MLVQRenderer.hpp"
 #include <RayTracerManager.hpp>
 #include <ProjectManager.hpp>
+#include <RayTracer.hpp>
+
 #include "EditorLayer.hpp"
 #include "RayTracerCamera.hpp"
 #include "TriangleIlluminationEstimator.hpp"
@@ -413,7 +415,8 @@ void RayTracerManager::LateUpdate() {
         if (editorLayer && m_renderingEnabled) {
             m_sceneCamera->Ready(editorLayer->m_sceneCameraPosition, editorLayer->m_sceneCameraRotation);
             m_sceneCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_environmentProperties,
-                                                                                   m_sceneCamera->m_cameraSettings, m_sceneCamera->m_rayProperties);
+                                                                                   m_sceneCamera->m_cameraProperties,
+                                                                                   m_sceneCamera->m_rayProperties);
         }
         auto *entities = EntityManager::UnsafeGetPrivateComponentOwnersList<RayTracerCamera>(
                 EntityManager::GetCurrentScene());
@@ -425,7 +428,8 @@ void RayTracerManager::LateUpdate() {
                 auto globalTransform = rayTracerCamera->GetOwner().GetDataComponent<GlobalTransform>().m_value;
                 rayTracerCamera->Ready(globalTransform[3], glm::quat_cast(globalTransform));
                 rayTracerCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_environmentProperties,
-                                                                                         rayTracerCamera->m_cameraSettings, rayTracerCamera->m_rayProperties);
+                                                                                         rayTracerCamera->m_cameraProperties,
+                                                                                         rayTracerCamera->m_rayProperties);
             }
         }
     }
@@ -441,6 +445,7 @@ void RayTracerManager::OnInspect() {
         ImGui::EndMainMenuBar();
     }
     if (ImGui::Begin("Ray Tracer Manager")) {
+        EditorManager::DragAndDropButton<RayTracerCamera>(m_rayTracerCamera, "Ray Tracer Camera", true);
         if (ImGui::TreeNode("Environment Properties")) {
             EditorManager::DragAndDropButton<Cubemap>(
                     m_environmentalMap,
@@ -532,7 +537,7 @@ void RayTracerManager::OnInspect() {
         }
     }
     ImGui::End();
-
+    RayCameraWindow();
     SceneCameraWindow();
 }
 
@@ -542,8 +547,7 @@ void RayTracerManager::SceneCameraWindow() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
     if (m_rightMouseButtonHold &&
-        !InputManager::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT,
-                                        WindowManager::GetWindow())) {
+        !InputManager::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT, WindowManager::GetWindow())) {
         m_rightMouseButtonHold = false;
         m_startMouse = false;
     }
@@ -556,7 +560,7 @@ void RayTracerManager::SceneCameraWindow() {
                 if (ImGui::BeginMenu("Settings")) {
                     ImGui::DragFloat("Resolution multiplier", &m_resolutionMultiplier,
                                      0.01f, 0.1f, 1.0f);
-                    m_sceneCamera->m_cameraSettings.OnInspect();
+                    m_sceneCamera->m_cameraProperties.OnInspect();
                     m_sceneCamera->m_rayProperties.OnInspect();
                     ImGui::EndMenu();
                 }
@@ -567,13 +571,15 @@ void RayTracerManager::SceneCameraWindow() {
             viewPortSize.y -= 20;
             if (viewPortSize.y < 0)
                 viewPortSize.y = 0;
-            if(m_sceneCamera->m_allowAutoResize) m_sceneCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y) * m_resolutionMultiplier;
+            if (m_sceneCamera->m_allowAutoResize)
+                m_sceneCamera->m_frameSize =
+                        glm::vec2(viewPortSize.x, viewPortSize.y) *
+                        m_resolutionMultiplier;
             if (m_sceneCamera->m_rendered) {
-                ImGui::Image(reinterpret_cast<ImTextureID>(m_sceneCamera->m_cameraSettings.m_outputTextureId),
+                ImGui::Image(reinterpret_cast<ImTextureID>(m_sceneCamera->m_cameraProperties.m_outputTextureId),
                              viewPortSize, ImVec2(0, 1), ImVec2(1, 0));
                 editorLayer->CameraWindowDragAndDrop();
-            }
-            else
+            } else
                 ImGui::Text("No mesh in the scene!");
             if (ImGui::IsWindowFocused()) {
                 const bool valid = true;
@@ -667,7 +673,40 @@ void RayTracerManager::SceneCameraWindow() {
     }
     ImGui::End();
     ImGui::PopStyleVar();
+}
 
+void RayTracerManager::RayCameraWindow() {
+    auto editorLayer = Application::GetLayer<EditorLayer>();
+    if (!editorLayer) return;
+    auto rayTracerCamera = m_rayTracerCamera.Get<RayTracerCamera>();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
+    if (ImGui::Begin("RayTracedCamera")) {
+        if (ImGui::BeginChild("CameraRenderer", ImVec2(0, 0), false,
+                              ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
+            ImVec2 viewPortSize = ImGui::GetWindowSize();
+            viewPortSize.y -= 20;
+            if (viewPortSize.y < 0)
+                viewPortSize.y = 0;
+            if (rayTracerCamera) {
+                if (rayTracerCamera->m_allowAutoResize)
+                    rayTracerCamera->m_frameSize =
+                            glm::vec2(viewPortSize.x,
+                                      viewPortSize.y) *
+                            m_resolutionMultiplier;
+                if (rayTracerCamera->m_rendered) {
+                    ImGui::Image(reinterpret_cast<ImTextureID>(rayTracerCamera->m_cameraProperties.m_outputTextureId),
+                                 viewPortSize, ImVec2(0, 1), ImVec2(1, 0));
+                    editorLayer->CameraWindowDragAndDrop();
+                } else
+                    ImGui::Text("No mesh in the scene!");
+            } else {
+                ImGui::Text("No camera attached!");
+            }
+        }
+        ImGui::EndChild();
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
 }
 
 float LerpHelper(float x, float y, float t) { return x * (1.f - t) + y * t; }
@@ -751,4 +790,5 @@ SunlightCalculator &SunlightCalculator::GetInstance() {
     static SunlightCalculator instance;
     return instance;
 }
+
 

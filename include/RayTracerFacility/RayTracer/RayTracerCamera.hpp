@@ -9,11 +9,8 @@ using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API RayTracerCamera : public IPrivateComponent {
         friend class RayTracerManager;
-
         friend class RayTracer;
-
-
-        CameraProperties m_cameraSettings;
+        CameraProperties m_cameraProperties;
         RayProperties m_rayProperties;
         bool m_rendered = false;
         std::shared_ptr<Texture2D> m_colorTexture;
@@ -29,6 +26,7 @@ namespace RayTracerFacility {
         void OnCreate() override;
 
         void OnDestroy() override;
-
+        void Serialize(YAML::Emitter &out) override;
+        void Deserialize(const YAML::Node &in) override;
     };
 }

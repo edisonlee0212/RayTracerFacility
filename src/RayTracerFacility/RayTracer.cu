@@ -110,6 +110,8 @@ void CameraProperties::OnInspect() {
     }
 }
 
+
+
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
 
 void EnvironmentProperties::OnInspect() {
@@ -174,6 +176,8 @@ void RayProperties::OnInspect() {
         ImGui::TreePop();
     }
 }
+
+
 
 void RayTracerProperties::OnInspect() {
     m_environment.OnInspect();
