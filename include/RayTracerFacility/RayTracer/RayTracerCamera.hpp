@@ -28,5 +28,9 @@ namespace RayTracerFacility {
         void OnDestroy() override;
         void Serialize(YAML::Emitter &out) override;
         void Deserialize(const YAML::Node &in) override;
+
+        void PostCloneAction(const std::shared_ptr<IPrivateComponent> &target) override;
+        RayTracerCamera& operator=(const RayTracerCamera& source);
+
     };
 }

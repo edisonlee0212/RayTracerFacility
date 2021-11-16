@@ -399,6 +399,10 @@ void RayTracerManager::OnCreate() {
 
     m_sceneCamera = SerializationManager::ProduceSerializable<RayTracerCamera>();
     m_sceneCamera->OnCreate();
+
+    Application::RegisterPostAttachSceneFunction([&](const std::shared_ptr<Scene>& scene){
+       m_rayTracerCamera.ResetScene(scene);
+    });
 }
 
 
@@ -553,7 +557,7 @@ void RayTracerManager::SceneCameraWindow() {
     }
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
     if (ImGui::Begin("RayTracedScene")) {
-        if (ImGui::BeginChild("CameraRenderer", ImVec2(0, 0), false,
+        if (ImGui::BeginChild("RaySceneRenderer", ImVec2(0, 0), false,
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
             if (ImGui::BeginMenuBar()) {
@@ -681,7 +685,7 @@ void RayTracerManager::RayCameraWindow() {
     auto rayTracerCamera = m_rayTracerCamera.Get<RayTracerCamera>();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
     if (ImGui::Begin("RayTracedCamera")) {
-        if (ImGui::BeginChild("CameraRenderer", ImVec2(0, 0), false,
+        if (ImGui::BeginChild("RayCameraRenderer", ImVec2(0, 0), false,
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
             ImVec2 viewPortSize = ImGui::GetWindowSize();
             viewPortSize.y -= 20;
@@ -689,10 +693,7 @@ void RayTracerManager::RayCameraWindow() {
                 viewPortSize.y = 0;
             if (rayTracerCamera) {
                 if (rayTracerCamera->m_allowAutoResize)
-                    rayTracerCamera->m_frameSize =
-                            glm::vec2(viewPortSize.x,
-                                      viewPortSize.y) *
-                            m_resolutionMultiplier;
+                    rayTracerCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y);
                 if (rayTracerCamera->m_rendered) {
                     ImGui::Image(reinterpret_cast<ImTextureID>(rayTracerCamera->m_cameraProperties.m_outputTextureId),
                                  viewPortSize, ImVec2(0, 1), ImVec2(1, 0));

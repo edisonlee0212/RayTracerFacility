@@ -110,6 +110,30 @@ void CameraProperties::OnInspect() {
     }
 }
 
+CameraProperties &CameraProperties::operator=(const CameraProperties &source) {
+    m_accumulate = source.m_accumulate;
+    m_fov = source.m_fov;
+    m_from = source.m_from;
+    m_direction = source.m_direction;
+    m_up = source.m_up;
+    m_horizontal = source.m_horizontal;
+    m_outputType = source.m_outputType;
+    m_gamma = source.m_gamma;
+    m_modified = true;
+    return *this;
+}
+
+CameraProperties::~CameraProperties() {
+    m_frameBufferColor.Free();
+    m_frameBufferNormal.Free();
+    m_frameBufferAlbedo.Free();
+    OPTIX_CHECK(optixDenoiserDestroy(m_denoiser));
+    m_denoiserScratch.Free();
+    m_denoiserState.Free();
+    m_frameBufferColor.Free();
+    m_denoiserIntensity.Free();
+
+}
 
 
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};

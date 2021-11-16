@@ -61,6 +61,7 @@ void RayTracerCamera::OnCreate() {
 }
 
 void RayTracerCamera::OnDestroy() {
+
 }
 
 std::shared_ptr<Texture2D> &RayTracerCamera::UnsafeGetColorTexture() {
@@ -91,4 +92,19 @@ void RayTracerCamera::Serialize(YAML::Emitter &out) {
     out << YAML::Key << "m_cameraProperties.m_fov" << YAML::Value << m_cameraProperties.m_fov;
     out << YAML::Key << "m_cameraProperties.m_gamma" << YAML::Value << m_cameraProperties.m_gamma;
     out << YAML::Key << "m_cameraProperties.m_accumulate" << YAML::Value << m_cameraProperties.m_accumulate;
+}
+
+void RayTracerCamera::PostCloneAction(const std::shared_ptr<IPrivateComponent> &target) {
+    //TODO: Reallocate new CUDABuffer here.
+
+}
+
+RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
+    m_cameraProperties = source.m_cameraProperties;
+    m_rayProperties = source.m_rayProperties;
+    m_frameSize = source.m_frameSize;
+    m_allowAutoResize = source.m_allowAutoResize;
+    m_rendered = false;
+
+    return *this;
 }
