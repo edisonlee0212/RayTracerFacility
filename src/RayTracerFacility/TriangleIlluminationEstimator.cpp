@@ -7,12 +7,13 @@ void TriangleIlluminationEstimator::OnInspect() {
     m_lightSensorsGroup.OnInspect();
     static int seed = 0;
     static float pushNormalDistance = 0.001f;
-    static int sampleAmount = 300;
+    static RayProperties rayProperties;
     ImGui::DragInt("Seed", &seed);
     ImGui::DragFloat("Normal Distance", &pushNormalDistance, 0.0001f, -1.0f, 1.0f);
-    ImGui::DragInt("Samples", &sampleAmount);
+    ImGui::DragInt("Samples", &rayProperties.m_samples);
+    ImGui::DragInt("Bounces", &rayProperties.m_bounces);
     if (ImGui::Button("Calculate illumination")) {
-        CalculateIlluminationForDescendents(seed, pushNormalDistance, sampleAmount);
+        CalculateIlluminationForDescendents(rayProperties, seed, pushNormalDistance);
     }
     static bool renderProbes = true;
     static float probeSize = 0.02f;
@@ -28,9 +29,9 @@ void TriangleIlluminationEstimator::OnInspect() {
     ImGui::Text("%s", ("Radiant flux: " + std::to_string(m_radiantFlux)).c_str());
 }
 
-void TriangleIlluminationEstimator::CalculateIllumination(int seed, float pushNormalDistance, int sampleAmount) {
+void TriangleIlluminationEstimator::CalculateIllumination(const RayProperties& rayProperties, int seed, float pushNormalDistance) {
 #pragma region Illumination estimation
-    m_lightSensorsGroup.CalculateIllumination(seed, pushNormalDistance, sampleAmount);
+    m_lightSensorsGroup.CalculateIllumination(rayProperties, seed, pushNormalDistance);
     m_probeTransforms.clear();
     m_probeColors.clear();
     m_totalEnergy = 0.0f;
@@ -44,7 +45,7 @@ void TriangleIlluminationEstimator::CalculateIllumination(int seed, float pushNo
 #pragma endregion
 }
 
-void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(int seed, float pushNormalDistance, int sampleAmount) {
+void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const RayProperties& rayProperties, int seed, float pushNormalDistance) {
     m_totalArea = 0.0f;
     m_lightSensorsGroup.m_lightProbes.clear();
     auto entities = GetOwner().GetDescendants();
@@ -108,7 +109,7 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(int seed
             }
         }
     }
-    CalculateIllumination(seed, pushNormalDistance, sampleAmount);
+    CalculateIllumination(rayProperties, seed, pushNormalDistance);
     size_t i = 0;
     for (const auto &entity: entities) {
         if (entity.HasPrivateComponent<MeshRenderer>()) {

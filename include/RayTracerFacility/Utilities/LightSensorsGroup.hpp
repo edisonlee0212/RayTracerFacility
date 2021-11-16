@@ -7,9 +7,9 @@
 
 using namespace UniEngine;
 namespace RayTracerFacility {
-    struct LightSensorsGroup {
-        std::vector<RayTracerFacility::LightProbe<float>> m_lightProbes;
-        void CalculateIllumination(int seed, float pushNormalDistance, int sampleAmount);
+    struct RAY_TRACER_FACILITY_API LightSensorsGroup {
+        std::vector<LightProbe<float>> m_lightProbes;
+        void CalculateIllumination(const RayProperties& rayProperties, int seed, float pushNormalDistance);
         void OnInspect();
     };
 

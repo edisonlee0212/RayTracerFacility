@@ -91,9 +91,29 @@ void CameraProperties::SetFov(float value) {
     m_fov = value;
 }
 
+const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
+
+void CameraProperties::OnInspect() {
+    if (ImGui::TreeNode("Camera Properties")) {
+        ImGui::Checkbox("Accumulate", &m_accumulate);
+        ImGui::DragFloat("Gamma", &m_gamma,
+                         0.01f, 0.1f, 3.0f);
+        int outputType = (int) m_outputType;
+        if (ImGui::Combo("Output Type", &outputType, OutputTypes,
+                         IM_ARRAYSIZE(OutputTypes))) {
+            m_outputType = static_cast<OutputType>(outputType);
+        }
+        if (ImGui::DragFloat("FOV", &m_fov, 1.0f, 1, 359)) {
+            SetFov(m_fov);
+        }
+        ImGui::TreePop();
+    }
+}
+
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
 
-void Environment::OnInspect() {
+void EnvironmentProperties::OnInspect() {
+
     static int type = 0;
     if (ImGui::Combo("Environment Lighting", &type, EnvironmentalLightingTypes,
                      IM_ARRAYSIZE(EnvironmentalLightingTypes))) {
@@ -142,12 +162,16 @@ void Environment::OnInspect() {
         EnvironmentalLightingType::Color) {
         ImGui::ColorEdit3("Sky light color", &m_sunColor.x);
     }
+
 }
 
 void RayProperties::OnInspect() {
-    ImGui::DragInt("bounce limit", &m_bounces, 1, 1, 8);
-    if (ImGui::DragInt("pixel samples", &m_samples, 1, 1, 64)) {
-        m_samples = glm::clamp(m_samples, 1, 128);
+    if (ImGui::TreeNode("Ray Properties")) {
+        ImGui::DragInt("bounce limit", &m_bounces, 1, 1, 8);
+        if (ImGui::DragInt("pixel samples", &m_samples, 1, 1, 64)) {
+            m_samples = glm::clamp(m_samples, 1, 128);
+        }
+        ImGui::TreePop();
     }
 }
 
@@ -156,7 +180,8 @@ void RayTracerProperties::OnInspect() {
     m_rayProperties.OnInspect();
 }
 
-bool RayTracer::RenderToCamera(const RayTracerProperties &properties, CameraProperties &cameraProperties) {
+bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentProperties, CameraProperties &cameraProperties,
+                               const RayProperties &rayProperties) {
     if (cameraProperties.m_frame.m_size.x == 0 | cameraProperties.m_frame.m_size.y == 0)
         return true;
     if (!m_hasAccelerationStructure)
@@ -167,10 +192,14 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, CameraProp
     bool statusChanged = false;
     if (m_requireUpdate) statusChanged = true;
     m_defaultRenderingLaunchParams.m_cameraProperties = cameraProperties;
-    statusChanged = cameraProperties.m_modified;
+    statusChanged = statusChanged || cameraProperties.m_modified;
     cameraProperties.m_modified = false;
-    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.Changed(properties)) {
-        m_defaultRenderingLaunchParams.m_rayTracerProperties = properties;
+    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.Changed(environmentProperties)) {
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
+        statusChanged = true;
+    }
+    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties.Changed(rayProperties)) {
+        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
         statusChanged = true;
     }
     if (!m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate || statusChanged) {
@@ -479,8 +508,8 @@ bool RayTracer::RenderToCamera(const RayTracerProperties &properties, CameraProp
 }
 
 void RayTracer::EstimateIllumination(const size_t &size,
-                                     const RayTracerProperties &properties,
-                                     CudaBuffer &lightProbes, unsigned seed, int numPointSamples,
+                                     const EnvironmentProperties &environmentProperties, const RayProperties &rayProperties,
+                                     CudaBuffer &lightProbes, unsigned seed,
                                      float pushNormalDistance) {
     if (!m_hasAccelerationStructure)
         return;
@@ -571,10 +600,10 @@ void RayTracer::EstimateIllumination(const size_t &size,
 #pragma endregion
 #pragma region Upload parameters
     m_defaultIlluminationEstimationLaunchParams.m_seed = seed;
-    m_defaultIlluminationEstimationLaunchParams.m_numPointSamples = numPointSamples;
     m_defaultIlluminationEstimationLaunchParams.m_pushNormalDistance = pushNormalDistance;
     m_defaultIlluminationEstimationLaunchParams.m_size = size;
-    m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties = properties;
+    m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
+    m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
     m_defaultIlluminationEstimationLaunchParams.m_lightProbes =
             reinterpret_cast<LightProbe<float> *>(lightProbes.DevicePointer());
     m_defaultIlluminationEstimationPipeline.m_launchParamsBuffer.Upload(

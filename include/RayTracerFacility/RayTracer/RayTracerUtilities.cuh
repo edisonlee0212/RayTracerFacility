@@ -231,7 +231,7 @@ namespace RayTracerFacility {
      * @return
      */
     static __forceinline__ __device__ glm::vec3
-    NishitaSkyIncidentLight(const glm::vec3 &position, const glm::vec3 &rayDir, const const Environment &environment) {
+    NishitaSkyIncidentLight(const glm::vec3 &position, const glm::vec3 &rayDir, const const EnvironmentProperties &environment) {
         float earthRadius = environment.m_atmosphere.m_earthRadius * 1000.0f;      // In the paper this is usually Rg or Re (radius ground, eart)
         float atmosphereRadius = environment.m_atmosphere.m_atmosphereRadius * 1000.0f; // In the paper this is usually R or Ra (radius atmosphere)
         float Hr = environment.m_atmosphere.m_Hr;               // Thickness of the atmosphere if density was uniform (Hr)
@@ -300,7 +300,7 @@ namespace RayTracerFacility {
     }
 
     static __forceinline__ __device__ glm::vec3
-    CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir, const Environment &environment) {
+    CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir, const EnvironmentProperties &environment) {
         glm::vec3 environmentalLightColor;
         switch (environment.m_environmentalLightingType) {
             case EnvironmentalLightingType::Color:

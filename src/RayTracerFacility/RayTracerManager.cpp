@@ -401,10 +401,10 @@ void RayTracerManager::OnCreate() {
 
 
 void RayTracerManager::LateUpdate() {
-    UpdateScene();
+
     auto environmentalMap = m_environmentalMap.Get<Cubemap>();
     if (environmentalMap) {
-        m_defaultRenderingProperties.m_environment.m_environmentalMapId =
+        m_environmentProperties.m_environmentalMapId =
                 environmentalMap->Texture()->Id();
     }
     if (!CudaModule::GetRayTracer()->m_instances.empty() ||
@@ -412,8 +412,8 @@ void RayTracerManager::LateUpdate() {
         auto editorLayer = Application::GetLayer<EditorLayer>();
         if (editorLayer && m_renderingEnabled) {
             m_sceneCamera->Ready(editorLayer->m_sceneCameraPosition, editorLayer->m_sceneCameraRotation);
-            m_sceneCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_defaultRenderingProperties,
-                                                                                   m_sceneCamera->m_cameraSettings);
+            m_sceneCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_environmentProperties,
+                                                                                   m_sceneCamera->m_cameraSettings, m_sceneCamera->m_rayProperties);
         }
         auto *entities = EntityManager::UnsafeGetPrivateComponentOwnersList<RayTracerCamera>(
                 EntityManager::GetCurrentScene());
@@ -424,11 +424,12 @@ void RayTracerManager::LateUpdate() {
                 if (!rayTracerCamera->IsEnabled()) continue;
                 auto globalTransform = rayTracerCamera->GetOwner().GetDataComponent<GlobalTransform>().m_value;
                 rayTracerCamera->Ready(globalTransform[3], glm::quat_cast(globalTransform));
-                rayTracerCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_defaultRenderingProperties,
-                                                                                         rayTracerCamera->m_cameraSettings);
+                rayTracerCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_environmentProperties,
+                                                                                         rayTracerCamera->m_cameraSettings, rayTracerCamera->m_rayProperties);
             }
         }
     }
+    UpdateScene();
 }
 
 void RayTracerManager::OnInspect() {
@@ -440,83 +441,86 @@ void RayTracerManager::OnInspect() {
         ImGui::EndMainMenuBar();
     }
     if (ImGui::Begin("Ray Tracer Manager")) {
-        EditorManager::DragAndDropButton<Cubemap>(
-                m_environmentalMap,
-                "Environmental Map");
-        m_defaultRenderingProperties.OnInspect();
-        if (m_defaultRenderingProperties.m_environment.m_environmentalLightingType ==
-            EnvironmentalLightingType::Skydome) {
-            if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                static bool manualControl = false;
-                ImGui::Checkbox("Manual control", &manualControl);
-                static glm::vec2 angles = glm::vec2(90, 0);
-                if (manualControl) {
-                    if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
-                                          1.0f, 0.0f, 180.0f)) {
-                        m_defaultRenderingProperties.m_environment.m_sunDirection =
-                                glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
-                                glm::vec3(0, 0, -1);
-                    }
-                    ImGui::DragFloat(
-                            "Zenith radiance",
-                            &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f,
-                            0.0f, 10.0f);
-                } else {
-                    static bool autoUpdate = true;
-                    ImGui::Checkbox("Auto update", &autoUpdate);
-                    static int hour = 12;
-                    static int minute = 0;
-                    static bool updated = false;
-                    static float zenithIntensityFactor = 1.0f;
-                    static bool useDayRange = true;
-                    ImGui::Checkbox("Use day range", &useDayRange);
-                    if (useDayRange) {
-                        static float dayRange = 0.5f;
-                        if (ImGui::DragFloat("Day range", &dayRange, 0.001f, 0.0f, 1.0f)) {
-                            dayRange = glm::clamp(dayRange, 0.0f, 1.0f);
-                            hour = (dayRange * 24.0f);
-                            minute = ((dayRange * 24.0f) - static_cast<int>(dayRange * 24.0f)) * 60;
-                            updated = true;
+        if (ImGui::TreeNode("Environment Properties")) {
+            EditorManager::DragAndDropButton<Cubemap>(
+                    m_environmentalMap,
+                    "Environmental Map");
+            m_environmentProperties.OnInspect();
+            if (m_environmentProperties.m_environmentalLightingType ==
+                EnvironmentalLightingType::Skydome) {
+                if (ImGui::TreeNodeEx("Skydome Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    static bool manualControl = false;
+                    ImGui::Checkbox("Manual control", &manualControl);
+                    static glm::vec2 angles = glm::vec2(90, 0);
+                    if (manualControl) {
+                        if (ImGui::DragFloat2("Skylight Direction (X/Y axis)", &angles.x,
+                                              1.0f, 0.0f, 180.0f)) {
+                            m_environmentProperties.m_sunDirection =
+                                    glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
+                                    glm::vec3(0, 0, -1);
                         }
+                        ImGui::DragFloat(
+                                "Zenith radiance",
+                                &m_environmentProperties.m_skylightIntensity, 0.01f,
+                                0.0f, 10.0f);
                     } else {
-                        if (ImGui::DragInt("Hour", &hour, 1, 0, 23)) {
-                            hour = glm::clamp(hour, 0, 23);
+                        static bool autoUpdate = true;
+                        ImGui::Checkbox("Auto update", &autoUpdate);
+                        static int hour = 12;
+                        static int minute = 0;
+                        static bool updated = false;
+                        static float zenithIntensityFactor = 1.0f;
+                        static bool useDayRange = true;
+                        ImGui::Checkbox("Use day range", &useDayRange);
+                        if (useDayRange) {
+                            static float dayRange = 0.5f;
+                            if (ImGui::DragFloat("Day range", &dayRange, 0.001f, 0.0f, 1.0f)) {
+                                dayRange = glm::clamp(dayRange, 0.0f, 1.0f);
+                                hour = (dayRange * 24.0f);
+                                minute = ((dayRange * 24.0f) - static_cast<int>(dayRange * 24.0f)) * 60;
+                                updated = true;
+                            }
+                        } else {
+                            if (ImGui::DragInt("Hour", &hour, 1, 0, 23)) {
+                                hour = glm::clamp(hour, 0, 23);
+                                updated = true;
+                            }
+                            if (ImGui::DragInt("Minute", &minute, 1, 0, 59)) {
+                                minute = glm::clamp(minute, 0, 59);
+                                updated = true;
+                            }
+                        }
+                        if (ImGui::DragFloat("Zenith radiance factor", &zenithIntensityFactor,
+                                             0.01f, 0.0f, 10.0f)) {
                             updated = true;
                         }
-                        if (ImGui::DragInt("Minute", &minute, 1, 0, 59)) {
-                            minute = glm::clamp(minute, 0, 59);
-                            updated = true;
+                        if (ImGui::Button("Update") || (autoUpdate && updated)) {
+                            updated = false;
+                            SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
+                            SunlightCalculator::CalculateSunlightIntensity(
+                                    hour, minute,
+                                    m_environmentProperties.m_skylightIntensity);
+                            m_environmentProperties.m_skylightIntensity *=
+                                    zenithIntensityFactor;
+                            m_environmentProperties.m_sunDirection =
+                                    glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
+                                    glm::vec3(0, 0, -1);
                         }
+                        ImGui::Text(
+                                ("Intensity: " +
+                                 std::to_string(
+                                         m_environmentProperties.m_skylightIntensity))
+                                        .c_str());
+                        ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
                     }
-                    if (ImGui::DragFloat("Zenith radiance factor", &zenithIntensityFactor,
-                                         0.01f, 0.0f, 10.0f)) {
-                        updated = true;
-                    }
-                    if (ImGui::Button("Update") || (autoUpdate && updated)) {
-                        updated = false;
-                        SunlightCalculator::CalculateSunlightAngle(hour, minute, angles.x);
-                        SunlightCalculator::CalculateSunlightIntensity(
-                                hour, minute,
-                                m_defaultRenderingProperties.m_environment.m_skylightIntensity);
-                        m_defaultRenderingProperties.m_environment.m_skylightIntensity *=
-                                zenithIntensityFactor;
-                        m_defaultRenderingProperties.m_environment.m_sunDirection =
-                                glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
-                                glm::vec3(0, 0, -1);
-                    }
-                    ImGui::Text(
-                            ("Intensity: " +
-                             std::to_string(
-                                     m_defaultRenderingProperties.m_environment.m_skylightIntensity))
-                                    .c_str());
-                    ImGui::Text(("Angle: [" + std::to_string(angles.x)).c_str());
+                    ImGui::TreePop();
                 }
-                ImGui::TreePop();
+            } else {
+                ImGui::DragFloat("Sun intensity",
+                                 &m_environmentProperties.m_skylightIntensity, 0.01f, 0.0f,
+                                 100.0f);
             }
-        } else {
-            ImGui::DragFloat("Sun intensity",
-                             &m_defaultRenderingProperties.m_environment.m_skylightIntensity, 0.01f, 0.0f,
-                             100.0f);
+            ImGui::TreePop();
         }
         if (ImGui::Button("Load all MLVQ Materials")) {
             std::vector<std::string> pathes;
@@ -552,7 +556,8 @@ void RayTracerManager::SceneCameraWindow() {
                 if (ImGui::BeginMenu("Settings")) {
                     ImGui::DragFloat("Resolution multiplier", &m_resolutionMultiplier,
                                      0.01f, 0.1f, 1.0f);
-                    m_sceneCamera->OnInspect();
+                    m_sceneCamera->m_cameraSettings.OnInspect();
+                    m_sceneCamera->m_rayProperties.OnInspect();
                     ImGui::EndMenu();
                 }
                 ImGui::EndMenuBar();
@@ -563,9 +568,11 @@ void RayTracerManager::SceneCameraWindow() {
             if (viewPortSize.y < 0)
                 viewPortSize.y = 0;
             if(m_sceneCamera->m_allowAutoResize) m_sceneCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y) * m_resolutionMultiplier;
-            if (m_sceneCamera->m_rendered)
+            if (m_sceneCamera->m_rendered) {
                 ImGui::Image(reinterpret_cast<ImTextureID>(m_sceneCamera->m_cameraSettings.m_outputTextureId),
                              viewPortSize, ImVec2(0, 1), ImVec2(1, 0));
+                editorLayer->CameraWindowDragAndDrop();
+            }
             else
                 ImGui::Text("No mesh in the scene!");
             if (ImGui::IsWindowFocused()) {

@@ -12,8 +12,8 @@ namespace RayTracerFacility {
     public:
         std::vector<glm::mat4> m_probeTransforms;
         std::vector<glm::vec4> m_probeColors;
-        void CalculateIlluminationForDescendents(int seed, float pushNormalDistance, int sampleAmount);
-        void CalculateIllumination(int seed, float pushNormalDistance, int sampleAmount);
+        void CalculateIlluminationForDescendents(const RayProperties& rayProperties, int seed, float pushNormalDistance);
+        void CalculateIllumination(const RayProperties& rayProperties, int seed, float pushNormalDistance);
         float m_totalArea = 0.0f;
         float m_totalEnergy = 0.0f;
         float m_radiantFlux = 0.0f;

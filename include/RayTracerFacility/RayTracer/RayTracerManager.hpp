@@ -45,7 +45,7 @@ namespace RayTracerFacility {
     public:
         AssetRef m_environmentalMap;
         bool m_enableMenus = true;
-        RayTracerProperties m_defaultRenderingProperties;
+        EnvironmentProperties m_environmentProperties;
 
 
         bool m_renderingEnabled = true;

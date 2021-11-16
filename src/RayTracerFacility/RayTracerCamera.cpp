@@ -17,19 +17,9 @@ void RayTracerCamera::Ready(const glm::vec3& position, const glm::quat& rotation
 
 }
 
-const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
 void RayTracerCamera::OnInspect() {
-    ImGui::Checkbox("Accumulate", &m_cameraSettings.m_accumulate);
-    ImGui::DragFloat("Gamma", &m_cameraSettings.m_gamma,
-                     0.01f, 0.1f, 3.0f);
-    int outputType = (int)m_cameraSettings.m_outputType;
-    if (ImGui::Combo("Output Type", &outputType, OutputTypes,
-                     IM_ARRAYSIZE(OutputTypes))) {
-        m_cameraSettings.m_outputType = static_cast<OutputType>(outputType);
-    }
-    if(ImGui::DragFloat("FOV", &m_cameraSettings.m_fov, 1.0f, 1, 359)){
-        m_cameraSettings.SetFov(m_cameraSettings.m_fov);
-    }
+    m_cameraSettings.OnInspect();
+    m_rayProperties.OnInspect();
     if (ImGui::TreeNode("Debug"))
     {
         static float debugSacle = 0.25f;

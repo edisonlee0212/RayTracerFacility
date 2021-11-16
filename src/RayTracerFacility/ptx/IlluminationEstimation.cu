@@ -121,7 +121,7 @@ namespace RayTracerFacility {
 #pragma region Main ray generation
     extern "C" __global__ void __raygen__illuminationEstimation() {
         unsigned ix = optixGetLaunchIndex().x;
-        const auto numPointSamples = defaultIlluminationEstimationLaunchParams.m_numPointSamples;
+        const auto numPointSamples = defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties.m_samples;
         const auto position = defaultIlluminationEstimationLaunchParams.m_lightProbes[ix].m_position;
         const auto surfaceNormal = defaultIlluminationEstimationLaunchParams.m_lightProbes[ix].m_surfaceNormal;
         const auto pushDistance = defaultIlluminationEstimationLaunchParams.m_pushNormalDistance;

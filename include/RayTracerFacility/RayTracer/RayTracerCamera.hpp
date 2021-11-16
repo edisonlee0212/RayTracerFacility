@@ -14,6 +14,7 @@ namespace RayTracerFacility {
 
 
         CameraProperties m_cameraSettings;
+        RayProperties m_rayProperties;
         bool m_rendered = false;
         std::shared_ptr<Texture2D> m_colorTexture;
 

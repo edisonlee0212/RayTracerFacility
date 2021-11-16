@@ -75,6 +75,7 @@ namespace RayTracerFacility {
         void SetFov(float value);
         void Resize(const glm::ivec2 &newSize);
         void Set(const glm::vec3 &position, const glm::quat &rotation);
+        void OnInspect();
     };
 
 #pragma region MyRegion
@@ -83,7 +84,7 @@ namespace RayTracerFacility {
     };
 
 
-    struct RAY_TRACER_FACILITY_API Environment {
+    struct RAY_TRACER_FACILITY_API EnvironmentProperties {
         EnvironmentalLightingType m_environmentalLightingType =
                 EnvironmentalLightingType::Skydome;
         float m_skylightIntensity = 1.0f;
@@ -103,7 +104,7 @@ namespace RayTracerFacility {
         } m_atmosphere;
 
         [[nodiscard]] bool
-        Changed(const Environment &properties) const {
+        Changed(const EnvironmentProperties &properties) const {
             return properties.m_environmentalLightingType !=
                    m_environmentalLightingType ||
                    properties.m_skylightIntensity != m_skylightIntensity ||
@@ -136,7 +137,7 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API RayTracerProperties {
-        Environment m_environment;
+        EnvironmentProperties m_environment;
         RayProperties m_rayProperties;
 
         [[nodiscard]] bool
@@ -190,7 +191,6 @@ namespace RayTracerFacility {
 
     struct DefaultIlluminationEstimationLaunchParams {
         unsigned m_seed = 0;
-        int m_numPointSamples = 100;
         float m_pushNormalDistance = 0.001f;
         size_t m_size;
         RayTracerProperties m_rayTracerProperties;
@@ -294,11 +294,11 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderToCamera(const RayTracerProperties &properties, CameraProperties &cameraProperties);
+        RenderToCamera(const EnvironmentProperties &environmentProperties, CameraProperties &cameraProperties, const RayProperties& rayProperties);
 
         void EstimateIllumination(const size_t &size,
-                                  const RayTracerProperties &properties,
-                                  CudaBuffer &lightProbes, unsigned seed, int numPointSamples,
+                                  const EnvironmentProperties &environmentProperties, const RayProperties& rayProperties,
+                                  CudaBuffer &lightProbes, unsigned seed,
                                   float pushNormalDistance);
 
         RayTracer();
