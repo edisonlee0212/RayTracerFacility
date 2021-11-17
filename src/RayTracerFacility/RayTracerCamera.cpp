@@ -7,8 +7,8 @@
 
 using namespace RayTracerFacility;
 
-void RayTracerCamera::Ready(const glm::vec3& position, const glm::quat& rotation) {
-    if(m_cameraProperties.m_frame.m_size != m_frameSize) {
+void RayTracerCamera::Ready(const glm::vec3 &position, const glm::quat &rotation) {
+    if (m_cameraProperties.m_frame.m_size != m_frameSize) {
         m_frameSize = glm::max(glm::ivec2(1, 1), m_frameSize);
         m_cameraProperties.Resize(m_frameSize);
         m_colorTexture->UnsafeGetGLTexture()->ReSize(0, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, m_frameSize.x, m_frameSize.y);
@@ -20,14 +20,14 @@ void RayTracerCamera::Ready(const glm::vec3& position, const glm::quat& rotation
 void RayTracerCamera::OnInspect() {
     m_cameraProperties.OnInspect();
     m_rayProperties.OnInspect();
-    if (ImGui::TreeNode("Debug"))
-    {
+    if (ImGui::TreeNode("Debug")) {
         static float debugSacle = 0.25f;
         ImGui::DragFloat("Scale", &debugSacle, 0.01f, 0.1f, 1.0f);
         debugSacle = glm::clamp(debugSacle, 0.1f, 1.0f);
         ImGui::Image(
-                (ImTextureID)m_colorTexture->UnsafeGetGLTexture()->Id(),
-                ImVec2(m_cameraProperties.m_frame.m_size.x * debugSacle, m_cameraProperties.m_frame.m_size.y * debugSacle),
+                (ImTextureID) m_colorTexture->UnsafeGetGLTexture()->Id(),
+                ImVec2(m_cameraProperties.m_frame.m_size.x * debugSacle,
+                       m_cameraProperties.m_frame.m_size.y * debugSacle),
                 ImVec2(0, 1),
                 ImVec2(1, 0));
         ImGui::TreePop();
@@ -36,8 +36,7 @@ void RayTracerCamera::OnInspect() {
         m_colorTexture->SetPathAndSave(filePath);
     });
     ImGui::Checkbox("Allow auto resize", &m_allowAutoResize);
-    if (!m_allowAutoResize)
-    {
+    if (!m_allowAutoResize) {
         ImGui::DragInt2("Resolution", &m_frameSize.x);
     }
 }
@@ -61,7 +60,6 @@ void RayTracerCamera::OnCreate() {
 }
 
 void RayTracerCamera::OnDestroy() {
-    /*
     m_cameraProperties.m_frameBufferColor.Free();
     m_cameraProperties.m_frameBufferNormal.Free();
     m_cameraProperties.m_frameBufferAlbedo.Free();
@@ -70,7 +68,6 @@ void RayTracerCamera::OnDestroy() {
     m_cameraProperties.m_denoiserState.Free();
     m_cameraProperties.m_frameBufferColor.Free();
     m_cameraProperties.m_denoiserIntensity.Free();
-     */
 }
 
 std::shared_ptr<Texture2D> &RayTracerCamera::UnsafeGetColorTexture() {
@@ -78,16 +75,16 @@ std::shared_ptr<Texture2D> &RayTracerCamera::UnsafeGetColorTexture() {
 }
 
 void RayTracerCamera::Deserialize(const YAML::Node &in) {
-    if(in["m_allowAutoResize"]) m_allowAutoResize = in["m_allowAutoResize"].as<bool>();
-    if(in["m_frameSize.x"]) m_frameSize.x = in["m_frameSize.x"].as<int>();
-    if(in["m_frameSize.y"]) m_frameSize.y = in["m_frameSize.y"].as<int>();
+    if (in["m_allowAutoResize"]) m_allowAutoResize = in["m_allowAutoResize"].as<bool>();
+    if (in["m_frameSize.x"]) m_frameSize.x = in["m_frameSize.x"].as<int>();
+    if (in["m_frameSize.y"]) m_frameSize.y = in["m_frameSize.y"].as<int>();
 
-    if(in["m_rayProperties.m_samples"]) m_rayProperties.m_samples = in["m_rayProperties.m_samples"].as<int>();
-    if(in["m_rayProperties.m_bounces"]) m_rayProperties.m_bounces = in["m_rayProperties.m_bounces"].as<int>();
+    if (in["m_rayProperties.m_samples"]) m_rayProperties.m_samples = in["m_rayProperties.m_samples"].as<int>();
+    if (in["m_rayProperties.m_bounces"]) m_rayProperties.m_bounces = in["m_rayProperties.m_bounces"].as<int>();
 
-    if(in["m_cameraProperties.m_fov"]) m_cameraProperties.m_fov = in["m_cameraProperties.m_fov"].as<float>();
-    if(in["m_cameraProperties.m_gamma"]) m_cameraProperties.m_gamma = in["m_cameraProperties.m_gamma"].as<float>();
-    if(in["m_cameraProperties.m_accumulate"]) m_cameraProperties.m_accumulate = in["m_cameraProperties.m_accumulate"].as<bool>();
+    if (in["m_cameraProperties.m_fov"]) m_cameraProperties.m_fov = in["m_cameraProperties.m_fov"].as<float>();
+    if (in["m_cameraProperties.m_gamma"]) m_cameraProperties.m_gamma = in["m_cameraProperties.m_gamma"].as<float>();
+    if (in["m_cameraProperties.m_accumulate"]) m_cameraProperties.m_accumulate = in["m_cameraProperties.m_accumulate"].as<bool>();
 }
 
 void RayTracerCamera::Serialize(YAML::Emitter &out) {
