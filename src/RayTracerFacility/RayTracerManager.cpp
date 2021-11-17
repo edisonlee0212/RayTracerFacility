@@ -407,7 +407,6 @@ void RayTracerManager::OnCreate() {
 
 
 void RayTracerManager::LateUpdate() {
-
     auto environmentalMap = m_environmentalMap.Get<Cubemap>();
     if (environmentalMap) {
         m_environmentProperties.m_environmentalMapId =
@@ -416,7 +415,7 @@ void RayTracerManager::LateUpdate() {
     if (!CudaModule::GetRayTracer()->m_instances.empty() ||
         !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
         auto editorLayer = Application::GetLayer<EditorLayer>();
-        if (editorLayer && m_renderingEnabled) {
+        if (m_enableSceneCamera && editorLayer && m_renderingEnabled) {
             m_sceneCamera->Ready(editorLayer->m_sceneCameraPosition, editorLayer->m_sceneCameraRotation);
             m_sceneCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_environmentProperties,
                                                                                    m_sceneCamera->m_cameraProperties,
@@ -450,6 +449,7 @@ void RayTracerManager::OnInspect() {
     }
     if (ImGui::Begin("Ray Tracer Manager")) {
         EditorManager::DragAndDropButton<RayTracerCamera>(m_rayTracerCamera, "Ray Tracer Camera", true);
+        ImGui::Checkbox("Scene Camera", &m_enableSceneCamera);
         if (ImGui::TreeNode("Environment Properties")) {
             EditorManager::DragAndDropButton<Cubemap>(
                     m_environmentalMap,
@@ -542,7 +542,7 @@ void RayTracerManager::OnInspect() {
     }
     ImGui::End();
     RayCameraWindow();
-    SceneCameraWindow();
+    if(m_enableSceneCamera) SceneCameraWindow();
 }
 
 void RayTracerManager::OnDestroy() { CudaModule::Terminate(); }
@@ -556,7 +556,7 @@ void RayTracerManager::SceneCameraWindow() {
         m_startMouse = false;
     }
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
-    if (ImGui::Begin("RayTracedScene")) {
+    if (ImGui::Begin("Scene (Ray)")) {
         if (ImGui::BeginChild("RaySceneRenderer", ImVec2(0, 0), false,
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{5, 5});
@@ -672,7 +672,7 @@ void RayTracerManager::SceneCameraWindow() {
             }
         }
         ImGui::EndChild();
-        auto *window = ImGui::FindWindowByName("RayTracedScene");
+        auto *window = ImGui::FindWindowByName("Scene (Ray)");
         m_renderingEnabled = !(window->Hidden && !window->Collapsed);
     }
     ImGui::End();
@@ -684,7 +684,7 @@ void RayTracerManager::RayCameraWindow() {
     if (!editorLayer) return;
     auto rayTracerCamera = m_rayTracerCamera.Get<RayTracerCamera>();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
-    if (ImGui::Begin("RayTracedCamera")) {
+    if (ImGui::Begin("Camera (Ray)")) {
         if (ImGui::BeginChild("RayCameraRenderer", ImVec2(0, 0), false,
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
             ImVec2 viewPortSize = ImGui::GetWindowSize();

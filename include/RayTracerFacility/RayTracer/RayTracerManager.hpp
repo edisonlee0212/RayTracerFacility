@@ -50,7 +50,7 @@ namespace RayTracerFacility {
         bool m_enableMenus = true;
         EnvironmentProperties m_environmentProperties;
 
-
+        bool m_enableSceneCamera = false;
         bool m_renderingEnabled = true;
         float m_lastX = 0;
         float m_lastY = 0;

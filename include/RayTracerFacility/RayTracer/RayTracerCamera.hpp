@@ -32,5 +32,8 @@ namespace RayTracerFacility {
         void PostCloneAction(const std::shared_ptr<IPrivateComponent> &target) override;
         RayTracerCamera& operator=(const RayTracerCamera& source);
 
+        void Render();
+        void Render(const RayProperties& rayProperties);
+        void Render(const RayProperties& rayProperties, const EnvironmentProperties& environmentProperties);
     };
 }

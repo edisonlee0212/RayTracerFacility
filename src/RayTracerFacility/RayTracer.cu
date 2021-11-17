@@ -91,7 +91,7 @@ void CameraProperties::SetFov(float value) {
     m_fov = value;
 }
 
-const char *OutputTypes[]{"Color", "Normal", "Albedo", "DenoisedColor"};
+const char *OutputTypes[]{"Color", "Normal", "Albedo"};
 
 void CameraProperties::OnInspect() {
     if (ImGui::TreeNode("Camera Properties")) {
@@ -106,8 +106,15 @@ void CameraProperties::OnInspect() {
         if (ImGui::DragFloat("FOV", &m_fov, 1.0f, 1, 359)) {
             SetFov(m_fov);
         }
+        if (ImGui::DragFloat("Denoiser Strength", &m_denoiserStrength, 0.01f, 0.0f, 1.0f)) {
+            SetDenoiserStrength(m_denoiserStrength);
+        }
         ImGui::TreePop();
     }
+}
+
+void CameraProperties::SetDenoiserStrength(float value) {
+    m_denoiserStrength = glm::clamp(value, 0.0f, 1.0f);
 }
 
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
@@ -426,11 +433,58 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
     outputLayer.format = OPTIX_PIXEL_FORMAT_FLOAT4;
     switch (m_defaultRenderingLaunchParams.m_cameraProperties.m_outputType) {
         case OutputType::Color: {
-            CUDA_CHECK(MemcpyToArray(
-                    outputArray, 0, 0, (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer,
-                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
-                    cudaMemcpyDeviceToDevice));
+            if(cameraProperties.m_denoiserStrength == 0.0f) {
+                CUDA_CHECK(MemcpyToArray(
+                        outputArray, 0, 0,
+                        (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer,
+                        sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                        cudaMemcpyDeviceToDevice));
+            }else{
+                OptixDenoiserParams denoiserParams;
+                denoiserParams.denoiseAlpha = 1;
+                m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
+                if (m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes != sizeof(float))
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
+                denoiserParams.hdrIntensity = m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer();
+                if (m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate &&
+                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId > 1)
+                    denoiserParams.blendFactor =
+                            (1.0f - cameraProperties.m_denoiserStrength) / m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId;
+                else
+                    denoiserParams.blendFactor = (1.0f - cameraProperties.m_denoiserStrength);
+
+                OPTIX_CHECK(optixDenoiserComputeIntensity(
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
+                        /*stream*/ 0, &inputLayer[0],
+                        (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer(),
+                        (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
+
+                OptixDenoiserLayer denoiserLayer = {};
+                denoiserLayer.input = inputLayer[0];
+                denoiserLayer.output = outputLayer;
+
+                OptixDenoiserGuideLayer denoiserGuideLayer = {};
+                denoiserGuideLayer.albedo = inputLayer[1];
+                denoiserGuideLayer.normal = inputLayer[2];
+
+                OPTIX_CHECK(optixDenoiserInvoke(
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
+                        /*stream*/ 0, &denoiserParams,
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.DevicePointer(),
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.m_sizeInBytes,
+                        &denoiserGuideLayer, &denoiserLayer, 1,
+                        /*inputOffsetX*/ 0,
+                        /*inputOffsetY*/ 0,
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
+                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
+                CUDA_CHECK(MemcpyToArray(outputArray, 0, 0, (void *) outputLayer.data,
+                                         sizeof(glm::vec4) *
+                                         m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                                         m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                                         cudaMemcpyDeviceToDevice));
+            }
         }
             break;
         case OutputType::Normal: {
@@ -449,52 +503,6 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
                     sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
-        }
-            break;
-        case OutputType::DenoisedColor: {
-            OptixDenoiserParams denoiserParams;
-            denoiserParams.denoiseAlpha = 1;
-            m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
-            if (m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes != sizeof(float))
-                m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
-            denoiserParams.hdrIntensity = m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer();
-            if (m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate &&
-                m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId > 1)
-                denoiserParams.blendFactor =
-                        1.f / m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId;
-            else
-                denoiserParams.blendFactor = 0.0f;
-
-            OPTIX_CHECK(optixDenoiserComputeIntensity(
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
-                    /*stream*/ 0, &inputLayer[0],
-                    (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer(),
-                    (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
-
-            OptixDenoiserLayer denoiserLayer = {};
-            denoiserLayer.input = inputLayer[0];
-            denoiserLayer.output = outputLayer;
-
-            OptixDenoiserGuideLayer denoiserGuideLayer = {};
-            denoiserGuideLayer.albedo = inputLayer[1];
-            denoiserGuideLayer.normal = inputLayer[2];
-
-            OPTIX_CHECK(optixDenoiserInvoke(
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
-                    /*stream*/ 0, &denoiserParams,
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.DevicePointer(),
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.m_sizeInBytes,
-                    &denoiserGuideLayer, &denoiserLayer, 1,
-                    /*inputOffsetX*/ 0,
-                    /*inputOffsetY*/ 0,
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
-            CUDA_CHECK(MemcpyToArray(outputArray, 0, 0, (void *) outputLayer.data,
-                                     sizeof(glm::vec4) *
-                                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
-                                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
-                                     cudaMemcpyDeviceToDevice));
         }
             break;
     }

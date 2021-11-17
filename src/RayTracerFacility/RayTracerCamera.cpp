@@ -4,6 +4,7 @@
 
 #include "RayTracerCamera.hpp"
 #include "Optix7.hpp"
+#include "RayTracerManager.hpp"
 
 using namespace RayTracerFacility;
 
@@ -57,6 +58,7 @@ void RayTracerCamera::OnCreate() {
 
     m_frameSize = glm::ivec2(2, 2);
     Ready(glm::vec3(0), glm::vec3(0));
+    SetEnabled(false);
 }
 
 void RayTracerCamera::OnDestroy() {
@@ -85,6 +87,7 @@ void RayTracerCamera::Deserialize(const YAML::Node &in) {
     if (in["m_cameraProperties.m_fov"]) m_cameraProperties.m_fov = in["m_cameraProperties.m_fov"].as<float>();
     if (in["m_cameraProperties.m_gamma"]) m_cameraProperties.m_gamma = in["m_cameraProperties.m_gamma"].as<float>();
     if (in["m_cameraProperties.m_accumulate"]) m_cameraProperties.m_accumulate = in["m_cameraProperties.m_accumulate"].as<bool>();
+    if (in["m_cameraProperties.m_denoiserStrength"]) m_cameraProperties.m_denoiserStrength = in["m_cameraProperties.m_accumulate"].as<float>();
 }
 
 void RayTracerCamera::Serialize(YAML::Emitter &out) {
@@ -98,6 +101,7 @@ void RayTracerCamera::Serialize(YAML::Emitter &out) {
     out << YAML::Key << "m_cameraProperties.m_fov" << YAML::Value << m_cameraProperties.m_fov;
     out << YAML::Key << "m_cameraProperties.m_gamma" << YAML::Value << m_cameraProperties.m_gamma;
     out << YAML::Key << "m_cameraProperties.m_accumulate" << YAML::Value << m_cameraProperties.m_accumulate;
+    out << YAML::Key << "m_cameraProperties.m_denoiserStrength" << YAML::Value << m_cameraProperties.m_denoiserStrength;
 }
 
 void RayTracerCamera::PostCloneAction(const std::shared_ptr<IPrivateComponent> &target) {
@@ -112,6 +116,7 @@ RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
     m_cameraProperties.m_horizontal = source.m_cameraProperties.m_horizontal;
     m_cameraProperties.m_outputType = source.m_cameraProperties.m_outputType;
     m_cameraProperties.m_gamma = source.m_cameraProperties.m_gamma;
+    m_cameraProperties.m_denoiserStrength = source.m_cameraProperties.m_denoiserStrength;
     m_cameraProperties.m_modified = true;
 
     m_cameraProperties.m_frame.m_size = glm::vec2(0, 0);
@@ -120,4 +125,40 @@ RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
     m_allowAutoResize = source.m_allowAutoResize;
     m_rendered = false;
     return *this;
+}
+
+void RayTracerCamera::Render() {
+    if (!CudaModule::GetRayTracer()->m_instances.empty() ||
+        !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
+        auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
+        Ready(globalTransform[3], glm::quat_cast(globalTransform));
+        m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
+                Application::GetLayer<RayTracerManager>()->m_environmentProperties,
+                m_cameraProperties,
+                m_rayProperties);
+    }
+}
+
+void RayTracerCamera::Render(const RayProperties &rayProperties) {
+    if (!CudaModule::GetRayTracer()->m_instances.empty() ||
+        !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
+        auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
+        Ready(globalTransform[3], glm::quat_cast(globalTransform));
+        m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
+                Application::GetLayer<RayTracerManager>()->m_environmentProperties,
+                m_cameraProperties,
+                rayProperties);
+    }
+}
+
+void RayTracerCamera::Render(const RayProperties& rayProperties, const EnvironmentProperties& environmentProperties) {
+    if (!CudaModule::GetRayTracer()->m_instances.empty() ||
+        !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
+        auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
+        Ready(globalTransform[3], glm::quat_cast(globalTransform));
+        m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
+                environmentProperties,
+                m_cameraProperties,
+                rayProperties);
+    }
 }
