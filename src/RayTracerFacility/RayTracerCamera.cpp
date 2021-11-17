@@ -61,7 +61,16 @@ void RayTracerCamera::OnCreate() {
 }
 
 void RayTracerCamera::OnDestroy() {
-
+    /*
+    m_cameraProperties.m_frameBufferColor.Free();
+    m_cameraProperties.m_frameBufferNormal.Free();
+    m_cameraProperties.m_frameBufferAlbedo.Free();
+    OPTIX_CHECK(optixDenoiserDestroy(m_cameraProperties.m_denoiser));
+    m_cameraProperties.m_denoiserScratch.Free();
+    m_cameraProperties.m_denoiserState.Free();
+    m_cameraProperties.m_frameBufferColor.Free();
+    m_cameraProperties.m_denoiserIntensity.Free();
+     */
 }
 
 std::shared_ptr<Texture2D> &RayTracerCamera::UnsafeGetColorTexture() {
@@ -95,16 +104,23 @@ void RayTracerCamera::Serialize(YAML::Emitter &out) {
 }
 
 void RayTracerCamera::PostCloneAction(const std::shared_ptr<IPrivateComponent> &target) {
-    //TODO: Reallocate new CUDABuffer here.
-
 }
 
 RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
-    m_cameraProperties = source.m_cameraProperties;
+    m_cameraProperties.m_accumulate = source.m_cameraProperties.m_accumulate;
+    m_cameraProperties.m_fov = source.m_cameraProperties.m_fov;
+    m_cameraProperties.m_from = source.m_cameraProperties.m_from;
+    m_cameraProperties.m_direction = source.m_cameraProperties.m_direction;
+    m_cameraProperties.m_up = source.m_cameraProperties.m_up;
+    m_cameraProperties.m_horizontal = source.m_cameraProperties.m_horizontal;
+    m_cameraProperties.m_outputType = source.m_cameraProperties.m_outputType;
+    m_cameraProperties.m_gamma = source.m_cameraProperties.m_gamma;
+    m_cameraProperties.m_modified = true;
+
+    m_cameraProperties.m_frame.m_size = glm::vec2(0, 0);
     m_rayProperties = source.m_rayProperties;
     m_frameSize = source.m_frameSize;
     m_allowAutoResize = source.m_allowAutoResize;
     m_rendered = false;
-
     return *this;
 }
