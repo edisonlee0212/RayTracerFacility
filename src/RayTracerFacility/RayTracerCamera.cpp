@@ -72,10 +72,6 @@ void RayTracerCamera::OnDestroy() {
     m_cameraProperties.m_denoiserIntensity.Free();
 }
 
-std::shared_ptr<Texture2D> &RayTracerCamera::UnsafeGetColorTexture() {
-    return m_colorTexture;
-}
-
 void RayTracerCamera::Deserialize(const YAML::Node &in) {
     if (in["m_allowAutoResize"]) m_allowAutoResize = in["m_allowAutoResize"].as<bool>();
     if (in["m_frameSize.x"]) m_frameSize.x = in["m_frameSize.x"].as<int>();
@@ -102,9 +98,6 @@ void RayTracerCamera::Serialize(YAML::Emitter &out) {
     out << YAML::Key << "m_cameraProperties.m_gamma" << YAML::Value << m_cameraProperties.m_gamma;
     out << YAML::Key << "m_cameraProperties.m_accumulate" << YAML::Value << m_cameraProperties.m_accumulate;
     out << YAML::Key << "m_cameraProperties.m_denoiserStrength" << YAML::Value << m_cameraProperties.m_denoiserStrength;
-}
-
-void RayTracerCamera::PostCloneAction(const std::shared_ptr<IPrivateComponent> &target) {
 }
 
 RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
@@ -151,7 +144,7 @@ void RayTracerCamera::Render(const RayProperties &rayProperties) {
     }
 }
 
-void RayTracerCamera::Render(const RayProperties& rayProperties, const EnvironmentProperties& environmentProperties) {
+void RayTracerCamera::Render(const RayProperties &rayProperties, const EnvironmentProperties &environmentProperties) {
     if (!CudaModule::GetRayTracer()->m_instances.empty() ||
         !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
         auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
@@ -161,4 +154,16 @@ void RayTracerCamera::Render(const RayProperties& rayProperties, const Environme
                 m_cameraProperties,
                 rayProperties);
     }
+}
+
+void RayTracerCamera::SetFov(float value) {
+    m_cameraProperties.SetFov(value);
+}
+
+void RayTracerCamera::SetDenoiserStrength(float value) {
+    m_cameraProperties.SetDenoiserStrength(value);
+}
+
+void RayTracerCamera::SetGamma(float value) {
+    m_cameraProperties.SetGamma(value);
 }

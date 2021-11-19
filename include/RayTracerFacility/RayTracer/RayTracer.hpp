@@ -74,6 +74,7 @@ namespace RayTracerFacility {
 
         bool m_modified = false;
         void SetFov(float value);
+        void SetGamma(float value);
         void SetDenoiserStrength(float value);
         void Resize(const glm::ivec2 &newSize);
         void Set(const glm::vec3 &position, const glm::quat &rotation);

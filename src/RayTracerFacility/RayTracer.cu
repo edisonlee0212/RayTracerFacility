@@ -117,6 +117,11 @@ void CameraProperties::SetDenoiserStrength(float value) {
     m_denoiserStrength = glm::clamp(value, 0.0f, 1.0f);
 }
 
+void CameraProperties::SetGamma(float value) {
+    m_modified = true;
+    m_gamma = value;
+}
+
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
 
 void EnvironmentProperties::OnInspect() {
