@@ -20,6 +20,8 @@ namespace RayTracerFacility {
         void Ready(const glm::vec3& position, const glm::quat& rotation);
         void OnInspect() override;
         void SetFov(float value);
+        void SetOutputType(OutputType value);
+        void SetAccumulate(bool value);
         void SetGamma(float value);
         void SetDenoiserStrength(float value);
         void OnCreate() override;

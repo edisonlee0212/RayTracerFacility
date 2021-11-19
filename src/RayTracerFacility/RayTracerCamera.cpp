@@ -167,3 +167,11 @@ void RayTracerCamera::SetDenoiserStrength(float value) {
 void RayTracerCamera::SetGamma(float value) {
     m_cameraProperties.SetGamma(value);
 }
+
+void RayTracerCamera::SetOutputType(OutputType value) {
+    m_cameraProperties.SetOutputType(value);
+}
+
+void RayTracerCamera::SetAccumulate(bool value) {
+    m_cameraProperties.m_accumulate = value;
+}

@@ -122,6 +122,11 @@ void CameraProperties::SetGamma(float value) {
     m_gamma = value;
 }
 
+void CameraProperties::SetOutputType(OutputType value) {
+    m_modified = true;
+    m_outputType = value;
+}
+
 const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
 
 void EnvironmentProperties::OnInspect() {
