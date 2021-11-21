@@ -47,7 +47,7 @@ namespace RayTracerFacility {
 #pragma endregion
         bool m_accumulate = true;
 
-        float m_fov = 60;
+        float m_fov = 120;
         /*! camera position - *from* where we are looking */
         glm::vec3 m_from = glm::vec3(0.0f);
         /*! which direction we are looking *at* */
