@@ -32,7 +32,7 @@ void RayTracerManager::UpdateMeshesStorage(
                 continue;
             auto mesh = meshRenderer->m_mesh.Get<Mesh>();
             auto material = meshRenderer->m_material.Get<Material>();
-            if (!mesh || mesh->UnsafeGetVertices().empty())
+            if (!material || !mesh || mesh->UnsafeGetVertices().empty())
                 continue;
             auto globalTransform = entity.GetDataComponent<GlobalTransform>().m_value;
             RayTracerInstance newRayTracerInstance;
@@ -231,7 +231,7 @@ void RayTracerManager::UpdateSkinnedMeshesStorage(
                 continue;
             auto mesh = skinnedMeshRenderer->m_skinnedMesh.Get<SkinnedMesh>();
             auto material = skinnedMeshRenderer->m_material.Get<Material>();
-            if (!mesh || mesh->UnsafeGetSkinnedVertices().empty() ||
+            if (!material || !mesh || mesh->UnsafeGetSkinnedVertices().empty() ||
                 skinnedMeshRenderer->m_finalResults->m_value.empty())
                 continue;
             auto globalTransform =
