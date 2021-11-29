@@ -185,9 +185,7 @@ void EnvironmentProperties::OnInspect() {
 void RayProperties::OnInspect() {
     if (ImGui::TreeNode("Ray Properties")) {
         ImGui::DragInt("bounce limit", &m_bounces, 1, 1, 8);
-        if (ImGui::DragInt("pixel samples", &m_samples, 1, 1, 64)) {
-            m_samples = glm::clamp(m_samples, 1, 128);
-        }
+        ImGui::DragInt("pixel samples", &m_samples, 1, 1, 64);
         ImGui::TreePop();
     }
 }
