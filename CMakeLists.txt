@@ -24,7 +24,7 @@ endif ()
 # ------------------------------------------------------------------
 if (BUILD_RAY_TRACER_FACILITY)
     if (NOT WIN32)
-        set(OptiX_INSTALL_DIR "~/NVIDIA-OptiX-SDK-7.3.0-linux64-x86_64")
+        set(OptiX_INSTALL_DIR "~/NVIDIA-OptiX-SDK-7.4.0-linux64-x86_64")
     endif ()
 endif ()
 # We need a CMAKE_DIR with some code to find external dependencies
