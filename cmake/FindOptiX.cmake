@@ -29,10 +29,14 @@
 # Locate the OptiX distribution.  Search relative to the SDK first, then look in the system.
 
 # Our initial guess will be within the SDK.
+set(OptiX_INSTALL_DIR "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.4.0" CACHE PATH "Path to OptiX installed location.")
 find_path(searched_OptiX_INSTALL_DIR
         NAME include/optix.h
         PATHS
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK *"
+        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.4.0"
+        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.3.0"
+        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.2.0"
+        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.1.0"
         )
 mark_as_advanced(searched_OptiX_INSTALL_DIR)
 set(OptiX_INSTALL_DIR ${searched_OptiX_INSTALL_DIR} CACHE PATH "Path to OptiX installed location.")
