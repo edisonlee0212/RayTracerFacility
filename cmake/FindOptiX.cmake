@@ -29,8 +29,13 @@
 # Locate the OptiX distribution.  Search relative to the SDK first, then look in the system.
 
 # Our initial guess will be within the SDK.
-set(OptiX_INSTALL_DIR "C:\\ProgramData\\NVIDIA Corporation\\OptiX SDK 7.4.0" CACHE PATH "Path to OptiX installed location.")
-
+find_path(searched_OptiX_INSTALL_DIR
+        NAME include/optix.h
+        PATHS
+        "C:/ProgramData/NVIDIA Corporation/OptiX SDK *"
+        )
+mark_as_advanced(searched_OptiX_INSTALL_DIR)
+set(OptiX_INSTALL_DIR ${searched_OptiX_INSTALL_DIR} CACHE PATH "Path to OptiX installed location.")
 # The distribution contains only 64 bit libraries.  Error when we have been mis-configured.
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
     if(WIN32)
