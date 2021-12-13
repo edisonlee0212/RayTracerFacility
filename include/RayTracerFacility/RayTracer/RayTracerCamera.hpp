@@ -8,7 +8,7 @@
 using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API RayTracerCamera : public IPrivateComponent {
-        friend class RayTracerManager;
+        friend class RayTracerLayer;
         friend class RayTracer;
         CameraProperties m_cameraProperties;
         bool m_rendered = false;

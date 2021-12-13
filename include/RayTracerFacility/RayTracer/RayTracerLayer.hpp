@@ -32,7 +32,7 @@ namespace RayTracerFacility {
       static void CalculateSunlightAngle(int hour, int minute, float& angle);
     };
 
-    class RAY_TRACER_FACILITY_API RayTracerManager : public ILayer {
+    class RAY_TRACER_FACILITY_API RayTracerLayer : public ILayer {
     protected:
         void UpdateMeshesStorage(std::vector<RayTracerInstance>& meshesStorage, bool &rebuildAccelerationStructure,
                                  bool &updateShaderBindingTable) const;
@@ -44,8 +44,12 @@ namespace RayTracerFacility {
         void RayCameraWindow();
     public:
         AssetRef m_environmentalMap;
-        
         PrivateComponentRef m_rayTracerCamera;
+
+        bool m_renderMeshRenderer = true;
+        bool m_renderParticles = true;
+        bool m_renderMLVQRenderer = true;
+        bool m_renderSkinnedMeshRenderer = true;
 
         bool m_enableMenus = true;
         EnvironmentProperties m_environmentProperties;

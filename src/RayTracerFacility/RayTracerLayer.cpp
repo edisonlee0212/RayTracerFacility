@@ -1,5 +1,5 @@
 #include "MLVQRenderer.hpp"
-#include <RayTracerManager.hpp>
+#include <RayTracerLayer.hpp>
 #include <ProjectManager.hpp>
 #include <RayTracer.hpp>
 
@@ -10,7 +10,7 @@
 using namespace RayTracerFacility;
 
 
-void RayTracerManager::UpdateMeshesStorage(
+void RayTracerLayer::UpdateMeshesStorage(
         std::vector<RayTracerInstance> &meshesStorage,
         bool &rebuildAccelerationStructure, bool &updateShaderBindingTable) const {
     for (auto &i: meshesStorage) {
@@ -19,7 +19,7 @@ void RayTracerManager::UpdateMeshesStorage(
     if (const auto *rayTracedEntities =
                 EntityManager::UnsafeGetPrivateComponentOwnersList<MeshRenderer>(
                         EntityManager::GetCurrentScene());
-            rayTracedEntities) {
+            rayTracedEntities && m_renderMeshRenderer) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
                 continue;
@@ -129,7 +129,7 @@ void RayTracerManager::UpdateMeshesStorage(
     if (const auto *rayTracedEntities =
                 EntityManager::UnsafeGetPrivateComponentOwnersList<Particles>(
                         EntityManager::GetCurrentScene());
-            rayTracedEntities) {
+            rayTracedEntities && m_renderParticles) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
                 continue;
@@ -242,7 +242,7 @@ void RayTracerManager::UpdateMeshesStorage(
     if (const auto *rayTracedEntities =
                 EntityManager::UnsafeGetPrivateComponentOwnersList<MLVQRenderer>(
                         EntityManager::GetCurrentScene());
-            rayTracedEntities) {
+            rayTracedEntities && m_renderMLVQRenderer) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
                 continue;
@@ -312,7 +312,7 @@ void RayTracerManager::UpdateMeshesStorage(
     }
 }
 
-void RayTracerManager::UpdateSkinnedMeshesStorage(
+void RayTracerLayer::UpdateSkinnedMeshesStorage(
         std::vector<SkinnedRayTracerInstance> &meshesStorage,
         bool &rebuildAccelerationStructure, bool &updateShaderBindingTable) const {
     for (auto &i: meshesStorage) {
@@ -321,7 +321,7 @@ void RayTracerManager::UpdateSkinnedMeshesStorage(
     if (const auto *rayTracedEntities =
                 EntityManager::UnsafeGetPrivateComponentOwnersList<
                         SkinnedMeshRenderer>(EntityManager::GetCurrentScene());
-            rayTracedEntities) {
+            rayTracedEntities && m_renderSkinnedMeshRenderer) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
                 continue;
@@ -446,7 +446,7 @@ void RayTracerManager::UpdateSkinnedMeshesStorage(
     }
 }
 
-void RayTracerManager::UpdateScene() const {
+void RayTracerLayer::UpdateScene() const {
     bool rebuildAccelerationStructure = false;
     bool updateShaderBindingTable = false;
     auto &meshesStorage = CudaModule::GetRayTracer()->m_instances;
@@ -465,7 +465,7 @@ void RayTracerManager::UpdateScene() const {
     }
 }
 
-void RayTracerManager::OnCreate() {
+void RayTracerLayer::OnCreate() {
     CudaModule::Init();
     ClassRegistry::RegisterPrivateComponent<MLVQRenderer>(
             "MLVQRenderer");
@@ -501,7 +501,7 @@ void RayTracerManager::OnCreate() {
 }
 
 
-void RayTracerManager::LateUpdate() {
+void RayTracerLayer::LateUpdate() {
     auto environmentalMap = m_environmentalMap.Get<Cubemap>();
     if (environmentalMap) {
         m_environmentProperties.m_environmentalMapId =
@@ -534,7 +534,7 @@ void RayTracerManager::LateUpdate() {
     UpdateScene();
 }
 
-void RayTracerManager::OnInspect() {
+void RayTracerLayer::OnInspect() {
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("View")) {
             ImGui::Checkbox("Ray Tracer Manager", &m_enableMenus);
@@ -543,6 +543,11 @@ void RayTracerManager::OnInspect() {
         ImGui::EndMainMenuBar();
     }
     if (ImGui::Begin("Ray Tracer Manager")) {
+        ImGui::Checkbox("Mesh Renderer", &m_renderMeshRenderer);
+        ImGui::Checkbox("Particles", &m_renderParticles);
+        ImGui::Checkbox("Skinned Mesh Renderer", &m_renderSkinnedMeshRenderer);
+        ImGui::Checkbox("MLVQ Renderer", &m_renderSkinnedMeshRenderer);
+
         EditorManager::DragAndDropButton<RayTracerCamera>(m_rayTracerCamera, "Ray Tracer Camera", true);
         ImGui::Checkbox("Scene Camera", &m_enableSceneCamera);
         if (ImGui::TreeNode("Environment Properties")) {
@@ -640,9 +645,9 @@ void RayTracerManager::OnInspect() {
     if(m_enableSceneCamera) SceneCameraWindow();
 }
 
-void RayTracerManager::OnDestroy() { CudaModule::Terminate(); }
+void RayTracerLayer::OnDestroy() { CudaModule::Terminate(); }
 
-void RayTracerManager::SceneCameraWindow() {
+void RayTracerLayer::SceneCameraWindow() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
     if (m_rightMouseButtonHold &&
@@ -774,7 +779,7 @@ void RayTracerManager::SceneCameraWindow() {
     ImGui::PopStyleVar();
 }
 
-void RayTracerManager::RayCameraWindow() {
+void RayTracerLayer::RayCameraWindow() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
     auto rayTracerCamera = m_rayTracerCamera.Get<RayTracerCamera>();

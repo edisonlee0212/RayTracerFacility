@@ -3,11 +3,11 @@
 //
 
 #include "LightSensorsGroup.hpp"
-#include "RayTracerManager.hpp"
+#include "RayTracerLayer.hpp"
 using namespace RayTracerFacility;
 void LightSensorsGroup::CalculateIllumination(const RayProperties& rayProperties, int seed, float pushNormalDistance) {
     if (m_lightProbes.empty()) return;
-    CudaModule::EstimateIlluminationRayTracing(Application::GetLayer<RayTracerManager>()->m_environmentProperties, rayProperties, m_lightProbes, seed, pushNormalDistance);
+    CudaModule::EstimateIlluminationRayTracing(Application::GetLayer<RayTracerLayer>()->m_environmentProperties, rayProperties, m_lightProbes, seed, pushNormalDistance);
 }
 
 void LightSensorsGroup::OnInspect() {

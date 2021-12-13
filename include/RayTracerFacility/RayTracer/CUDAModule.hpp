@@ -15,7 +15,7 @@ class RAY_TRACER_FACILITY_API CudaModule {
   void *m_optixHandle = nullptr;
   bool m_initialized = false;
   std::unique_ptr<RayTracer> m_rayTracer;
-  friend class RayTracerManager;
+  friend class RayTracerLayer;
 
 public:
   static std::unique_ptr<RayTracer> &GetRayTracer();

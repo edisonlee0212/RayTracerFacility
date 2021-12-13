@@ -1,6 +1,6 @@
 
 #include <TriangleIlluminationEstimator.hpp>
-#include "RayTracerManager.hpp"
+#include "RayTracerLayer.hpp"
 using namespace RayTracerFacility;
 
 void TriangleIlluminationEstimator::OnInspect() {

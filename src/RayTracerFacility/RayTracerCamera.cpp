@@ -4,7 +4,7 @@
 
 #include "RayTracerCamera.hpp"
 #include "Optix7.hpp"
-#include "RayTracerManager.hpp"
+#include "RayTracerLayer.hpp"
 
 using namespace RayTracerFacility;
 
@@ -126,7 +126,7 @@ void RayTracerCamera::Render() {
         auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
-                Application::GetLayer<RayTracerManager>()->m_environmentProperties,
+                Application::GetLayer<RayTracerLayer>()->m_environmentProperties,
                 m_cameraProperties,
                 m_rayProperties);
     }
@@ -138,7 +138,7 @@ void RayTracerCamera::Render(const RayProperties &rayProperties) {
         auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
-                Application::GetLayer<RayTracerManager>()->m_environmentProperties,
+                Application::GetLayer<RayTracerLayer>()->m_environmentProperties,
                 m_cameraProperties,
                 rayProperties);
     }

@@ -3,7 +3,7 @@
 //
 #include <Application.hpp>
 #ifdef RAYTRACERFACILITY
-#include <RayTracerManager.hpp>
+#include <RayTracerLayer.hpp>
 #include "MLVQRenderer.hpp"
 #include "TriangleIlluminationEstimator.hpp"
 #endif
@@ -18,7 +18,7 @@ int main() {
     ApplicationConfigs applicationConfigs;
     Application::Create(applicationConfigs);
 #ifdef RAYTRACERFACILITY
-    Application::PushLayer<RayTracerManager>();
+    Application::PushLayer<RayTracerLayer>();
 #endif
 #pragma region Engine Loop
     Application::Start();
