@@ -191,7 +191,6 @@ void RayProperties::OnInspect() {
 }
 
 
-
 void RayTracerProperties::OnInspect() {
     m_environment.OnInspect();
     m_rayProperties.OnInspect();
@@ -441,24 +440,26 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
     outputLayer.format = OPTIX_PIXEL_FORMAT_FLOAT4;
     switch (m_defaultRenderingLaunchParams.m_cameraProperties.m_outputType) {
         case OutputType::Color: {
-            if(cameraProperties.m_denoiserStrength == 0.0f) {
+            if (cameraProperties.m_denoiserStrength == 0.0f) {
                 CUDA_CHECK(MemcpyToArray(
                         outputArray, 0, 0,
                         (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer,
                         sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
                         m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                         cudaMemcpyDeviceToDevice));
-            }else{
+            } else {
                 OptixDenoiserParams denoiserParams;
                 denoiserParams.denoiseAlpha = 1;
                 m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
-                if (m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes != sizeof(float))
+                if (m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes !=
+                    sizeof(float))
                     m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
                 denoiserParams.hdrIntensity = m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer();
                 if (m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate &&
                     m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId > 1)
                     denoiserParams.blendFactor =
-                            (1.0f - cameraProperties.m_denoiserStrength) / m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId;
+                            (1.0f - cameraProperties.m_denoiserStrength) /
+                            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId;
                 else
                     denoiserParams.blendFactor = (1.0f - cameraProperties.m_denoiserStrength);
 
@@ -526,7 +527,8 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
 }
 
 void RayTracer::EstimateIllumination(const size_t &size,
-                                     const EnvironmentProperties &environmentProperties, const RayProperties &rayProperties,
+                                     const EnvironmentProperties &environmentProperties,
+                                     const RayProperties &rayProperties,
                                      CudaBuffer &lightProbes, unsigned seed,
                                      float pushNormalDistance) {
     if (!m_hasAccelerationStructure)
@@ -860,6 +862,27 @@ void RayTracer::CreateHitGroupPrograms() {
 }
 
 __global__ void
+ApplyTransformKernelInstanced(int matricesSize, int verticesSize, glm::mat4 globalTransform, glm::mat4 *matrices,
+                              Vertex *vertices,
+                              glm::vec3 *targetPositions, glm::vec3 *targetNormals,
+                              glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
+    const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < verticesSize * matricesSize) {
+        targetPositions[idx] =
+                globalTransform * matrices[idx / verticesSize] *
+                glm::vec4(vertices[idx % verticesSize].m_position, 1.0f);
+        glm::vec3 N = glm::normalize(globalTransform * matrices[idx / verticesSize] *
+                                     glm::vec4(vertices[idx % verticesSize].m_normal, 0.0f));
+        glm::vec3 T = glm::normalize(globalTransform * matrices[idx / verticesSize] *
+                                     glm::vec4(vertices[idx % verticesSize].m_tangent, 0.0f));
+        T = glm::normalize(T - dot(T, N) * N);
+        targetNormals[idx] = N;
+        targetTangents[idx] = T;
+        targetTexCoords[idx] = vertices[idx % verticesSize].m_texCoords;
+    }
+}
+
+__global__ void
 ApplyTransformKernel(int size, glm::mat4 globalTransform, Vertex *vertices,
                      glm::vec3 *targetPositions, glm::vec3 *targetNormals,
                      glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
@@ -932,58 +955,34 @@ __global__ void ApplySkinnedTransformKernel(int size, glm::mat4 globalTransform,
 }
 
 void RayTracer::BuildAccelerationStructure() {
-    bool uploadVertices = false;
     int instanceSize = m_instances.size() + m_skinnedInstances.size();
-    if (m_verticesBuffer.size() != instanceSize)
-        uploadVertices = true;
-    if (!uploadVertices) {
-        for (auto &i: m_instances) {
-            if (i.m_verticesUpdateFlag) {
-                uploadVertices = true;
-                break;
-            }
-        }
-    }
-    if (!uploadVertices) {
-        for (auto &i: m_skinnedInstances) {
-            if (i.m_verticesUpdateFlag) {
-                uploadVertices = true;
-                break;
-            }
-        }
-    }
-    if (uploadVertices) {
-        for (auto &i: m_verticesBuffer)
-            i.Free();
-        for (auto &i: m_trianglesBuffer)
-            i.Free();
-        for (auto &i: m_transformedPositionsBuffer)
-            i.Free();
-        for (auto &i: m_transformedNormalsBuffer)
-            i.Free();
-        for (auto &i: m_transformedTangentBuffer)
-            i.Free();
-        for (auto &i: m_texCoordBuffer)
-            i.Free();
-        for (auto &i: m_boneMatricesBuffer)
-            i.Free();
+    for (auto &i: m_trianglesBuffer)
+        i.Free();
+    for (auto &i: m_transformedPositionsBuffer)
+        i.Free();
+    for (auto &i: m_transformedNormalsBuffer)
+        i.Free();
+    for (auto &i: m_transformedTangentBuffer)
+        i.Free();
+    for (auto &i: m_texCoordBuffer)
+        i.Free();
+    for (auto &i: m_boneMatricesBuffer)
+        i.Free();
 
-        m_verticesBuffer.clear();
-        m_trianglesBuffer.clear();
-        m_transformedPositionsBuffer.clear();
-        m_transformedNormalsBuffer.clear();
-        m_transformedTangentBuffer.clear();
-        m_texCoordBuffer.clear();
-        m_boneMatricesBuffer.clear();
+    m_trianglesBuffer.clear();
+    m_transformedPositionsBuffer.clear();
+    m_transformedNormalsBuffer.clear();
+    m_transformedTangentBuffer.clear();
+    m_texCoordBuffer.clear();
+    m_boneMatricesBuffer.clear();
 
-        m_verticesBuffer.resize(instanceSize);
-        m_trianglesBuffer.resize(instanceSize);
-        m_transformedPositionsBuffer.resize(instanceSize);
-        m_transformedNormalsBuffer.resize(instanceSize);
-        m_transformedTangentBuffer.resize(instanceSize);
-        m_texCoordBuffer.resize(instanceSize);
-        m_boneMatricesBuffer.resize(instanceSize);
-    }
+    m_trianglesBuffer.resize(instanceSize);
+    m_transformedPositionsBuffer.resize(instanceSize);
+    m_transformedNormalsBuffer.resize(instanceSize);
+    m_transformedTangentBuffer.resize(instanceSize);
+    m_texCoordBuffer.resize(instanceSize);
+    m_boneMatricesBuffer.resize(instanceSize);
+
     OptixTraversableHandle asHandle = 0;
 
     // ==================================================================
@@ -995,11 +994,23 @@ void RayTracer::BuildAccelerationStructure() {
     std::vector<CUdeviceptr> deviceTransforms(instanceSize);
     std::vector<uint32_t> triangleInputFlags(instanceSize);
     int meshID = 0;
+    CudaBuffer verticesBuffer;
+    CudaBuffer matricesBuffer;
     for (; meshID < m_instances.size(); meshID++) {
         // upload the model to the device: the builder
         RayTracerInstance &triangleMesh = m_instances[meshID];
-        if (uploadVertices) {
-            m_verticesBuffer[meshID].Upload(*triangleMesh.m_vertices);
+        verticesBuffer.Upload(*triangleMesh.m_vertices);
+        if (triangleMesh.m_instancing) {
+            matricesBuffer.Upload(*triangleMesh.m_matrices);
+            m_transformedPositionsBuffer[meshID].Resize(triangleMesh.m_matrices->size() *
+                                                        triangleMesh.m_vertices->size() * sizeof(glm::vec3));
+            m_transformedNormalsBuffer[meshID].Resize(triangleMesh.m_matrices->size() *
+                                                      triangleMesh.m_vertices->size() * sizeof(glm::vec3));
+            m_transformedTangentBuffer[meshID].Resize(triangleMesh.m_matrices->size() *
+                                                      triangleMesh.m_vertices->size() * sizeof(glm::vec3));
+            m_texCoordBuffer[meshID].Resize(triangleMesh.m_matrices->size() *
+                                            triangleMesh.m_vertices->size() * sizeof(glm::vec2));
+        } else {
             m_transformedPositionsBuffer[meshID].Resize(
                     triangleMesh.m_vertices->size() * sizeof(glm::vec3));
             m_transformedNormalsBuffer[meshID].Resize(
@@ -1007,31 +1018,58 @@ void RayTracer::BuildAccelerationStructure() {
             m_transformedTangentBuffer[meshID].Resize(
                     triangleMesh.m_vertices->size() * sizeof(glm::vec3));
             m_texCoordBuffer[meshID].Resize(triangleMesh.m_vertices->size() *
-                                            sizeof(glm::vec3));
+                                            sizeof(glm::vec2));
         }
 
-        if (uploadVertices || triangleMesh.m_transformUpdateFlag) {
-            int blockSize = 0;   // The launch configurator returned block size
-            int minGridSize = 0; // The minimum grid size needed to achieve the
-            // maximum occupancy for a full device launch
-            int gridSize = 0;    // The actual grid size needed, based on input size
+        int blockSize = 0;   // The launch configurator returned block size
+        int minGridSize = 0; // The minimum grid size needed to achieve the
+        // maximum occupancy for a full device launch
+        int gridSize = 0;    // The actual grid size needed, based on input size
+        if (triangleMesh.m_instancing) {
+            int size = triangleMesh.m_matrices->size() * triangleMesh.m_vertices->size();
+            int matricesSize = triangleMesh.m_matrices->size();
+            int verticesSize = triangleMesh.m_vertices->size();
+            cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
+                                               ApplyTransformKernelInstanced, 0, size);
+            gridSize = (size + blockSize - 1) / blockSize;
+            ApplyTransformKernelInstanced<<<gridSize, blockSize>>>(
+                    matricesSize, verticesSize, triangleMesh.m_globalTransform,
+                    static_cast<glm::mat4 *>(matricesBuffer.m_dPtr),
+                    static_cast<Vertex *>(verticesBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_transformedPositionsBuffer[meshID].m_dPtr),
+                    static_cast<glm::vec3 *>(m_transformedNormalsBuffer[meshID].m_dPtr),
+                    static_cast<glm::vec3 *>(m_transformedTangentBuffer[meshID].m_dPtr),
+                    static_cast<glm::vec2 *>(m_texCoordBuffer[meshID].m_dPtr));
+        } else {
             int size = triangleMesh.m_vertices->size();
             cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
                                                ApplyTransformKernel, 0, size);
             gridSize = (size + blockSize - 1) / blockSize;
             ApplyTransformKernel<<<gridSize, blockSize>>>(
                     size, triangleMesh.m_globalTransform,
-                    static_cast<Vertex *>(m_verticesBuffer[meshID].m_dPtr),
+                    static_cast<Vertex *>(verticesBuffer.m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedPositionsBuffer[meshID].m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedNormalsBuffer[meshID].m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedTangentBuffer[meshID].m_dPtr),
                     static_cast<glm::vec2 *>(m_texCoordBuffer[meshID].m_dPtr));
-            CUDA_SYNC_CHECK();
         }
+        CUDA_SYNC_CHECK();
 
-        triangleMesh.m_verticesUpdateFlag = false;
-        triangleMesh.m_transformUpdateFlag = false;
-        m_trianglesBuffer[meshID].Upload(*triangleMesh.m_triangles);
+        if (triangleMesh.m_instancing) {
+            auto triangles = std::vector<glm::uvec3>();
+            triangles.resize(triangleMesh.m_triangles->size() * triangleMesh.m_matrices->size());
+            unsigned offset = 0;
+            for (const auto &matrix: *triangleMesh.m_matrices) {
+                for (const auto &i: *triangleMesh.m_triangles) {
+                    triangles.push_back(i);
+                    triangles.back() += glm::uvec3(offset);
+                }
+                offset += triangleMesh.m_vertices->size();
+            }
+            m_trianglesBuffer[meshID].Upload(triangles);
+        } else {
+            m_trianglesBuffer[meshID].Upload(*triangleMesh.m_triangles);
+        }
         triangleInput[meshID] = {};
         triangleInput[meshID].type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
 
@@ -1045,7 +1083,7 @@ void RayTracer::BuildAccelerationStructure() {
                 OPTIX_VERTEX_FORMAT_FLOAT3;
         triangleInput[meshID].triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
         triangleInput[meshID].triangleArray.numVertices =
-                static_cast<int>(triangleMesh.m_vertices->size());
+                static_cast<int>(m_transformedPositionsBuffer[meshID].m_sizeInBytes / sizeof(glm::vec3));
         triangleInput[meshID].triangleArray.vertexBuffers =
                 &deviceVertexPositions[meshID];
 
@@ -1058,7 +1096,7 @@ void RayTracer::BuildAccelerationStructure() {
                 OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
         triangleInput[meshID].triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
         triangleInput[meshID].triangleArray.numIndexTriplets =
-                static_cast<int>(triangleMesh.m_triangles->size());
+                static_cast<int>(m_trianglesBuffer[meshID].m_sizeInBytes / sizeof(glm::uvec3));
         triangleInput[meshID].triangleArray.indexBuffer =
                 deviceVertexTriangles[meshID];
 
@@ -1076,42 +1114,38 @@ void RayTracer::BuildAccelerationStructure() {
         // upload the model to the device: the builder
         SkinnedRayTracerInstance &triangleMesh =
                 m_skinnedInstances[meshID - m_instances.size()];
-        if (uploadVertices) {
-            m_verticesBuffer[meshID].Upload(*triangleMesh.m_skinnedVertices);
-            m_boneMatricesBuffer[meshID].Upload(*triangleMesh.m_boneMatrices);
 
-            m_transformedPositionsBuffer[meshID].Resize(
-                    triangleMesh.m_skinnedVertices->size() * sizeof(glm::vec3));
-            m_transformedNormalsBuffer[meshID].Resize(
-                    triangleMesh.m_skinnedVertices->size() * sizeof(glm::vec3));
-            m_transformedTangentBuffer[meshID].Resize(
-                    triangleMesh.m_skinnedVertices->size() * sizeof(glm::vec3));
-            m_texCoordBuffer[meshID].Resize(triangleMesh.m_skinnedVertices->size() *
-                                            sizeof(glm::vec3));
-        }
+        verticesBuffer.Upload(*triangleMesh.m_skinnedVertices);
+        m_boneMatricesBuffer[meshID].Upload(*triangleMesh.m_boneMatrices);
 
-        if (true) {
-            int blockSize = 0;   // The launch configurator returned block size
-            int minGridSize = 0; // The minimum grid size needed to achieve the
-            // maximum occupancy for a full device launch
-            int gridSize = 0;    // The actual grid size needed, based on input size
-            int size = triangleMesh.m_skinnedVertices->size();
-            cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
-                                               ApplyTransformKernel, 0, size);
-            gridSize = (size + blockSize - 1) / blockSize;
-            ApplySkinnedTransformKernel<<<gridSize, blockSize>>>(
-                    size, triangleMesh.m_globalTransform,
-                    static_cast<SkinnedVertex *>(m_verticesBuffer[meshID].m_dPtr),
-                    static_cast<glm::mat4 *>(m_boneMatricesBuffer[meshID].m_dPtr),
-                    static_cast<glm::vec3 *>(m_transformedPositionsBuffer[meshID].m_dPtr),
-                    static_cast<glm::vec3 *>(m_transformedNormalsBuffer[meshID].m_dPtr),
-                    static_cast<glm::vec3 *>(m_transformedTangentBuffer[meshID].m_dPtr),
-                    static_cast<glm::vec2 *>(m_texCoordBuffer[meshID].m_dPtr));
-            CUDA_SYNC_CHECK();
-        }
+        m_transformedPositionsBuffer[meshID].Resize(
+                triangleMesh.m_skinnedVertices->size() * sizeof(glm::vec3));
+        m_transformedNormalsBuffer[meshID].Resize(
+                triangleMesh.m_skinnedVertices->size() * sizeof(glm::vec3));
+        m_transformedTangentBuffer[meshID].Resize(
+                triangleMesh.m_skinnedVertices->size() * sizeof(glm::vec3));
+        m_texCoordBuffer[meshID].Resize(triangleMesh.m_skinnedVertices->size() *
+                                        sizeof(glm::vec2));
 
-        triangleMesh.m_verticesUpdateFlag = false;
-        triangleMesh.m_transformUpdateFlag = false;
+
+        int blockSize = 0;   // The launch configurator returned block size
+        int minGridSize = 0; // The minimum grid size needed to achieve the
+        // maximum occupancy for a full device launch
+        int gridSize = 0;    // The actual grid size needed, based on input size
+        int size = triangleMesh.m_skinnedVertices->size();
+        cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
+                                           ApplyTransformKernel, 0, size);
+        gridSize = (size + blockSize - 1) / blockSize;
+        ApplySkinnedTransformKernel<<<gridSize, blockSize>>>(
+                size, triangleMesh.m_globalTransform,
+                static_cast<SkinnedVertex *>(verticesBuffer.m_dPtr),
+                static_cast<glm::mat4 *>(m_boneMatricesBuffer[meshID].m_dPtr),
+                static_cast<glm::vec3 *>(m_transformedPositionsBuffer[meshID].m_dPtr),
+                static_cast<glm::vec3 *>(m_transformedNormalsBuffer[meshID].m_dPtr),
+                static_cast<glm::vec3 *>(m_transformedTangentBuffer[meshID].m_dPtr),
+                static_cast<glm::vec2 *>(m_texCoordBuffer[meshID].m_dPtr));
+        CUDA_SYNC_CHECK();
+
         m_trianglesBuffer[meshID].Upload(*triangleMesh.m_triangles);
         triangleInput[meshID] = {};
         triangleInput[meshID].type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
@@ -1126,7 +1160,7 @@ void RayTracer::BuildAccelerationStructure() {
                 OPTIX_VERTEX_FORMAT_FLOAT3;
         triangleInput[meshID].triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
         triangleInput[meshID].triangleArray.numVertices =
-                static_cast<int>(triangleMesh.m_skinnedVertices->size());
+                static_cast<int>(m_transformedPositionsBuffer[meshID].m_sizeInBytes / sizeof(glm::vec3));
         triangleInput[meshID].triangleArray.vertexBuffers =
                 &deviceVertexPositions[meshID];
 
@@ -1139,7 +1173,7 @@ void RayTracer::BuildAccelerationStructure() {
                 OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
         triangleInput[meshID].triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
         triangleInput[meshID].triangleArray.numIndexTriplets =
-                static_cast<int>(triangleMesh.m_triangles->size());
+                static_cast<int>(m_trianglesBuffer[meshID].m_sizeInBytes / sizeof(glm::uvec3));
         triangleInput[meshID].triangleArray.indexBuffer =
                 deviceVertexTriangles[meshID];
 
@@ -1153,6 +1187,7 @@ void RayTracer::BuildAccelerationStructure() {
         triangleInput[meshID].triangleArray.sbtIndexOffsetSizeInBytes = 0;
         triangleInput[meshID].triangleArray.sbtIndexOffsetStrideInBytes = 0;
     }
+
     // ==================================================================
     // BLAS setup
     // ==================================================================
@@ -1223,7 +1258,8 @@ void RayTracer::BuildAccelerationStructure() {
     outputBuffer.Free(); // << the Uncompacted, temporary output buffer
     tempBuffer.Free();
     compactedSizeBuffer.Free();
-
+    verticesBuffer.Free();
+    matricesBuffer.Free();
     m_defaultRenderingLaunchParams.m_traversable = asHandle;
     m_defaultIlluminationEstimationLaunchParams.m_traversable = asHandle;
     m_hasAccelerationStructure = true;
@@ -1332,7 +1368,7 @@ void RayTracer::BuildShaderBindingTable(
     // ------------------------------------------------------------------
     // Prepare surface materials
     // ------------------------------------------------------------------
-    const int numObjects = m_verticesBuffer.size();
+    const int numObjects = m_instances.size() + m_skinnedInstances.size();
     for (auto &i: m_surfaceMaterials)
         if (i.m_type == MaterialType::Default)
             i.m_buffer.Free();

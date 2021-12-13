@@ -207,11 +207,13 @@ namespace RayTracerFacility {
         MaterialType m_materialType = MaterialType::Default;
         int m_MLVQMaterialIndex;
 
+        bool m_instancing = false;
         std::vector<Vertex> *m_vertices;
         std::vector<glm::uvec3> *m_triangles;
+        std::vector<glm::mat4> *m_matrices;
         size_t m_version;
-        size_t m_entityId = 0;
-        size_t m_entityVersion = 0;
+        size_t m_matricesVersion;
+        uint64_t m_handle = 0;
         glm::vec3 m_surfaceColor;
         float m_roughness;
         float m_metallic;
@@ -222,9 +224,6 @@ namespace RayTracerFacility {
         unsigned m_albedoTexture = 0;
         unsigned m_normalTexture = 0;
         float m_diffuseIntensity = 0;
-
-        bool m_verticesUpdateFlag = true;
-        bool m_transformUpdateFlag = true;
     };
 
     struct RAY_TRACER_FACILITY_API SkinnedRayTracerInstance {
@@ -236,8 +235,7 @@ namespace RayTracerFacility {
         std::vector<glm::mat4> *m_boneMatrices;
 
         size_t m_version;
-        size_t m_entityId = 0;
-        size_t m_entityVersion = 0;
+        uint64_t m_handle = 0;
         glm::vec3 m_surfaceColor;
         float m_roughness;
         float m_metallic;
@@ -247,9 +245,6 @@ namespace RayTracerFacility {
         unsigned m_albedoTexture = 0;
         unsigned m_normalTexture = 0;
         float m_diffuseIntensity = 0;
-
-        bool m_verticesUpdateFlag = true;
-        bool m_transformUpdateFlag = true;
     };
 
     enum PipelineType {
@@ -379,7 +374,6 @@ namespace RayTracerFacility {
         bool m_hasAccelerationStructure = false;
 
         /*! one buffer per input mesh */
-        std::vector<CudaBuffer> m_verticesBuffer;
         std::vector<CudaBuffer> m_transformedPositionsBuffer;
         std::vector<CudaBuffer> m_transformedNormalsBuffer;
         std::vector<CudaBuffer> m_transformedTangentBuffer;

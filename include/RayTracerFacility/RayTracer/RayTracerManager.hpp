@@ -44,7 +44,7 @@ namespace RayTracerFacility {
         void RayCameraWindow();
     public:
         AssetRef m_environmentalMap;
-
+        
         PrivateComponentRef m_rayTracerCamera;
 
         bool m_enableMenus = true;
