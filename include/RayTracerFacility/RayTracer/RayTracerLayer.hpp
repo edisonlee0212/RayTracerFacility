@@ -16,35 +16,49 @@
 using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API SunlightCalculator {
-      SunlightCalculator() = default;
-      SunlightCalculator(SunlightCalculator &&) = default;
-      SunlightCalculator(const SunlightCalculator &) = default;
-      SunlightCalculator &operator=(SunlightCalculator &&) = default;
-      SunlightCalculator &operator=(const SunlightCalculator &) = default;
+        SunlightCalculator() = default;
+
+        SunlightCalculator(SunlightCalculator &&) = default;
+
+        SunlightCalculator(const SunlightCalculator &) = default;
+
+        SunlightCalculator &operator=(SunlightCalculator &&) = default;
+
+        SunlightCalculator &operator=(const SunlightCalculator &) = default;
+
     public:
-      float m_intensityFactor = 1.0f;
-      /*
-       * The database of intensity and angle.
-       */
-      std::map<float, std::pair<float, float>> m_database;
-      static SunlightCalculator &GetInstance();
-      static void CalculateSunlightIntensity(int hour, int minute, float& intensity);
-      static void CalculateSunlightAngle(int hour, int minute, float& angle);
+        float m_intensityFactor = 1.0f;
+        /*
+         * The database of intensity and angle.
+         */
+        std::map<float, std::pair<float, float>> m_database;
+
+        static SunlightCalculator &GetInstance();
+
+        static void CalculateSunlightIntensity(int hour, int minute, float &intensity);
+
+        static void CalculateSunlightAngle(int hour, int minute, float &angle);
     };
 
     class RAY_TRACER_FACILITY_API RayTracerLayer : public ILayer {
     protected:
-        void UpdateMeshesStorage(std::vector<RayTracerInstance>& meshesStorage, bool &rebuildAccelerationStructure,
+        void UpdateMeshesStorage(std::vector<RayTracerInstance> &meshesStorage, bool &rebuildAccelerationStructure,
                                  bool &updateShaderBindingTable) const;
+
         void
-        UpdateSkinnedMeshesStorage(std::vector<SkinnedRayTracerInstance>& meshesStorage, bool &rebuildAccelerationStructure,
+        UpdateSkinnedMeshesStorage(std::vector<SkinnedRayTracerInstance> &meshesStorage,
+                                   bool &rebuildAccelerationStructure,
                                    bool &updateShaderBindingTable) const;
 
         void SceneCameraWindow();
+
         void RayCameraWindow();
+
+        friend class RayTracerCamera;
+        static std::shared_ptr<RayTracerCamera> m_rayTracerCamera;
     public:
         AssetRef m_environmentalMap;
-        PrivateComponentRef m_rayTracerCamera;
+
 
         bool m_renderMeshRenderer = true;
         bool m_renderParticles = true;
@@ -64,6 +78,7 @@ namespace RayTracerFacility {
         bool m_rightMouseButtonHold = false;
         float m_resolutionMultiplier = 0.5f;
         std::shared_ptr<RayTracerCamera> m_sceneCamera;
+
         void UpdateScene() const;
 
         void OnCreate() override;

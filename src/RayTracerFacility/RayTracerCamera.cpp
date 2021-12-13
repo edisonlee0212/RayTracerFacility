@@ -19,6 +19,8 @@ void RayTracerCamera::Ready(const glm::vec3 &position, const glm::quat &rotation
 }
 
 void RayTracerCamera::OnInspect() {
+    if(GetOwner().IsValid()) ImGui::Checkbox("Main Camera", &m_mainCamera);
+
     m_cameraProperties.OnInspect();
     m_rayProperties.OnInspect();
     if (ImGui::TreeNode("Debug")) {
@@ -58,7 +60,6 @@ void RayTracerCamera::OnCreate() {
 
     m_frameSize = glm::ivec2(2, 2);
     Ready(glm::vec3(0), glm::vec3(0));
-    SetEnabled(false);
 }
 
 void RayTracerCamera::OnDestroy() {
@@ -73,6 +74,8 @@ void RayTracerCamera::OnDestroy() {
 }
 
 void RayTracerCamera::Deserialize(const YAML::Node &in) {
+    if (in["m_mainCamera"]) m_mainCamera = in["m_mainCamera"].as<bool>();
+
     if (in["m_allowAutoResize"]) m_allowAutoResize = in["m_allowAutoResize"].as<bool>();
     if (in["m_frameSize.x"]) m_frameSize.x = in["m_frameSize.x"].as<int>();
     if (in["m_frameSize.y"]) m_frameSize.y = in["m_frameSize.y"].as<int>();
@@ -87,6 +90,8 @@ void RayTracerCamera::Deserialize(const YAML::Node &in) {
 }
 
 void RayTracerCamera::Serialize(YAML::Emitter &out) {
+    out << YAML::Key << "m_mainCamera" << YAML::Value << m_mainCamera;
+
     out << YAML::Key << "m_allowAutoResize" << YAML::Value << m_allowAutoResize;
     out << YAML::Key << "m_frameSize.x" << YAML::Value << m_frameSize.x;
     out << YAML::Key << "m_frameSize.y" << YAML::Value << m_frameSize.y;
@@ -101,6 +106,8 @@ void RayTracerCamera::Serialize(YAML::Emitter &out) {
 }
 
 RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
+    m_mainCamera = source.m_mainCamera;
+
     m_cameraProperties.m_accumulate = source.m_cameraProperties.m_accumulate;
     m_cameraProperties.m_fov = source.m_cameraProperties.m_fov;
     m_cameraProperties.m_from = source.m_cameraProperties.m_from;

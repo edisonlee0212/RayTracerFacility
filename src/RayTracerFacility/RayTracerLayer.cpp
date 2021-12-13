@@ -9,6 +9,7 @@
 
 using namespace RayTracerFacility;
 
+std::shared_ptr<RayTracerCamera> RayTracerLayer::m_rayTracerCamera;
 
 void RayTracerLayer::UpdateMeshesStorage(
         std::vector<RayTracerInstance> &meshesStorage,
@@ -157,7 +158,8 @@ void RayTracerLayer::UpdateMeshesStorage(
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_version != mesh->GetVersion() || matrices->GetVersion() != rayTracerInstance->m_matricesVersion)
+                    if (rayTracerInstance->m_version != mesh->GetVersion() ||
+                        matrices->GetVersion() != rayTracerInstance->m_matricesVersion)
                         needVerticesUpdate = true;
                     if (rayTracerInstance->m_surfaceColor != material->m_albedoColor ||
                         rayTracerInstance->m_metallic !=
@@ -495,8 +497,8 @@ void RayTracerLayer::OnCreate() {
     m_sceneCamera = SerializationManager::ProduceSerializable<RayTracerCamera>();
     m_sceneCamera->OnCreate();
 
-    Application::RegisterPostAttachSceneFunction([&](const std::shared_ptr<Scene>& scene){
-       m_rayTracerCamera.ResetScene(scene);
+    Application::RegisterPostAttachSceneFunction([&](const std::shared_ptr<Scene> &scene) {
+        m_rayTracerCamera.reset();
     });
 }
 
@@ -518,7 +520,9 @@ void RayTracerLayer::LateUpdate() {
         }
         auto *entities = EntityManager::UnsafeGetPrivateComponentOwnersList<RayTracerCamera>(
                 EntityManager::GetCurrentScene());
+        m_rayTracerCamera.reset();
         if (entities) {
+            bool check = false;
             for (const auto &entity: *entities) {
                 if (!entity.IsEnabled()) continue;
                 auto rayTracerCamera = entity.GetOrSetPrivateComponent<RayTracerCamera>().lock();
@@ -528,6 +532,14 @@ void RayTracerLayer::LateUpdate() {
                 rayTracerCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_environmentProperties,
                                                                                          rayTracerCamera->m_cameraProperties,
                                                                                          rayTracerCamera->m_rayProperties);
+                if (!check) {
+                    if (rayTracerCamera->m_mainCamera) {
+                        m_rayTracerCamera = rayTracerCamera;
+                        check = true;
+                    }
+                } else {
+                    rayTracerCamera->m_mainCamera = false;
+                }
             }
         }
     }
@@ -547,10 +559,13 @@ void RayTracerLayer::OnInspect() {
         ImGui::Checkbox("Particles", &m_renderParticles);
         ImGui::Checkbox("Skinned Mesh Renderer", &m_renderSkinnedMeshRenderer);
         ImGui::Checkbox("MLVQ Renderer", &m_renderSkinnedMeshRenderer);
-
-        EditorManager::DragAndDropButton<RayTracerCamera>(m_rayTracerCamera, "Ray Tracer Camera", true);
         ImGui::Checkbox("Scene Camera", &m_enableSceneCamera);
-        if (ImGui::TreeNode("Environment Properties")) {
+        if (ImGui::TreeNode("Scene Camera Settings")) {
+            m_sceneCamera->OnInspect();
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNodeEx("Environment Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
             EditorManager::DragAndDropButton<Cubemap>(
                     m_environmentalMap,
                     "Environmental Map");
@@ -642,7 +657,7 @@ void RayTracerLayer::OnInspect() {
     }
     ImGui::End();
     RayCameraWindow();
-    if(m_enableSceneCamera) SceneCameraWindow();
+    if (m_enableSceneCamera) SceneCameraWindow();
 }
 
 void RayTracerLayer::OnDestroy() { CudaModule::Terminate(); }
@@ -782,7 +797,6 @@ void RayTracerLayer::SceneCameraWindow() {
 void RayTracerLayer::RayCameraWindow() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
-    auto rayTracerCamera = m_rayTracerCamera.Get<RayTracerCamera>();
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
     if (ImGui::Begin("Camera (Ray)")) {
         if (ImGui::BeginChild("RayCameraRenderer", ImVec2(0, 0), false,
@@ -791,11 +805,11 @@ void RayTracerLayer::RayCameraWindow() {
             viewPortSize.y -= 20;
             if (viewPortSize.y < 0)
                 viewPortSize.y = 0;
-            if (rayTracerCamera) {
-                if (rayTracerCamera->m_allowAutoResize)
-                    rayTracerCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y);
-                if (rayTracerCamera->m_rendered) {
-                    ImGui::Image(reinterpret_cast<ImTextureID>(rayTracerCamera->m_cameraProperties.m_outputTextureId),
+            if (m_rayTracerCamera) {
+                if (m_rayTracerCamera->m_allowAutoResize)
+                    m_rayTracerCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y);
+                if (m_rayTracerCamera->m_rendered) {
+                    ImGui::Image(reinterpret_cast<ImTextureID>(m_rayTracerCamera->m_cameraProperties.m_outputTextureId),
                                  viewPortSize, ImVec2(0, 1), ImVec2(1, 0));
                     editorLayer->CameraWindowDragAndDrop();
                 } else

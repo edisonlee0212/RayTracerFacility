@@ -12,6 +12,7 @@ namespace RayTracerFacility {
         friend class RayTracer;
         CameraProperties m_cameraProperties;
         bool m_rendered = false;
+        bool m_mainCamera = false;
     public:
         bool m_allowAutoResize = true;
         std::shared_ptr<Texture2D> m_colorTexture;
