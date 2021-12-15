@@ -163,6 +163,11 @@ namespace RayTracerFacility {
         RayTypeCount
     };
 
+    enum class DefaultPointCloudScanningRayType {
+        RadianceRayType,
+        RayTypeCount
+    };
+
     struct VertexInfo;
 
     struct DefaultRenderingLaunchParams {
@@ -199,6 +204,25 @@ namespace RayTracerFacility {
         size_t m_size;
         RayTracerProperties m_rayTracerProperties;
         LightProbe<float> *m_lightProbes;
+        OptixTraversableHandle m_traversable;
+    };
+
+    struct RAY_TRACER_FACILITY_API PointCloudSample{
+        //Input
+        glm::vec3 m_direction;
+        glm::vec3 m_start;
+
+        //Output
+        uint64_t m_handle;
+        bool m_hit = false;
+        glm::vec3 m_end;
+        glm::vec3 m_albedo;
+    };
+
+    struct DefaultPointCloudScanningLaunchParams {
+        size_t m_size;
+        RayTracerProperties m_rayTracerProperties;
+        PointCloudSample *m_samples;
         OptixTraversableHandle m_traversable;
     };
 
@@ -338,9 +362,12 @@ namespace RayTracerFacility {
         DefaultRenderingLaunchParams m_defaultRenderingLaunchParams;
         DefaultIlluminationEstimationLaunchParams
                 m_defaultIlluminationEstimationLaunchParams;
+        DefaultIlluminationEstimationLaunchParams
+                m_defaultPointCloudScanningLaunchParams;
 
         RayTracerPipeline m_defaultRenderingPipeline;
         RayTracerPipeline m_defaultIlluminationEstimationPipeline;
+        RayTracerPipeline m_defaultPointCloudScanningPipeline;
 
         /*! creates the module that contains all the programs we are going
           to use. in this simple example, we use a single module from a

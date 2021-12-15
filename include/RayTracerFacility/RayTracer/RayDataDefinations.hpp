@@ -156,6 +156,7 @@ namespace RayTracerFacility {
     };
 
     struct DefaultSbtData {
+        unsigned long long m_handle;
         Mesh m_mesh;
         MaterialType m_materialType;
         void* m_material;
@@ -211,6 +212,35 @@ namespace RayTracerFacility {
 /*! SBT record for a hitgroup program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
     DefaultIlluminationEstimationRayHitRecord {
+        __align__(
+                OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
+        // just a dummy value - later examples will use more interesting
+        // data here
+        DefaultSbtData m_data;
+    };
+    /*! SBT record for a raygen program */
+    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
+    DefaultPointCloudScanningRayGenRecord {
+        __align__(
+                OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
+        // just a dummy value - later examples will use more interesting
+        // data here
+        void *m_data;
+    };
+
+/*! SBT record for a miss program */
+    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
+    DefaultPointCloudScanningRayMissRecord {
+        __align__(
+                OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
+        // just a dummy value - later examples will use more interesting
+        // data here
+        void *m_data;
+    };
+
+/*! SBT record for a hitgroup program */
+    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
+    DefaultPointCloudScanningRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting

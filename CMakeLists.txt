@@ -66,12 +66,14 @@ if (BUILD_RAY_TRACER_FACILITY)
 
     cuda_compile_and_embed(DEFAULT_RENDERING_PTX ${CMAKE_CURRENT_SOURCE_DIR}/src/RayTracerFacility/ptx/DefaultRendering.cu)
     cuda_compile_and_embed(ILLUMINATION_ESTIMATION_PTX ${CMAKE_CURRENT_SOURCE_DIR}/src/RayTracerFacility/ptx/IlluminationEstimation.cu)
+    cuda_compile_and_embed(POINT_CLOUD_SCANNING_PTX ${CMAKE_CURRENT_SOURCE_DIR}/src/RayTracerFacility/ptx/PointCloudScanning.cu)
 
     add_library(RayTracerFacility
             SHARED
             #Default
             ${DEFAULT_RENDERING_PTX}
             ${ILLUMINATION_ESTIMATION_PTX}
+            ${POINT_CLOUD_SCANNING_PTX}
 
             #C++
             ${RAY_TRACER_FACILITY_SOURCES_LOCAL}
