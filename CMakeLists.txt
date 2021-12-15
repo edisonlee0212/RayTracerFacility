@@ -144,7 +144,7 @@ endif ()
 if (${CMAKE_BINARY_DIR} STREQUAL ${PROJECT_BINARY_DIR})
     add_executable(Application
             "src/app/Application.cpp"
-            )
+            src/RayTracerFacility/PointCloudScanner.cpp include/RayTracerFacility/Utilities/PointCloudScanner.hpp)
     target_precompile_headers(Application
             PRIVATE
             ${PLANT_ARCHITECT_PCH_LOCAL}

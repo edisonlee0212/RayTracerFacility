@@ -73,12 +73,19 @@ namespace RayTracerFacility {
         } m_frame;
 
         bool m_modified = false;
+
         void SetFov(float value);
+
         void SetGamma(float value);
+
         void SetOutputType(OutputType value);
+
         void SetDenoiserStrength(float value);
+
         void Resize(const glm::ivec2 &newSize);
+
         void Set(const glm::vec3 &position, const glm::quat &rotation);
+
         void OnInspect();
     };
 
@@ -207,7 +214,7 @@ namespace RayTracerFacility {
         OptixTraversableHandle m_traversable;
     };
 
-    struct RAY_TRACER_FACILITY_API PointCloudSample{
+    struct RAY_TRACER_FACILITY_API PointCloudSample {
         //Input
         glm::vec3 m_direction;
         glm::vec3 m_start;
@@ -317,12 +324,17 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderToCamera(const EnvironmentProperties &environmentProperties, CameraProperties &cameraProperties, const RayProperties& rayProperties);
+        RenderToCamera(const EnvironmentProperties &environmentProperties, CameraProperties &cameraProperties,
+                       const RayProperties &rayProperties);
 
         void EstimateIllumination(const size_t &size,
-                                  const EnvironmentProperties &environmentProperties, const RayProperties& rayProperties,
+                                  const EnvironmentProperties &environmentProperties,
+                                  const RayProperties &rayProperties,
                                   CudaBuffer &lightProbes, unsigned seed,
                                   float pushNormalDistance);
+
+        void ScanPointCloud(const size_t &size, const EnvironmentProperties &environmentProperties,
+                            CudaBuffer &samples);
 
         RayTracer();
 
@@ -351,7 +363,9 @@ namespace RayTracerFacility {
         /*! @} */
         //! the optix context that our pipeline will run in.
         OptixDeviceContext m_optixDeviceContext;
+
         friend class CameraProperties;
+
         /*! creates and configures a optix device context (in this simple
           example, only for the primary GPU device) */
         void CreateContext();
@@ -362,7 +376,7 @@ namespace RayTracerFacility {
         DefaultRenderingLaunchParams m_defaultRenderingLaunchParams;
         DefaultIlluminationEstimationLaunchParams
                 m_defaultIlluminationEstimationLaunchParams;
-        DefaultIlluminationEstimationLaunchParams
+        DefaultPointCloudScanningLaunchParams
                 m_defaultPointCloudScanningLaunchParams;
 
         RayTracerPipeline m_defaultRenderingPipeline;

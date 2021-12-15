@@ -48,3 +48,17 @@ void CudaModule::EstimateIlluminationRayTracing(const EnvironmentProperties &env
     deviceLightProbes.Download(lightProbes.data(), size);
     deviceLightProbes.Free();
 }
+
+void
+CudaModule::SamplePointCloud(const EnvironmentProperties &environmentProperties,
+                             std::vector<PointCloudSample> &samples) {
+    auto &cudaModule = GetInstance();
+#pragma region Prepare light probes
+    size_t size = samples.size();
+    CudaBuffer deviceSamples;
+    deviceSamples.Upload(samples);
+#pragma endregion
+    cudaModule.m_rayTracer->ScanPointCloud(size, environmentProperties, deviceSamples);
+    deviceSamples.Download(samples.data(), size);
+    deviceSamples.Free();
+}
