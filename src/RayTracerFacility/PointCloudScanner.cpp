@@ -8,7 +8,7 @@
 using namespace RayTracerFacility;
 
 void PointCloudScanner::OnInspect() {
-    ImGui::DragFloat2("Angle", &m_rotateAngle.x, 0.1f, 0.0f, 90.0f);
+    ImGui::DragFloat("Angle", &m_rotateAngle, 0.1f, -90.0f, 90.0f);
     ImGui::DragFloat2("Size", &m_size.x, 0.1f);
     ImGui::DragFloat2("Distance", &m_distance.x, 0.001f, 1.0f, 0.001f);
 
@@ -19,9 +19,8 @@ void PointCloudScanner::OnInspect() {
     auto gt = GetOwner().GetDataComponent<GlobalTransform>();
     glm::vec3 front = glm::normalize(gt.GetRotation() * glm::vec3(0, 0, -1));
     glm::vec3 up = glm::normalize(gt.GetRotation() * glm::vec3(0, 1, 0));
-    glm::vec3 left = glm::normalize(gt.GetRotation() * glm::vec3(0, 1, 0));
-    glm::vec3 actualVector = glm::rotate(front, glm::radians(m_rotateAngle.x), left);
-    actualVector = glm::rotate(front, glm::radians(m_rotateAngle.x), up);
+    glm::vec3 left = glm::normalize(gt.GetRotation() * glm::vec3(1, 0, 0));
+    glm::vec3 actualVector = glm::rotate(front, glm::radians(m_rotateAngle), up);
     if (renderPlane) {
         RenderManager::DrawGizmoMesh(DefaultResources::Primitives::Cone, glm::vec4(1, 0, 0, 0.5),
                                      glm::translate(gt.GetPosition() + front * 0.5f) *
@@ -61,10 +60,10 @@ void PointCloudScanner::Serialize(YAML::Emitter &out) {
 }
 
 void PointCloudScanner::Deserialize(const YAML::Node &in) {
-    m_rotateAngle = in["m_rotateAngle"].as<glm::vec2>();
+    m_rotateAngle = in["m_rotateAngle"].as<float>();
     m_size = in["m_size"].as<glm::vec2>();
     m_distance = in["m_distance"].as<glm::vec2>();
-    
+
 }
 
 void PointCloudScanner::Scan() {
@@ -78,9 +77,7 @@ void PointCloudScanner::Scan() {
     glm::vec3 front = gt.GetRotation() * glm::vec3(0, 0, -1);
     glm::vec3 up = gt.GetRotation() * glm::vec3(0, 1, 0);
     glm::vec3 left = gt.GetRotation() * glm::vec3(1, 0, 0);
-    glm::vec3 actualVector = glm::rotate(front, m_rotateAngle.x, left);
-    actualVector = glm::rotate(front, m_rotateAngle.y, up);
-
+    glm::vec3 actualVector = glm::rotate(front, glm::radians(m_rotateAngle), up);
     std::vector<PointCloudSample> pcSamples;
     pcSamples.resize(size);
 
