@@ -6,7 +6,7 @@
 #include "EditorLayer.hpp"
 #include "RayTracerCamera.hpp"
 #include "TriangleIlluminationEstimator.hpp"
-
+#include "PointCloudScanner.hpp"
 using namespace RayTracerFacility;
 
 std::shared_ptr<RayTracerCamera> RayTracerLayer::m_rayTracerCamera;
@@ -475,6 +475,9 @@ void RayTracerLayer::OnCreate() {
             "TriangleIlluminationEstimator");
     ClassRegistry::RegisterPrivateComponent<RayTracerCamera>(
             "RayTracerCamera");
+    ClassRegistry::RegisterPrivateComponent<PointCloudScanner>(
+            "PointCloudScanner");
+
     SunlightCalculator::GetInstance().m_database.insert({4, {0, 90}});
     SunlightCalculator::GetInstance().m_database.insert({5, {7.12, 87.78}});
     SunlightCalculator::GetInstance().m_database.insert({6, {79, 77.19}});

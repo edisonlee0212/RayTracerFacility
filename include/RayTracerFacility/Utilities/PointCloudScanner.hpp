@@ -9,17 +9,16 @@ using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API PointCloudScanner : public IPrivateComponent {
     public:
-        glm::vec2 m_size;
-        glm::vec2 m_distance;
-        std::vector<PointCloudSample> m_samples;
-
+        glm::vec2 m_rotateAngle = glm::vec2(0, 31.0f);
+        glm::vec2 m_size = glm::vec2(8, 4);
+        glm::vec2 m_distance = glm::vec2(0.02f, 0.02f);
+        std::vector<glm::vec3> m_points;
+        std::vector<glm::vec3> m_pointColors;
         void ConstructPointCloud(std::shared_ptr<PointCloud> pointCloud);
 
         void Scan();
 
         void OnInspect() override;
-
-        void CollectAssetRef(std::vector<AssetRef> &list) override;
 
         void Serialize(YAML::Emitter &out) override;
 
