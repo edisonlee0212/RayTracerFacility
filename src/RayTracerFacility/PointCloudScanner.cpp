@@ -39,6 +39,7 @@ void PointCloudScanner::OnInspect() {
         if(ImGui::Button("Clear")) {
             m_points.clear();
             m_pointColors.clear();
+            m_pointColors.clear();
         }
         static AssetRef pointCloud;
         ImGui::Text("Construct PointCloud");
@@ -97,6 +98,7 @@ void PointCloudScanner::Scan() {
         if (sample.m_hit) {
             m_points.push_back(sample.m_end);
             m_pointColors.push_back(sample.m_albedo);
+            m_handles.push_back(sample.m_handle);
         }
     }
 }

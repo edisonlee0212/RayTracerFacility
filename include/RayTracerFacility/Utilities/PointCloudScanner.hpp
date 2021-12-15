@@ -12,6 +12,8 @@ namespace RayTracerFacility {
         float m_rotateAngle = 0.0f;
         glm::vec2 m_size = glm::vec2(8, 4);
         glm::vec2 m_distance = glm::vec2(0.02f, 0.02f);
+
+        std::vector<uint64_t> m_handles;
         std::vector<glm::vec3> m_points;
         std::vector<glm::vec3> m_pointColors;
         void ConstructPointCloud(std::shared_ptr<PointCloud> pointCloud);
