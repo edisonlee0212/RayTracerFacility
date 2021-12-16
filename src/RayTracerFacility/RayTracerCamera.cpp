@@ -182,3 +182,7 @@ void RayTracerCamera::SetOutputType(OutputType value) {
 void RayTracerCamera::SetAccumulate(bool value) {
     m_cameraProperties.m_accumulate = value;
 }
+
+void RayTracerCamera::SetMainCamera(bool value) {
+    if(GetOwner().IsValid()) m_mainCamera = value;
+}
