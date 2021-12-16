@@ -10,8 +10,12 @@ E.g. For Linux, the command may be :
 Please visit script for further details.
 ## Main features
  - Simple ray tracer with Monte Carlo BRDF and efficient importance sampling, with auto scene syncronization with UniEngine - "You see in scene window, you see in ray tracer."
- - Screenshot: ![RayTracerScreenshot](/Resources/GitHub/BRDF.png?raw=true "BRDFScreenshot")
- - Screenshot: ![IndirectLightingScreenshot](/Resources/GitHub/IndirectLighting.png?raw=true "IndirectLightingScreenshot")
+   - Screenshot: ![RayTracerScreenshot](/Resources/GitHub/BRDF.png?raw=true "BRDFScreenshot")
+   - Screenshot: ![IndirectLightingScreenshot](/Resources/GitHub/IndirectLighting.png?raw=true "IndirectLightingScreenshot")
  - OptiX Ai Denoiser
  - CUDA version of MLVQ library that supports rendering compressed BTF materials with OptiX.
- - Screenshot: ![MLVQScreenshot](/Resources/GitHub/MLVQ.png?raw=true "MLVQScreenshot")
+   - Screenshot: ![MLVQScreenshot](/Resources/GitHub/MLVQ.png?raw=true "MLVQScreenshot")
+ - Mesh surface illumination estimation
+   - Screenshot: ![IlluminationScreenshot](/Resources/GitHub/Illumination.png?raw=true "IlluminationScreenshot")
+ - Virtual Laser Scanner/LiDAR for point cloud generation in virtual scene 
+   - Screenshot: ![PointCloudScreenshot](/Resources/GitHub/VirtualScan.png?raw=true "PointCloudScreenshot")
