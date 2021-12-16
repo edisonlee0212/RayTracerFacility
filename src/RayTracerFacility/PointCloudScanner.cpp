@@ -96,7 +96,7 @@ void PointCloudScanner::Scan() {
     CudaModule::SamplePointCloud(Application::GetLayer<RayTracerLayer>()->m_environmentProperties, pcSamples);
     for (const auto &sample: pcSamples) {
         if (sample.m_hit) {
-            m_points.push_back(sample.m_end);
+            m_points.push_back(sample.m_end - gt.GetPosition());
             m_pointColors.push_back(sample.m_albedo);
             m_handles.push_back(sample.m_handle);
         }
