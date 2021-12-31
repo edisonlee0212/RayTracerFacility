@@ -2,7 +2,7 @@
 #include <RayTracerLayer.hpp>
 #include <ProjectManager.hpp>
 #include <RayTracer.hpp>
-
+#include "Windows.hpp"
 #include "EditorLayer.hpp"
 #include "RayTracerCamera.hpp"
 #include "TriangleIlluminationEstimator.hpp"
@@ -18,8 +18,8 @@ void RayTracerLayer::UpdateMeshesStorage(
         i.m_removeTag = true;
     }
     if (const auto *rayTracedEntities =
-                EntityManager::UnsafeGetPrivateComponentOwnersList<MeshRenderer>(
-                        EntityManager::GetCurrentScene());
+                Entities::UnsafeGetPrivateComponentOwnersList<MeshRenderer>(
+                        Entities::GetCurrentScene());
             rayTracedEntities && m_renderMeshRenderer) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
@@ -128,8 +128,8 @@ void RayTracerLayer::UpdateMeshesStorage(
         }
     }
     if (const auto *rayTracedEntities =
-                EntityManager::UnsafeGetPrivateComponentOwnersList<Particles>(
-                        EntityManager::GetCurrentScene());
+                Entities::UnsafeGetPrivateComponentOwnersList<Particles>(
+                        Entities::GetCurrentScene());
             rayTracedEntities && m_renderParticles) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
@@ -242,8 +242,8 @@ void RayTracerLayer::UpdateMeshesStorage(
         }
     }
     if (const auto *rayTracedEntities =
-                EntityManager::UnsafeGetPrivateComponentOwnersList<MLVQRenderer>(
-                        EntityManager::GetCurrentScene());
+                Entities::UnsafeGetPrivateComponentOwnersList<MLVQRenderer>(
+                        Entities::GetCurrentScene());
             rayTracedEntities && m_renderMLVQRenderer) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
@@ -321,8 +321,8 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
         i.m_removeTag = true;
     }
     if (const auto *rayTracedEntities =
-                EntityManager::UnsafeGetPrivateComponentOwnersList<
-                        SkinnedMeshRenderer>(EntityManager::GetCurrentScene());
+                Entities::UnsafeGetPrivateComponentOwnersList<
+                        SkinnedMeshRenderer>(Entities::GetCurrentScene());
             rayTracedEntities && m_renderSkinnedMeshRenderer) {
         for (auto entity: *rayTracedEntities) {
             if (!entity.IsEnabled())
@@ -497,7 +497,7 @@ void RayTracerLayer::OnCreate() {
     SunlightCalculator::GetInstance().m_database.insert({20, {0, 90}});
     SunlightCalculator::GetInstance().m_intensityFactor = 0.002f;
 
-    m_sceneCamera = SerializationManager::ProduceSerializable<RayTracerCamera>();
+    m_sceneCamera = Serialization::ProduceSerializable<RayTracerCamera>();
     m_sceneCamera->OnCreate();
 
     Application::RegisterPostAttachSceneFunction([&](const std::shared_ptr<Scene> &scene) {
@@ -521,8 +521,8 @@ void RayTracerLayer::LateUpdate() {
                                                                                    m_sceneCamera->m_cameraProperties,
                                                                                    m_sceneCamera->m_rayProperties);
         }
-        auto *entities = EntityManager::UnsafeGetPrivateComponentOwnersList<RayTracerCamera>(
-                EntityManager::GetCurrentScene());
+        auto *entities = Entities::UnsafeGetPrivateComponentOwnersList<RayTracerCamera>(
+                Entities::GetCurrentScene());
         m_rayTracerCamera.reset();
         if (entities) {
             bool check = false;
@@ -569,7 +569,7 @@ void RayTracerLayer::OnInspect() {
         }
 
         if (ImGui::TreeNodeEx("Environment Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
-            EditorManager::DragAndDropButton<Cubemap>(
+            Editor::DragAndDropButton<Cubemap>(
                     m_environmentalMap,
                     "Environmental Map");
             m_environmentProperties.OnInspect();
@@ -669,7 +669,7 @@ void RayTracerLayer::SceneCameraWindow() {
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
     if (m_rightMouseButtonHold &&
-        !InputManager::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT, WindowManager::GetWindow())) {
+        !Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT, Windows::GetWindow())) {
         m_rightMouseButtonHold = false;
         m_startMouse = false;
     }
@@ -706,8 +706,8 @@ void RayTracerLayer::SceneCameraWindow() {
             if (ImGui::IsWindowFocused()) {
                 const bool valid = true;
                 const glm::vec2 mousePosition =
-                        InputManager::GetMouseAbsolutePositionInternal(
-                                WindowManager::GetWindow());
+                        Inputs::GetMouseAbsolutePositionInternal(
+                                Windows::GetWindow());
                 if (valid) {
                     if (!m_startMouse) {
                         m_lastX = mousePosition.x;
@@ -720,8 +720,8 @@ void RayTracerLayer::SceneCameraWindow() {
                     m_lastY = mousePosition.y;
 #pragma region Scene Camera Controller
                     if (!m_rightMouseButtonHold &&
-                        InputManager::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT,
-                                                       WindowManager::GetWindow())) {
+                        Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT,
+                                                       Windows::GetWindow())) {
                         m_rightMouseButtonHold = true;
                     }
                     if (m_rightMouseButtonHold &&
@@ -732,38 +732,38 @@ void RayTracerLayer::SceneCameraWindow() {
                         const glm::vec3 right =
                                 editorLayer->m_sceneCameraRotation *
                                 glm::vec3(1, 0, 0);
-                        if (InputManager::GetKeyInternal(GLFW_KEY_W,
-                                                         WindowManager::GetWindow())) {
+                        if (Inputs::GetKeyInternal(GLFW_KEY_W,
+                                                         Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition +=
                                     front * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
-                        if (InputManager::GetKeyInternal(GLFW_KEY_S,
-                                                         WindowManager::GetWindow())) {
+                        if (Inputs::GetKeyInternal(GLFW_KEY_S,
+                                                         Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition -=
                                     front * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
-                        if (InputManager::GetKeyInternal(GLFW_KEY_A,
-                                                         WindowManager::GetWindow())) {
+                        if (Inputs::GetKeyInternal(GLFW_KEY_A,
+                                                         Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition -=
                                     right * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
-                        if (InputManager::GetKeyInternal(GLFW_KEY_D,
-                                                         WindowManager::GetWindow())) {
+                        if (Inputs::GetKeyInternal(GLFW_KEY_D,
+                                                         Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition +=
                                     right * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
-                        if (InputManager::GetKeyInternal(GLFW_KEY_LEFT_SHIFT,
-                                                         WindowManager::GetWindow())) {
+                        if (Inputs::GetKeyInternal(GLFW_KEY_LEFT_SHIFT,
+                                                         Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition.y +=
                                     editorLayer->m_velocity *
                                     static_cast<float>(Application::Time().DeltaTime());
                         }
-                        if (InputManager::GetKeyInternal(GLFW_KEY_LEFT_CONTROL,
-                                                         WindowManager::GetWindow())) {
+                        if (Inputs::GetKeyInternal(GLFW_KEY_LEFT_CONTROL,
+                                                         Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition.y -=
                                     editorLayer->m_velocity *
                                     static_cast<float>(Application::Time().DeltaTime());

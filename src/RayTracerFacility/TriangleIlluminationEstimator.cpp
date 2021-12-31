@@ -20,7 +20,7 @@ void TriangleIlluminationEstimator::OnInspect() {
     ImGui::Checkbox("Render Probes", &renderProbes);
     if(renderProbes) {
         ImGui::DragFloat("Render Size", &probeSize, 0.0001f, 0.0001f, 0.2f, "%.5f");
-        RenderManager::DrawGizmoMeshInstancedColored(
+        Graphics::DrawGizmoMeshInstancedColored(
                 DefaultResources::Primitives::Cube, m_probeColors, m_probeTransforms,
                 glm::mat4(1.0f), probeSize);
     }

@@ -4,12 +4,12 @@
 #include <Application.hpp>
 #include <CUDAModule.hpp>
 #include <Cubemap.hpp>
-#include <EditorManager.hpp>
-#include <InputManager.hpp>
+#include <Editor.hpp>
+#include <Inputs.hpp>
 #include <MeshRenderer.hpp>
 #include <AssetManager.hpp>
 #include "ILayer.hpp"
-#include <WindowManager.hpp>
+#include "Windows.hpp"
 #include <memory>
 #include <ray_tracer_facility_export.h>
 

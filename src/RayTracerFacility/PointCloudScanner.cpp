@@ -22,11 +22,11 @@ void PointCloudScanner::OnInspect() {
     glm::vec3 left = glm::normalize(gt.GetRotation() * glm::vec3(1, 0, 0));
     glm::vec3 actualVector = glm::rotate(front, glm::radians(m_rotateAngle), up);
     if (renderPlane) {
-        RenderManager::DrawGizmoMesh(DefaultResources::Primitives::Cone, glm::vec4(1, 0, 0, 0.5),
+        Graphics::DrawGizmoMesh(DefaultResources::Primitives::Cone, glm::vec4(1, 0, 0, 0.5),
                                      glm::translate(gt.GetPosition() + front * 0.5f) *
                                      glm::mat4_cast(glm::quatLookAt(up, glm::normalize(actualVector))) *
                                      glm::scale(glm::vec3(0.1, 0.5, 0.1f)), 1.0f);
-        RenderManager::DrawGizmoMesh(DefaultResources::Primitives::Quad, color,
+        Graphics::DrawGizmoMesh(DefaultResources::Primitives::Quad, color,
                                      glm::translate(gt.GetPosition()) * glm::mat4_cast(glm::quatLookAt(up, front)) *
                                      glm::scale(glm::vec3(m_size.x / 2.0f, 1.0, m_size.y / 2.0f)), 1.0f);
     }
@@ -44,7 +44,7 @@ void PointCloudScanner::OnInspect() {
         static AssetRef pointCloud;
         ImGui::Text("Construct PointCloud");
         ImGui::SameLine();
-        if(EditorManager::DragAndDropButton<PointCloud>(pointCloud, "Here", false)){
+        if(Editor::DragAndDropButton<PointCloud>(pointCloud, "Here", false)){
             auto ptr = pointCloud.Get<PointCloud>();
             if(ptr){
                 ConstructPointCloud(ptr);
@@ -83,7 +83,7 @@ void PointCloudScanner::Scan() {
     pcSamples.resize(size);
 
     std::vector<std::shared_future<void>> results;
-    JobManager::ParallelFor(size, [&](unsigned i) {
+    Jobs::ParallelFor(size, [&](unsigned i) {
         const int columnIndex = (int) i / row;
         const int rowIndex = (int) i % row;
         const auto position = center + left * (float) (columnStart + columnIndex) * m_distance.x + up * (float) (rowStart + rowIndex) * m_distance.y;

@@ -6,7 +6,7 @@
 
 using namespace RayTracerFacility;
 
-#include <EditorManager.hpp>
+#include <Editor.hpp>
 #include <MeshRenderer.hpp>
 
 using namespace UniEngine;
@@ -16,7 +16,7 @@ const char *MLVQMaterials[]{"None", "alu", "corduroy", "fabric01", "impalla",
 
 void MLVQRenderer::OnInspect() {
     if(ImGui::Button("Sync")) Sync();
-    EditorManager::DragAndDropButton<Mesh>(m_mesh, "Mesh");
+    Editor::DragAndDropButton<Mesh>(m_mesh, "Mesh");
     ImGui::Text("Material: ");
     ImGui::SameLine();
     ImGui::Combo("MLVQ Material", &m_materialIndex, MLVQMaterials,
