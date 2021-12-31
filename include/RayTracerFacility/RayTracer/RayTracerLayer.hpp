@@ -55,6 +55,7 @@ namespace RayTracerFacility {
         void RayCameraWindow();
 
         friend class RayTracerCamera;
+
         static std::shared_ptr<RayTracerCamera> m_rayTracerCamera;
     public:
         AssetRef m_environmentalMap;
@@ -80,6 +81,8 @@ namespace RayTracerFacility {
         std::shared_ptr<RayTracerCamera> m_sceneCamera;
 
         void UpdateScene() const;
+
+        void Update() override;
 
         void OnCreate() override;
 

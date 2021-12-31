@@ -7,6 +7,7 @@
 #include "RayTracerCamera.hpp"
 #include "TriangleIlluminationEstimator.hpp"
 #include "PointCloudScanner.hpp"
+
 using namespace RayTracerFacility;
 
 std::shared_ptr<RayTracerCamera> RayTracerLayer::m_rayTracerCamera;
@@ -721,7 +722,7 @@ void RayTracerLayer::SceneCameraWindow() {
 #pragma region Scene Camera Controller
                     if (!m_rightMouseButtonHold &&
                         Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT,
-                                                       Windows::GetWindow())) {
+                                                 Windows::GetWindow())) {
                         m_rightMouseButtonHold = true;
                     }
                     if (m_rightMouseButtonHold &&
@@ -733,37 +734,37 @@ void RayTracerLayer::SceneCameraWindow() {
                                 editorLayer->m_sceneCameraRotation *
                                 glm::vec3(1, 0, 0);
                         if (Inputs::GetKeyInternal(GLFW_KEY_W,
-                                                         Windows::GetWindow())) {
+                                                   Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition +=
                                     front * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
                         if (Inputs::GetKeyInternal(GLFW_KEY_S,
-                                                         Windows::GetWindow())) {
+                                                   Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition -=
                                     front * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
                         if (Inputs::GetKeyInternal(GLFW_KEY_A,
-                                                         Windows::GetWindow())) {
+                                                   Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition -=
                                     right * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
                         if (Inputs::GetKeyInternal(GLFW_KEY_D,
-                                                         Windows::GetWindow())) {
+                                                   Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition +=
                                     right * static_cast<float>(Application::Time().DeltaTime()) *
                                     editorLayer->m_velocity;
                         }
                         if (Inputs::GetKeyInternal(GLFW_KEY_LEFT_SHIFT,
-                                                         Windows::GetWindow())) {
+                                                   Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition.y +=
                                     editorLayer->m_velocity *
                                     static_cast<float>(Application::Time().DeltaTime());
                         }
                         if (Inputs::GetKeyInternal(GLFW_KEY_LEFT_CONTROL,
-                                                         Windows::GetWindow())) {
+                                                   Windows::GetWindow())) {
                             editorLayer->m_sceneCameraPosition.y -=
                                     editorLayer->m_velocity *
                                     static_cast<float>(Application::Time().DeltaTime());
@@ -819,6 +820,21 @@ void RayTracerLayer::RayCameraWindow() {
                     ImGui::Text("No mesh in the scene!");
             } else {
                 ImGui::Text("No camera attached!");
+            }
+        }
+        ImGui::EndChild();
+    }
+    ImGui::End();
+    ImGui::PopStyleVar();
+}
+
+void RayTracerLayer::Update() {
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0, 0});
+    if (ImGui::Begin("Camera (Ray)")) {
+        if (ImGui::BeginChild("RayCameraRenderer", ImVec2(0, 0), false,
+                              ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
+            if (m_rayTracerCamera && m_rayTracerCamera->m_rendered && ImGui::IsWindowFocused()) {
+                Application::GetLayer<EditorLayer>()->m_mainCameraFocusOverride = true;
             }
         }
         ImGui::EndChild();
