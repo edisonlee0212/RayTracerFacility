@@ -1850,6 +1850,7 @@ void RayTracer::BuildShaderBindingTable(
                 DefaultRenderingRayHitRecord rec;
                 OPTIX_CHECK(optixSbtRecordPackHeader(
                         m_defaultRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
+                rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
@@ -1877,6 +1878,7 @@ void RayTracer::BuildShaderBindingTable(
                 DefaultRenderingRayHitRecord rec;
                 OPTIX_CHECK(optixSbtRecordPackHeader(
                         m_defaultRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
+                rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
@@ -1970,6 +1972,7 @@ void RayTracer::BuildShaderBindingTable(
                         optixSbtRecordPackHeader(m_defaultIlluminationEstimationPipeline
                                                          .m_hitGroupProgramGroups[rayID],
                                                  &rec));
+                rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
@@ -2000,6 +2003,7 @@ void RayTracer::BuildShaderBindingTable(
                         optixSbtRecordPackHeader(m_defaultIlluminationEstimationPipeline
                                                          .m_hitGroupProgramGroups[rayID],
                                                  &rec));
+                rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
@@ -2096,6 +2100,7 @@ void RayTracer::BuildShaderBindingTable(
                         optixSbtRecordPackHeader(m_defaultPointCloudScanningPipeline
                                                          .m_hitGroupProgramGroups[rayID],
                                                  &rec));
+                rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
@@ -2126,6 +2131,7 @@ void RayTracer::BuildShaderBindingTable(
                         optixSbtRecordPackHeader(m_defaultPointCloudScanningPipeline
                                                          .m_hitGroupProgramGroups[rayID],
                                                  &rec));
+                rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
