@@ -1064,7 +1064,7 @@ void RayTracer::CreateHitGroupPrograms() {
 __global__ void
 ApplyTransformKernelInstanced(int matricesSize, int verticesSize, glm::mat4 globalTransform, glm::mat4 *matrices,
                               Vertex *vertices,
-                              glm::vec3 *targetPositions, glm::vec3 *targetNormals,
+                              glm::vec3 *targetPositions, glm::vec3 *targetNormals, glm::vec4 *targetColors,
                               glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < verticesSize * matricesSize) {
@@ -1079,12 +1079,13 @@ ApplyTransformKernelInstanced(int matricesSize, int verticesSize, glm::mat4 glob
         targetNormals[idx] = N;
         targetTangents[idx] = T;
         targetTexCoords[idx] = vertices[idx % verticesSize].m_texCoords;
+        targetColors[idx] = vertices[idx % verticesSize].m_color;
     }
 }
 
 __global__ void
 ApplyTransformKernel(int size, glm::mat4 globalTransform, Vertex *vertices,
-                     glm::vec3 *targetPositions, glm::vec3 *targetNormals,
+                     glm::vec3 *targetPositions, glm::vec3 *targetNormals, glm::vec4 *targetColors,
                      glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < size) {
@@ -1098,6 +1099,7 @@ ApplyTransformKernel(int size, glm::mat4 globalTransform, Vertex *vertices,
         targetNormals[idx] = N;
         targetTangents[idx] = T;
         targetTexCoords[idx] = vertices[idx].m_texCoords;
+        targetColors[idx] = vertices[idx].m_color;
     }
 }
 
@@ -1105,7 +1107,7 @@ __global__ void ApplySkinnedTransformKernel(int size, glm::mat4 globalTransform,
                                             SkinnedVertex *vertices,
                                             glm::mat4 *boneMatrices,
                                             glm::vec3 *targetPositions,
-                                            glm::vec3 *targetNormals,
+                                            glm::vec3 *targetNormals, glm::vec4 *targetColors,
                                             glm::vec3 *targetTangents,
                                             glm::vec2 *targetTexCoords) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -1151,6 +1153,7 @@ __global__ void ApplySkinnedTransformKernel(int size, glm::mat4 globalTransform,
         targetNormals[idx] = N;
         targetTangents[idx] = T;
         targetTexCoords[idx] = vertices[idx].m_texCoords;
+        targetColors[idx] = vertices[idx].m_color;
     }
 }
 
@@ -1245,6 +1248,7 @@ void RayTracer::BuildAccelerationStructure() {
                     static_cast<Vertex *>(verticesBuffer.m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedPositionsBuffer[meshID].m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedNormalsBuffer[meshID].m_dPtr),
+                    static_cast<glm::vec4 *>(m_vertexColorBuffer[meshID].m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedTangentBuffer[meshID].m_dPtr),
                     static_cast<glm::vec2 *>(m_texCoordBuffer[meshID].m_dPtr));
         } else {
@@ -1257,6 +1261,7 @@ void RayTracer::BuildAccelerationStructure() {
                     static_cast<Vertex *>(verticesBuffer.m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedPositionsBuffer[meshID].m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedNormalsBuffer[meshID].m_dPtr),
+                    static_cast<glm::vec4 *>(m_vertexColorBuffer[meshID].m_dPtr),
                     static_cast<glm::vec3 *>(m_transformedTangentBuffer[meshID].m_dPtr),
                     static_cast<glm::vec2 *>(m_texCoordBuffer[meshID].m_dPtr));
         }
@@ -1334,7 +1339,7 @@ void RayTracer::BuildAccelerationStructure() {
         m_texCoordBuffer[meshID].Resize(triangleMesh.m_skinnedVertices->size() *
                                         sizeof(glm::vec2));
         m_vertexColorBuffer[meshID].Resize(triangleMesh.m_skinnedVertices->size() *
-                                        sizeof(glm::vec4));
+                                           sizeof(glm::vec4));
 
         int blockSize = 0;   // The launch configurator returned block size
         int minGridSize = 0; // The minimum grid size needed to achieve the
@@ -1350,6 +1355,7 @@ void RayTracer::BuildAccelerationStructure() {
                 static_cast<glm::mat4 *>(m_boneMatricesBuffer[meshID].m_dPtr),
                 static_cast<glm::vec3 *>(m_transformedPositionsBuffer[meshID].m_dPtr),
                 static_cast<glm::vec3 *>(m_transformedNormalsBuffer[meshID].m_dPtr),
+                static_cast<glm::vec4 *>(m_vertexColorBuffer[meshID].m_dPtr),
                 static_cast<glm::vec3 *>(m_transformedTangentBuffer[meshID].m_dPtr),
                 static_cast<glm::vec2 *>(m_texCoordBuffer[meshID].m_dPtr));
         CUDA_SYNC_CHECK();
