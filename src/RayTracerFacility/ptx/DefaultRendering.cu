@@ -199,6 +199,10 @@ namespace RayTracerFacility {
         perRayData.m_energy = glm::vec3(0.0f);
 
         switch (sbtData.m_materialType) {
+            case MaterialType::VertexColor: {
+                perRayData.m_energy = sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
+            }
+                break;
             case MaterialType::Default: {
                 static_cast<DefaultMaterial *>(sbtData.m_material)
                         ->ApplyNormalTexture(normal, texCoord, tangent);
@@ -428,12 +432,15 @@ namespace RayTracerFacility {
                 glm::vec3 currentGammaCorrectedColor =
                         defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer[fbIndex];
                 glm::vec3 accumulatedColor = glm::vec3(
-                        glm::pow(currentGammaCorrectedColor, glm::vec3(defaultRenderingLaunchParams.m_cameraProperties.m_gamma)));
-                pixelColor += static_cast<float>(defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId) * accumulatedColor;
+                        glm::pow(currentGammaCorrectedColor,
+                                 glm::vec3(defaultRenderingLaunchParams.m_cameraProperties.m_gamma)));
+                pixelColor += static_cast<float>(defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId) *
+                              accumulatedColor;
                 pixelColor /= static_cast<float>(defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId + 1);
             }
         }
-        auto gammaCorrectedColor = glm::pow(pixelColor, glm::vec3(1.0 / defaultRenderingLaunchParams.m_cameraProperties.m_gamma));
+        auto gammaCorrectedColor = glm::pow(pixelColor,
+                                            glm::vec3(1.0 / defaultRenderingLaunchParams.m_cameraProperties.m_gamma));
         // and write to frame buffer ...
         defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer[fbIndex] =
                 glm::vec4(gammaCorrectedColor, 1.0f);

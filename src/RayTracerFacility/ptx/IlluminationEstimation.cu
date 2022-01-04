@@ -28,6 +28,11 @@ namespace RayTracerFacility {
         perRayData.m_hitCount = hitCount;
         perRayData.m_energy = 0.0f;
         switch (sbtData.m_materialType) {
+            case MaterialType::VertexColor: {
+                perRayData.m_energy = glm::length(
+                        glm::vec3(sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices)));
+            }
+                break;
             case MaterialType::Default: {
                 static_cast<DefaultMaterial *>(sbtData.m_material)->ApplyNormalTexture(normal, texCoord, tangent);
                 float metallic = static_cast<DefaultMaterial *>(sbtData.m_material)->m_metallic;
@@ -138,11 +143,11 @@ namespace RayTracerFacility {
             perRayData.m_energy = 0.0f;
             perRayData.m_hitCount = 0;
             glm::vec3 rayDir, rayOrigin;
-            if(doubleFace){
+            if (doubleFace) {
                 rayDir = RandomSampleSphere(perRayData.m_random);
-                if(glm::dot(rayDir, surfaceNormal) > 0) rayOrigin = position + surfaceNormal * pushDistance;
+                if (glm::dot(rayDir, surfaceNormal) > 0) rayOrigin = position + surfaceNormal * pushDistance;
                 else rayOrigin = position - surfaceNormal * pushDistance;
-            }else{
+            } else {
                 rayDir = RandomSampleHemisphere(perRayData.m_random, surfaceNormal);
                 rayOrigin = position + surfaceNormal * pushDistance;
             }

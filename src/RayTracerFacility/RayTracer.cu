@@ -1166,6 +1166,8 @@ void RayTracer::BuildAccelerationStructure() {
         i.Free();
     for (auto &i: m_texCoordBuffer)
         i.Free();
+    for (auto &i: m_vertexColorBuffer)
+        i.Free();
     for (auto &i: m_boneMatricesBuffer)
         i.Free();
 
@@ -1174,6 +1176,7 @@ void RayTracer::BuildAccelerationStructure() {
     m_transformedNormalsBuffer.clear();
     m_transformedTangentBuffer.clear();
     m_texCoordBuffer.clear();
+    m_vertexColorBuffer.clear();
     m_boneMatricesBuffer.clear();
 
     m_trianglesBuffer.resize(instanceSize);
@@ -1181,6 +1184,7 @@ void RayTracer::BuildAccelerationStructure() {
     m_transformedNormalsBuffer.resize(instanceSize);
     m_transformedTangentBuffer.resize(instanceSize);
     m_texCoordBuffer.resize(instanceSize);
+    m_vertexColorBuffer.resize(instanceSize);
     m_boneMatricesBuffer.resize(instanceSize);
 
     OptixTraversableHandle asHandle = 0;
@@ -1210,6 +1214,8 @@ void RayTracer::BuildAccelerationStructure() {
                                                       triangleMesh.m_vertices->size() * sizeof(glm::vec3));
             m_texCoordBuffer[meshID].Resize(triangleMesh.m_matrices->size() *
                                             triangleMesh.m_vertices->size() * sizeof(glm::vec2));
+            m_vertexColorBuffer[meshID].Resize(triangleMesh.m_matrices->size() *
+                                               triangleMesh.m_vertices->size() * sizeof(glm::vec4));
         } else {
             m_transformedPositionsBuffer[meshID].Resize(
                     triangleMesh.m_vertices->size() * sizeof(glm::vec3));
@@ -1219,6 +1225,7 @@ void RayTracer::BuildAccelerationStructure() {
                     triangleMesh.m_vertices->size() * sizeof(glm::vec3));
             m_texCoordBuffer[meshID].Resize(triangleMesh.m_vertices->size() *
                                             sizeof(glm::vec2));
+            m_vertexColorBuffer[meshID].Resize(triangleMesh.m_vertices->size() * sizeof(glm::vec4));
         }
 
         int blockSize = 0;   // The launch configurator returned block size
@@ -1326,7 +1333,8 @@ void RayTracer::BuildAccelerationStructure() {
                 triangleMesh.m_skinnedVertices->size() * sizeof(glm::vec3));
         m_texCoordBuffer[meshID].Resize(triangleMesh.m_skinnedVertices->size() *
                                         sizeof(glm::vec2));
-
+        m_vertexColorBuffer[meshID].Resize(triangleMesh.m_skinnedVertices->size() *
+                                        sizeof(glm::vec4));
 
         int blockSize = 0;   // The launch configurator returned block size
         int minGridSize = 0; // The minimum grid size needed to achieve the
@@ -1572,7 +1580,7 @@ void RayTracer::BuildShaderBindingTable(
         // Prepare surface materials
         // ------------------------------------------------------------------
         for (auto &i: m_surfaceMaterials)
-            if (i.m_type == MaterialType::Default)
+            if (i.m_type == MaterialType::Default || i.m_type == MaterialType::VertexColor)
                 i.m_buffer.Free();
         m_surfaceMaterials.clear();
         m_surfaceMaterials.resize(numObjects);
@@ -1589,6 +1597,10 @@ void RayTracer::BuildShaderBindingTable(
                     } else {
                         m_surfaceMaterials[i].m_buffer = m_MLVQMaterialStorage[0].m_buffer;
                     }
+                    break;
+                }
+                case MaterialType::VertexColor: {
+                    m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
                     break;
                 }
                 case MaterialType::Default: {
@@ -1697,6 +1709,10 @@ void RayTracer::BuildShaderBindingTable(
                     } else {
                         m_surfaceMaterials[i].m_buffer = m_MLVQMaterialStorage[0].m_buffer;
                     }
+                    break;
+                }
+                case MaterialType::VertexColor: {
+                    m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
                     break;
                 }
                 case MaterialType::Default: {
@@ -1859,7 +1875,8 @@ void RayTracer::BuildShaderBindingTable(
                         m_transformedTangentBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_texCoords =
                         reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-
+                rec.m_data.m_mesh.m_colors =
+                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
@@ -1887,7 +1904,8 @@ void RayTracer::BuildShaderBindingTable(
                         m_transformedTangentBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_texCoords =
                         reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-
+                rec.m_data.m_mesh.m_colors =
+                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
@@ -1981,7 +1999,8 @@ void RayTracer::BuildShaderBindingTable(
                         m_transformedTangentBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_texCoords =
                         reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-
+                rec.m_data.m_mesh.m_colors =
+                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
@@ -2012,7 +2031,8 @@ void RayTracer::BuildShaderBindingTable(
                         m_transformedTangentBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_texCoords =
                         reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-
+                rec.m_data.m_mesh.m_colors =
+                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
@@ -2109,7 +2129,8 @@ void RayTracer::BuildShaderBindingTable(
                         m_transformedTangentBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_texCoords =
                         reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-
+                rec.m_data.m_mesh.m_colors =
+                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
@@ -2140,7 +2161,8 @@ void RayTracer::BuildShaderBindingTable(
                         m_transformedTangentBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_texCoords =
                         reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-
+                rec.m_data.m_mesh.m_colors =
+                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;

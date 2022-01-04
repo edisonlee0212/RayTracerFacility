@@ -18,19 +18,27 @@ namespace RayTracerFacility {
         }
         auto tangent = sbtData.m_mesh.GetTangent(triangleBarycentricsInternal, indices);
         auto hitPoint = sbtData.m_mesh.GetPosition(triangleBarycentricsInternal, indices);
-        PerRayData<uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
+        PerRayData <uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
         prd.m_hitCount = 1;
         prd.m_energy = sbtData.m_handle;
+        /*
         switch (sbtData.m_materialType) {
+            case MaterialType::VertexColor: {
+                prd.m_albedo = sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
+            }
+                break;
             case MaterialType::Default: {
                 glm::vec3 albedoColor = static_cast<DefaultMaterial *>(sbtData.m_material)->GetAlbedo(texCoord);
                 prd.m_albedo = albedoColor;
-            }break;
+            }
+                break;
             case MaterialType::MLVQ: {
                 glm::vec3 btfColor = glm::vec3(0);
                 prd.m_albedo = btfColor;
-            }break;
-        }
+            }
+                break;
+        }*/
+        prd.m_albedo = sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
         prd.m_normal = hitPoint;
     }
 #pragma endregion
@@ -41,7 +49,7 @@ namespace RayTracerFacility {
 #pragma endregion
 #pragma region Miss functions
     extern "C" __global__ void __miss__pointCloudScanning() {
-        PerRayData<uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
+        PerRayData <uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
         prd.m_hitCount = 0;
         prd.m_energy = 0;
     }
@@ -49,13 +57,13 @@ namespace RayTracerFacility {
 #pragma region Main ray generation
     extern "C" __global__ void __raygen__pointCloudScanning() {
         unsigned ix = optixGetLaunchIndex().x;
-        auto& samples = defaultPointCloudScanningLaunchParams.m_samples[ix];
+        auto &samples = defaultPointCloudScanningLaunchParams.m_samples[ix];
         auto start = samples.m_start;
         auto direction = samples.m_direction;
         float3 rayOrigin = make_float3(start.x, start.y, start.z);
         float3 rayDirection = make_float3(direction.x, direction.y, direction.z);
 
-        PerRayData<uint64_t> perRayData;
+        PerRayData <uint64_t> perRayData;
         perRayData.m_random.Init(ix,
                                  0);
         perRayData.m_hitCount = 0;

@@ -418,6 +418,7 @@ namespace RayTracerFacility {
         std::vector<CudaBuffer> m_transformedPositionsBuffer;
         std::vector<CudaBuffer> m_transformedNormalsBuffer;
         std::vector<CudaBuffer> m_transformedTangentBuffer;
+        std::vector<CudaBuffer> m_vertexColorBuffer;
         std::vector<CudaBuffer> m_texCoordBuffer;
 
         std::vector<CudaBuffer> m_boneMatricesBuffer;
