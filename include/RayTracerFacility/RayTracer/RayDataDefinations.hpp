@@ -175,7 +175,7 @@ namespace RayTracerFacility {
     };
 
 /*! SBT record for a raygen program */
-    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) DefaultRenderingRayGenRecord {
+    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) CameraRenderingRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -184,7 +184,7 @@ namespace RayTracerFacility {
     };
 
 /*! SBT record for a miss program */
-    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) DefaultRenderingRayMissRecord {
+    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) CameraRenderingRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -193,7 +193,7 @@ namespace RayTracerFacility {
     };
 
 /*! SBT record for a hitgroup program */
-    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) DefaultRenderingRayHitRecord {
+    struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) CameraRenderingRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -203,7 +203,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a raygen program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-    DefaultIlluminationEstimationRayGenRecord {
+        IlluminationEstimationRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -213,7 +213,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a miss program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-    DefaultIlluminationEstimationRayMissRecord {
+        IlluminationEstimationRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -223,7 +223,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a hitgroup program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-    DefaultIlluminationEstimationRayHitRecord {
+        IlluminationEstimationRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -232,7 +232,7 @@ namespace RayTracerFacility {
     };
     /*! SBT record for a raygen program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-    DefaultPointCloudScanningRayGenRecord {
+        PointCloudScanningRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -242,7 +242,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a miss program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-    DefaultPointCloudScanningRayMissRecord {
+        PointCloudScanningRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -252,7 +252,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a hitgroup program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-    DefaultPointCloudScanningRayHitRecord {
+        PointCloudScanningRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting

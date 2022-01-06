@@ -207,19 +207,19 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
     BuildShaderBindingTable(boundTextures, boundResources);
     bool statusChanged = false;
     if (m_requireUpdate) statusChanged = true;
-    m_defaultRenderingLaunchParams.m_cameraProperties = cameraProperties;
+    m_cameraRenderingLaunchParams.m_cameraProperties = cameraProperties;
     statusChanged = statusChanged || cameraProperties.m_modified;
     cameraProperties.m_modified = false;
-    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.Changed(environmentProperties)) {
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
+    if (m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.Changed(environmentProperties)) {
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
         statusChanged = true;
     }
-    if (m_defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties.Changed(rayProperties)) {
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
+    if (m_cameraRenderingLaunchParams.m_rayTracerProperties.m_rayProperties.Changed(rayProperties)) {
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
         statusChanged = true;
     }
-    if (!m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate || statusChanged) {
-        m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId = 0;
+    if (!m_cameraRenderingLaunchParams.m_cameraProperties.m_accumulate || statusChanged) {
+      m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId = 0;
         cameraProperties.m_frame.m_frameId = 0;
     }
 #pragma region Bind environmental map as cudaTexture
@@ -231,11 +231,11 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
     cudaArray_t environmentalMapPosZArray;
     cudaArray_t environmentalMapNegZArray;
     cudaGraphicsResource_t environmentalMapTexture;
-    if (m_defaultRenderingLaunchParams.m_rayTracerProperties
+    if (m_cameraRenderingLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(GraphicsGLRegisterImage(
                 &environmentalMapTexture,
-                m_defaultRenderingLaunchParams.m_rayTracerProperties
+          m_cameraRenderingLaunchParams.m_rayTracerProperties
                         .m_environment.m_environmentalMapId,
                 GL_TEXTURE_CUBE_MAP, cudaGraphicsRegisterFlagsNone));
         CUDA_CHECK(GraphicsMapResources(1, &environmentalMapTexture, nullptr));
@@ -269,79 +269,79 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
         // Create texture object
         cudaResourceDesc.res.array.array = environmentalMapPosXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
+                &m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
+                &m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
+                &m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
+                &m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
+                &m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
+                &m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
     } else {
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+      m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
     }
 #pragma endregion
 #pragma region Upload parameters
-    m_defaultRenderingPipeline.m_launchParamsBuffer.Upload(
-            &m_defaultRenderingLaunchParams, 1);
-    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId++;
+    m_cameraRenderingPipeline.m_launchParamsBuffer.Upload(
+            &m_cameraRenderingLaunchParams, 1);
+    m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId++;
     cameraProperties.m_frame.m_frameId++;
 #pragma endregion
 #pragma region Launch rays from camera
     OPTIX_CHECK(
             optixLaunch(/*! pipeline we're launching launch: */
-                    m_defaultRenderingPipeline.m_pipeline, m_stream,
+                            m_cameraRenderingPipeline.m_pipeline, m_stream,
                     /*! parameters and SBT */
-                    m_defaultRenderingPipeline.m_launchParamsBuffer
+                            m_cameraRenderingPipeline.m_launchParamsBuffer
                             .DevicePointer(),
-                    m_defaultRenderingPipeline.m_launchParamsBuffer.m_sizeInBytes,
-                    &m_defaultRenderingPipeline.m_sbt,
+                            m_cameraRenderingPipeline.m_launchParamsBuffer.m_sizeInBytes,
+                    &m_cameraRenderingPipeline.m_sbt,
                     /*! dimensions of the launch: */
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x,
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                            m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x,
+                            m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     1));
 #pragma endregion
     CUDA_SYNC_CHECK();
 #pragma region Remove textures binding.
-    if (m_defaultRenderingLaunchParams.m_rayTracerProperties
+    if (m_cameraRenderingLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+          m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
+        m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+            m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
+        m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+            m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
+        m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+            m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
+        m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+            m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
+        m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
-        m_defaultRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+            m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
+        m_cameraRenderingLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
 
         CUDA_CHECK(GraphicsUnmapResources(1, &environmentalMapTexture, 0));
         CUDA_CHECK(GraphicsUnregisterResource(environmentalMapTexture));
@@ -357,7 +357,7 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
     cudaGraphicsResource_t outputTexture;
     CUDA_CHECK(GraphicsGLRegisterImage(
             &outputTexture,
-            m_defaultRenderingLaunchParams.m_cameraProperties.m_outputTextureId,
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_outputTextureId,
             GL_TEXTURE_2D, cudaGraphicsRegisterFlagsNone));
     CUDA_CHECK(GraphicsMapResources(1, &outputTexture, nullptr));
     CUDA_CHECK(
@@ -375,14 +375,16 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
 #pragma endregion
 #pragma region Copy results to output texture
     OptixImage2D inputLayer[3];
-    inputLayer[0].data = m_defaultRenderingLaunchParams.m_cameraProperties.m_frameBufferColor.DevicePointer();
+    inputLayer[0].data = m_cameraRenderingLaunchParams.m_cameraProperties.m_frameBufferColor.DevicePointer();
     /// Width of the image (in pixels)
-    inputLayer[0].width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
+    inputLayer[0].width =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    inputLayer[0].height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
+    inputLayer[0].height =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     inputLayer[0].rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
@@ -391,14 +393,16 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
     inputLayer[0].format = OPTIX_PIXEL_FORMAT_FLOAT4;
 
     // ..................................................................
-    inputLayer[1].data = m_defaultRenderingLaunchParams.m_cameraProperties.m_frameBufferAlbedo.DevicePointer();
+    inputLayer[1].data = m_cameraRenderingLaunchParams.m_cameraProperties.m_frameBufferAlbedo.DevicePointer();
     /// Width of the image (in pixels)
-    inputLayer[1].width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
+    inputLayer[1].width =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    inputLayer[1].height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
+    inputLayer[1].height =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     inputLayer[1].rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
@@ -407,14 +411,16 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
     inputLayer[1].format = OPTIX_PIXEL_FORMAT_FLOAT4;
 
     // ..................................................................
-    inputLayer[2].data = m_defaultRenderingLaunchParams.m_cameraProperties.m_frameBufferNormal.DevicePointer();
+    inputLayer[2].data = m_cameraRenderingLaunchParams.m_cameraProperties.m_frameBufferNormal.DevicePointer();
     /// Width of the image (in pixels)
-    inputLayer[2].width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
+    inputLayer[2].width =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    inputLayer[2].height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
+    inputLayer[2].height =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     inputLayer[2].rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
@@ -424,51 +430,60 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
 
     // -------------------------------------------------------
     OptixImage2D outputLayer;
-    outputLayer.data = m_defaultRenderingLaunchParams.m_cameraProperties.m_denoisedBuffer.DevicePointer();
+    outputLayer.data = m_cameraRenderingLaunchParams.m_cameraProperties.m_denoisedBuffer.DevicePointer();
     /// Width of the image (in pixels)
-    outputLayer.width = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
+    outputLayer.width =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x;
     /// Height of the image (in pixels)
-    outputLayer.height = m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
+    outputLayer.height =
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y;
     /// Stride between subsequent rows of the image (in bytes).
     outputLayer.rowStrideInBytes =
-            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
+        m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x * sizeof(glm::vec4);
     /// Stride between subsequent pixels of the image (in bytes).
     /// For now, only 0 or the value that corresponds to a dense packing of pixels
     /// (no gaps) is supported.
     outputLayer.pixelStrideInBytes = sizeof(glm::vec4);
     /// Pixel format.
     outputLayer.format = OPTIX_PIXEL_FORMAT_FLOAT4;
-    switch (m_defaultRenderingLaunchParams.m_cameraProperties.m_outputType) {
+    switch (m_cameraRenderingLaunchParams.m_cameraProperties.m_outputType) {
         case OutputType::Color: {
             if (cameraProperties.m_denoiserStrength == 0.0f) {
                 CUDA_CHECK(MemcpyToArray(
                         outputArray, 0, 0,
-                        (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_colorBuffer,
-                        sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                        (void *)m_cameraRenderingLaunchParams
+                                    .m_cameraProperties.m_frame.m_colorBuffer,
+                        sizeof(glm::vec4) *
+                                    m_cameraRenderingLaunchParams
+                                        .m_cameraProperties.m_frame.m_size.x *
+                                    m_cameraRenderingLaunchParams
+                                        .m_cameraProperties.m_frame.m_size.y,
                         cudaMemcpyDeviceToDevice));
             } else {
                 OptixDenoiserParams denoiserParams;
                 denoiserParams.denoiseAlpha = 1;
-                m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
-                if (m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes !=
+                m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
+                if (m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes !=
                     sizeof(float))
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
-                denoiserParams.hdrIntensity = m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer();
-                if (m_defaultRenderingLaunchParams.m_cameraProperties.m_accumulate &&
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId > 1)
+                  m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
+                denoiserParams.hdrIntensity =
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer();
+                if (m_cameraRenderingLaunchParams.m_cameraProperties.m_accumulate &&
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId > 1)
                     denoiserParams.blendFactor =
                             (1.0f - cameraProperties.m_denoiserStrength) /
-                            m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId;
+                      m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId;
                 else
                     denoiserParams.blendFactor = (1.0f - cameraProperties.m_denoiserStrength);
 
                 OPTIX_CHECK(optixDenoiserComputeIntensity(
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiser,
                         /*stream*/ 0, &inputLayer[0],
-                        (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.DevicePointer(),
-                        (CUdeviceptr) m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
+                        (CUdeviceptr)m_cameraRenderingLaunchParams
+                        .m_cameraProperties.m_denoiserIntensity.DevicePointer(),
+                        (CUdeviceptr)m_cameraRenderingLaunchParams
+                        .m_cameraProperties.m_denoiserScratch.DevicePointer(),
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
 
                 OptixDenoiserLayer denoiserLayer = {};
                 denoiserLayer.input = inputLayer[0];
@@ -479,19 +494,21 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
                 denoiserGuideLayer.normal = inputLayer[2];
 
                 OPTIX_CHECK(optixDenoiserInvoke(
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiser,
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiser,
                         /*stream*/ 0, &denoiserParams,
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.DevicePointer(),
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserState.m_sizeInBytes,
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserState.DevicePointer(),
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserState.m_sizeInBytes,
                         &denoiserGuideLayer, &denoiserLayer, 1,
                         /*inputOffsetX*/ 0,
                         /*inputOffsetY*/ 0,
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
-                        m_defaultRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.DevicePointer(),
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserScratch.m_sizeInBytes));
                 CUDA_CHECK(MemcpyToArray(outputArray, 0, 0, (void *) outputLayer.data,
                                          sizeof(glm::vec4) *
-                                         m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
-                                         m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                                      m_cameraRenderingLaunchParams
+                                          .m_cameraProperties.m_frame.m_size.x *
+                                      m_cameraRenderingLaunchParams
+                                          .m_cameraProperties.m_frame.m_size.y,
                                          cudaMemcpyDeviceToDevice));
             }
         }
@@ -499,18 +516,22 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
         case OutputType::Normal: {
             CUDA_CHECK(MemcpyToArray(
                     outputArray, 0, 0,
-                    (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_normalBuffer,
-                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                    (void *)m_cameraRenderingLaunchParams
+                                .m_cameraProperties.m_frame.m_normalBuffer,
+                    sizeof(glm::vec4) *
+                                m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                                m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
         }
             break;
         case OutputType::Albedo: {
             CUDA_CHECK(MemcpyToArray(
                     outputArray, 0, 0,
-                    (void *) m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_albedoBuffer,
-                    sizeof(glm::vec4) * m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
-                    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                    (void *)m_cameraRenderingLaunchParams
+                                .m_cameraProperties.m_frame.m_albedoBuffer,
+                    sizeof(glm::vec4) *
+                                m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                                m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
                     cudaMemcpyDeviceToDevice));
         }
             break;
@@ -549,11 +570,11 @@ void RayTracer::EstimateIllumination(const size_t &size,
     cudaArray_t environmentalMapPosZArray;
     cudaArray_t environmentalMapNegZArray;
     cudaGraphicsResource_t environmentalMapTexture;
-    if (m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties
+    if (m_illuminationEstimationLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(GraphicsGLRegisterImage(
                 &environmentalMapTexture,
-                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties
+          m_illuminationEstimationLaunchParams.m_rayTracerProperties
                         .m_environment.m_environmentalMapId,
                 GL_TEXTURE_CUBE_MAP, cudaGraphicsRegisterFlagsNone));
         CUDA_CHECK(GraphicsMapResources(1, &environmentalMapTexture, nullptr));
@@ -587,83 +608,83 @@ void RayTracer::EstimateIllumination(const size_t &size,
         // Create texture object
         cudaResourceDesc.res.array.array = environmentalMapPosXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
+                &m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
+                &m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
+                &m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
+                &m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
+                &m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
+                &m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
     } else {
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+      m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+      m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+      m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+      m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+      m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+      m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
     }
 #pragma endregion
 #pragma region Upload parameters
-    m_defaultIlluminationEstimationLaunchParams.m_seed = seed;
-    m_defaultIlluminationEstimationLaunchParams.m_pushNormalDistance = pushNormalDistance;
-    m_defaultIlluminationEstimationLaunchParams.m_size = size;
-    m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
-    m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
-    m_defaultIlluminationEstimationLaunchParams.m_lightProbes =
+    m_illuminationEstimationLaunchParams.m_seed = seed;
+    m_illuminationEstimationLaunchParams.m_pushNormalDistance = pushNormalDistance;
+    m_illuminationEstimationLaunchParams.m_size = size;
+    m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
+    m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
+    m_illuminationEstimationLaunchParams.m_lightProbes =
             reinterpret_cast<LightProbe<float> *>(lightProbes.DevicePointer());
-    m_defaultIlluminationEstimationPipeline.m_launchParamsBuffer.Upload(
-            &m_defaultIlluminationEstimationLaunchParams, 1);
+    m_illuminationEstimationPipeline.m_launchParamsBuffer.Upload(
+            &m_illuminationEstimationLaunchParams, 1);
 #pragma endregion
 #pragma region Launch rays from light probes
     OPTIX_CHECK(optixLaunch(/*! pipeline we're launching launch: */
-            m_defaultIlluminationEstimationPipeline.m_pipeline,
+                            m_illuminationEstimationPipeline.m_pipeline,
             m_stream,
             /*! parameters and SBT */
-            m_defaultIlluminationEstimationPipeline
-                    .m_launchParamsBuffer.DevicePointer(),
-            m_defaultIlluminationEstimationPipeline
-                    .m_launchParamsBuffer.m_sizeInBytes,
-            &m_defaultIlluminationEstimationPipeline.m_sbt,
+                            m_illuminationEstimationPipeline
+                                .m_launchParamsBuffer.DevicePointer(),
+                            m_illuminationEstimationPipeline
+                                .m_launchParamsBuffer.m_sizeInBytes,
+            &m_illuminationEstimationPipeline.m_sbt,
             /*! dimensions of the launch: */
             size, 1, 1));
     CUDA_SYNC_CHECK();
 #pragma endregion
 #pragma region Remove textures binding.
-    if (m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties
+    if (m_illuminationEstimationLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+          m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
+        m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+            m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
+        m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+            m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
+        m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+            m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
+        m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+            m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
+        m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
-        m_defaultIlluminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+            m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
+        m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
 
         CUDA_CHECK(GraphicsUnmapResources(1, &environmentalMapTexture, 0));
         CUDA_CHECK(GraphicsUnregisterResource(environmentalMapTexture));
@@ -696,11 +717,11 @@ void RayTracer::ScanPointCloud(const size_t &size, const EnvironmentProperties &
     cudaArray_t environmentalMapPosZArray;
     cudaArray_t environmentalMapNegZArray;
     cudaGraphicsResource_t environmentalMapTexture;
-    if (m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties
+    if (m_pointCloudScanningLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(GraphicsGLRegisterImage(
                 &environmentalMapTexture,
-                m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties
+          m_pointCloudScanningLaunchParams.m_rayTracerProperties
                         .m_environment.m_environmentalMapId,
                 GL_TEXTURE_CUBE_MAP, cudaGraphicsRegisterFlagsNone));
         CUDA_CHECK(GraphicsMapResources(1, &environmentalMapTexture, nullptr));
@@ -734,81 +755,79 @@ void RayTracer::ScanPointCloud(const size_t &size, const EnvironmentProperties &
         // Create texture object
         cudaResourceDesc.res.array.array = environmentalMapPosXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
+                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegXArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
+                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
+                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegYArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
+                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapPosZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
+                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
         cudaResourceDesc.res.array.array = environmentalMapNegZArray;
         CUDA_CHECK(CreateTextureObject(
-                &m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
+                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
                 &cudaResourceDesc, &cudaTextureDesc, nullptr));
     } else {
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+      m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+      m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+      m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+      m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+      m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+      m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
     }
 #pragma endregion
 #pragma region Upload parameters
-    m_defaultPointCloudScanningLaunchParams.m_size = size;
-    m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
-    m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_rayProperties = RayProperties();
-    m_defaultPointCloudScanningLaunchParams.m_samples =
+    m_pointCloudScanningLaunchParams.m_size = size;
+    m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
+    m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_rayProperties = RayProperties();
+    m_pointCloudScanningLaunchParams.m_samples =
             reinterpret_cast<PointCloudSample *>(samples.DevicePointer());
-    m_defaultPointCloudScanningPipeline.m_launchParamsBuffer.Upload(
-            &m_defaultPointCloudScanningLaunchParams, 1);
+    m_pointCloudScanningPipeline.m_launchParamsBuffer.Upload(
+            &m_pointCloudScanningLaunchParams, 1);
 #pragma endregion
 #pragma region Launch rays from samples
     OPTIX_CHECK(optixLaunch(/*! pipeline we're launching launch: */
-            m_defaultPointCloudScanningPipeline.m_pipeline,
+                            m_pointCloudScanningPipeline.m_pipeline,
             m_stream,
             /*! parameters and SBT */
-            m_defaultPointCloudScanningPipeline
-                    .m_launchParamsBuffer.DevicePointer(),
-            m_defaultPointCloudScanningPipeline
-                    .m_launchParamsBuffer.m_sizeInBytes,
-            &m_defaultPointCloudScanningPipeline.m_sbt,
+                            m_pointCloudScanningPipeline.m_launchParamsBuffer.DevicePointer(),
+                            m_pointCloudScanningPipeline.m_launchParamsBuffer.m_sizeInBytes,
+            &m_pointCloudScanningPipeline.m_sbt,
             /*! dimensions of the launch: */
             size, 1, 1));
     CUDA_SYNC_CHECK();
 #pragma endregion
 #pragma region Remove textures binding.
-    if (m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties
+    if (m_pointCloudScanningLaunchParams.m_rayTracerProperties
                 .m_environment.m_environmentalMapId != 0) {
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
+          m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
+        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
+            m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
+        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
+            m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
+        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
+            m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
+        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
+            m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
+        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
         CUDA_CHECK(DestroyTextureObject(
-                m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
-        m_defaultPointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
+            m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
+        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
 
         CUDA_CHECK(GraphicsUnmapResources(1, &environmentalMapTexture, 0));
         CUDA_CHECK(GraphicsUnregisterResource(environmentalMapTexture));
@@ -822,7 +841,7 @@ void RayTracer::ScanPointCloud(const size_t &size, const EnvironmentProperties &
 }
 
 RayTracer::RayTracer() {
-    m_defaultRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId = 0;
+  m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_frameId = 0;
     // std::cout << "#Optix: creating optix context ..." << std::endl;
     CreateContext();
     // std::cout << "#Optix: setting up module ..." << std::endl;
@@ -865,40 +884,40 @@ void RayTracer::CreateContext() {
                                                  context_log_cb, nullptr, 4));
 }
 
-extern "C" char DEFAULT_RENDERING_PTX[];
+extern "C" char CAMERA_RENDERING_PTX[];
 extern "C" char ILLUMINATION_ESTIMATION_PTX[];
 extern "C" char POINT_CLOUD_SCANNING_PTX[];
 
 void RayTracer::CreateModules() {
-    CreateModule(m_defaultRenderingPipeline, DEFAULT_RENDERING_PTX,
-                 "defaultRenderingLaunchParams");
-    CreateModule(m_defaultIlluminationEstimationPipeline,
+    CreateModule(m_cameraRenderingPipeline, CAMERA_RENDERING_PTX,
+                 "cameraRenderingLaunchParams");
+    CreateModule(m_illuminationEstimationPipeline,
                  ILLUMINATION_ESTIMATION_PTX,
-                 "defaultIlluminationEstimationLaunchParams");
-    CreateModule(m_defaultPointCloudScanningPipeline,
+                 "illuminationEstimationLaunchParams");
+    CreateModule(m_pointCloudScanningPipeline,
                  POINT_CLOUD_SCANNING_PTX,
-                 "defaultPointCloudScanningLaunchParams");
+                 "pointCloudScanningLaunchParams");
 }
 
 void RayTracer::CreateRayGenPrograms() {
-    CreateRayGenProgram(m_defaultRenderingPipeline, "__raygen__renderFrame");
-    CreateRayGenProgram(m_defaultIlluminationEstimationPipeline,
+    CreateRayGenProgram(m_cameraRenderingPipeline, "__raygen__renderFrame");
+    CreateRayGenProgram(m_illuminationEstimationPipeline,
                         "__raygen__illuminationEstimation");
-    CreateRayGenProgram(m_defaultPointCloudScanningPipeline,
+    CreateRayGenProgram(m_pointCloudScanningPipeline,
                         "__raygen__pointCloudScanning");
 }
 
 void RayTracer::CreateMissPrograms() {
     {
-        m_defaultRenderingPipeline.m_missProgramGroups.resize(
-                static_cast<int>(DefaultRenderingRayType::RayTypeCount));
+      m_cameraRenderingPipeline.m_missProgramGroups.resize(
+                static_cast<int>(CameraRenderingRayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
         OptixProgramGroupOptions pgOptions = {};
         OptixProgramGroupDesc pgDesc = {};
         pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_MISS;
-        pgDesc.miss.module = m_defaultRenderingPipeline.m_module;
+        pgDesc.miss.module = m_cameraRenderingPipeline.m_module;
 
         // ------------------------------------------------------------------
         // radiance rays
@@ -907,8 +926,8 @@ void RayTracer::CreateMissPrograms() {
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultRenderingPipeline.m_missProgramGroups[static_cast<int>(
-                        DefaultRenderingRayType::RadianceRayType)]));
+                &m_cameraRenderingPipeline.m_missProgramGroups[static_cast<int>(
+                CameraRenderingRayType::RadianceRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // ------------------------------------------------------------------
@@ -917,21 +936,21 @@ void RayTracer::CreateMissPrograms() {
         pgDesc.miss.entryFunctionName = "__miss__sampleSp";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultRenderingPipeline.m_missProgramGroups[static_cast<int>(
-                        DefaultRenderingRayType::SampleSpRayType)]));
+                &m_cameraRenderingPipeline.m_missProgramGroups[static_cast<int>(
+                CameraRenderingRayType::SampleSpRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_defaultIlluminationEstimationPipeline.m_missProgramGroups.resize(
-                static_cast<int>(DefaultIlluminationEstimationRayType::RayTypeCount));
+      m_illuminationEstimationPipeline.m_missProgramGroups.resize(
+                static_cast<int>(IlluminationEstimationRayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
         OptixProgramGroupOptions pgOptions = {};
         OptixProgramGroupDesc pgDesc = {};
         pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_MISS;
-        pgDesc.miss.module = m_defaultIlluminationEstimationPipeline.m_module;
+        pgDesc.miss.module = m_illuminationEstimationPipeline.m_module;
 
         // ------------------------------------------------------------------
         // radiance rays
@@ -940,22 +959,22 @@ void RayTracer::CreateMissPrograms() {
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultIlluminationEstimationPipeline
-                        .m_missProgramGroups[static_cast<int>(
-                        DefaultIlluminationEstimationRayType::RadianceRayType)]));
+                &m_illuminationEstimationPipeline
+                 .m_missProgramGroups[static_cast<int>(
+                     IlluminationEstimationRayType::RadianceRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_defaultPointCloudScanningPipeline.m_missProgramGroups.resize(
-                static_cast<int>(DefaultPointCloudScanningRayType::RayTypeCount));
+      m_pointCloudScanningPipeline.m_missProgramGroups.resize(
+                static_cast<int>(PointCloudScanningRayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
         OptixProgramGroupOptions pgOptions = {};
         OptixProgramGroupDesc pgDesc = {};
         pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_MISS;
-        pgDesc.miss.module = m_defaultPointCloudScanningPipeline.m_module;
+        pgDesc.miss.module = m_pointCloudScanningPipeline.m_module;
 
         // ------------------------------------------------------------------
         // radiance rays
@@ -964,9 +983,8 @@ void RayTracer::CreateMissPrograms() {
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultPointCloudScanningPipeline
-                        .m_missProgramGroups[static_cast<int>(
-                        DefaultPointCloudScanningRayType::RadianceRayType)]));
+                &m_pointCloudScanningPipeline.m_missProgramGroups[static_cast<int>(
+                PointCloudScanningRayType::RadianceRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -974,16 +992,16 @@ void RayTracer::CreateMissPrograms() {
 
 void RayTracer::CreateHitGroupPrograms() {
     {
-        m_defaultRenderingPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(DefaultRenderingRayType::RayTypeCount));
+      m_cameraRenderingPipeline.m_hitGroupProgramGroups.resize(
+                static_cast<int>(CameraRenderingRayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
         OptixProgramGroupOptions pgOptions = {};
         OptixProgramGroupDesc pgDesc = {};
         pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-        pgDesc.hitgroup.moduleCH = m_defaultRenderingPipeline.m_module;
-        pgDesc.hitgroup.moduleAH = m_defaultRenderingPipeline.m_module;
+        pgDesc.hitgroup.moduleCH = m_cameraRenderingPipeline.m_module;
+        pgDesc.hitgroup.moduleAH = m_cameraRenderingPipeline.m_module;
         // -------------------------------------------------------
         // radiance rays
         // -------------------------------------------------------
@@ -991,8 +1009,8 @@ void RayTracer::CreateHitGroupPrograms() {
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__radiance";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                        DefaultRenderingRayType::RadianceRayType)]));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
+                CameraRenderingRayType::RadianceRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
 
@@ -1004,22 +1022,22 @@ void RayTracer::CreateHitGroupPrograms() {
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                        DefaultRenderingRayType::SampleSpRayType)]));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
+                CameraRenderingRayType::SampleSpRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_defaultIlluminationEstimationPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(DefaultIlluminationEstimationRayType::RayTypeCount));
+      m_illuminationEstimationPipeline.m_hitGroupProgramGroups.resize(
+                static_cast<int>(IlluminationEstimationRayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
         OptixProgramGroupOptions pgOptions = {};
         OptixProgramGroupDesc pgDesc = {};
         pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-        pgDesc.hitgroup.moduleCH = m_defaultIlluminationEstimationPipeline.m_module;
-        pgDesc.hitgroup.moduleAH = m_defaultIlluminationEstimationPipeline.m_module;
+        pgDesc.hitgroup.moduleCH = m_illuminationEstimationPipeline.m_module;
+        pgDesc.hitgroup.moduleAH = m_illuminationEstimationPipeline.m_module;
         // -------------------------------------------------------
         // radiance rays
         // -------------------------------------------------------
@@ -1028,23 +1046,23 @@ void RayTracer::CreateHitGroupPrograms() {
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__illuminationEstimation";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultIlluminationEstimationPipeline
-                        .m_hitGroupProgramGroups[static_cast<int>(
-                        DefaultIlluminationEstimationRayType::RadianceRayType)]));
+                &m_illuminationEstimationPipeline
+                 .m_hitGroupProgramGroups[static_cast<int>(
+                     IlluminationEstimationRayType::RadianceRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_defaultPointCloudScanningPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(DefaultPointCloudScanningRayType::RayTypeCount));
+      m_pointCloudScanningPipeline.m_hitGroupProgramGroups.resize(
+                static_cast<int>(PointCloudScanningRayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
         OptixProgramGroupOptions pgOptions = {};
         OptixProgramGroupDesc pgDesc = {};
         pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
-        pgDesc.hitgroup.moduleCH = m_defaultPointCloudScanningPipeline.m_module;
-        pgDesc.hitgroup.moduleAH = m_defaultPointCloudScanningPipeline.m_module;
+        pgDesc.hitgroup.moduleCH = m_pointCloudScanningPipeline.m_module;
+        pgDesc.hitgroup.moduleAH = m_pointCloudScanningPipeline.m_module;
         // -------------------------------------------------------
         // radiance rays
         // -------------------------------------------------------
@@ -1053,9 +1071,9 @@ void RayTracer::CreateHitGroupPrograms() {
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__pointCloudScanning";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_defaultPointCloudScanningPipeline
-                        .m_hitGroupProgramGroups[static_cast<int>(
-                        DefaultPointCloudScanningRayType::RadianceRayType)]));
+                &m_pointCloudScanningPipeline
+                 .m_hitGroupProgramGroups[static_cast<int>(
+                     PointCloudScanningRayType::RadianceRayType)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -1474,16 +1492,16 @@ void RayTracer::BuildAccelerationStructure() {
     compactedSizeBuffer.Free();
     verticesBuffer.Free();
     matricesBuffer.Free();
-    m_defaultRenderingLaunchParams.m_traversable = asHandle;
-    m_defaultIlluminationEstimationLaunchParams.m_traversable = asHandle;
-    m_defaultPointCloudScanningLaunchParams.m_traversable = asHandle;
+    m_cameraRenderingLaunchParams.m_traversable = asHandle;
+    m_illuminationEstimationLaunchParams.m_traversable = asHandle;
+    m_pointCloudScanningLaunchParams.m_traversable = asHandle;
     m_hasAccelerationStructure = true;
 }
 
 void RayTracer::AssemblePipelines() {
-    AssemblePipeline(m_defaultRenderingPipeline);
-    AssemblePipeline(m_defaultIlluminationEstimationPipeline);
-    AssemblePipeline(m_defaultPointCloudScanningPipeline);
+    AssemblePipeline(m_cameraRenderingPipeline);
+    AssemblePipeline(m_illuminationEstimationPipeline);
+    AssemblePipeline(m_pointCloudScanningPipeline);
 }
 
 void RayTracer::CreateRayGenProgram(RayTracerPipeline &targetPipeline,
@@ -1821,37 +1839,37 @@ void RayTracer::BuildShaderBindingTable(
         // ------------------------------------------------------------------
         // build raygen records
         // ------------------------------------------------------------------
-        std::vector<DefaultRenderingRayGenRecord> raygenRecords;
-        for (int i = 0; i < m_defaultRenderingPipeline.m_rayGenProgramGroups.size();
+        std::vector<CameraRenderingRayGenRecord> raygenRecords;
+        for (int i = 0; i < m_cameraRenderingPipeline.m_rayGenProgramGroups.size();
              i++) {
-            DefaultRenderingRayGenRecord rec;
+          CameraRenderingRayGenRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_defaultRenderingPipeline.m_rayGenProgramGroups[i], &rec));
+                m_cameraRenderingPipeline.m_rayGenProgramGroups[i], &rec));
             rec.m_data = nullptr; /* for now ... */
             raygenRecords.push_back(rec);
         }
-        m_defaultRenderingPipeline.m_rayGenRecordsBuffer.Upload(raygenRecords);
-        m_defaultRenderingPipeline.m_sbt.raygenRecord =
-                m_defaultRenderingPipeline.m_rayGenRecordsBuffer.DevicePointer();
+        m_cameraRenderingPipeline.m_rayGenRecordsBuffer.Upload(raygenRecords);
+        m_cameraRenderingPipeline.m_sbt.raygenRecord =
+            m_cameraRenderingPipeline.m_rayGenRecordsBuffer.DevicePointer();
 
         // ------------------------------------------------------------------
         // build miss records
         // ------------------------------------------------------------------
-        std::vector<DefaultRenderingRayMissRecord> missRecords;
-        for (int i = 0; i < m_defaultRenderingPipeline.m_missProgramGroups.size();
+        std::vector<CameraRenderingRayMissRecord> missRecords;
+        for (int i = 0; i < m_cameraRenderingPipeline.m_missProgramGroups.size();
              i++) {
-            DefaultRenderingRayMissRecord rec;
+          CameraRenderingRayMissRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_defaultRenderingPipeline.m_missProgramGroups[i], &rec));
+                m_cameraRenderingPipeline.m_missProgramGroups[i], &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
-        m_defaultRenderingPipeline.m_missRecordsBuffer.Upload(missRecords);
-        m_defaultRenderingPipeline.m_sbt.missRecordBase =
-                m_defaultRenderingPipeline.m_missRecordsBuffer.DevicePointer();
-        m_defaultRenderingPipeline.m_sbt.missRecordStrideInBytes =
-                sizeof(DefaultRenderingRayMissRecord);
-        m_defaultRenderingPipeline.m_sbt.missRecordCount =
+        m_cameraRenderingPipeline.m_missRecordsBuffer.Upload(missRecords);
+        m_cameraRenderingPipeline.m_sbt.missRecordBase =
+            m_cameraRenderingPipeline.m_missRecordsBuffer.DevicePointer();
+        m_cameraRenderingPipeline.m_sbt.missRecordStrideInBytes =
+                sizeof(CameraRenderingRayMissRecord);
+        m_cameraRenderingPipeline.m_sbt.missRecordCount =
                 static_cast<int>(missRecords.size());
 
         // ------------------------------------------------------------------
@@ -1862,16 +1880,16 @@ void RayTracer::BuildShaderBindingTable(
         // create a dummy one so the SBT doesn't have any null pointers
         // (which the sanity checks in compilation would complain about)
 
-        std::vector<DefaultRenderingRayHitRecord> hitGroupRecords;
+        std::vector<CameraRenderingRayHitRecord> hitGroupRecords;
         int i = 0;
         for (; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
             for (int rayID = 0;
-                 rayID < static_cast<int>(DefaultRenderingRayType::RayTypeCount);
+                 rayID < static_cast<int>(CameraRenderingRayType::RayTypeCount);
                  rayID++) {
-                DefaultRenderingRayHitRecord rec;
+              CameraRenderingRayHitRecord rec;
                 OPTIX_CHECK(optixSbtRecordPackHeader(
-                        m_defaultRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
+                    m_cameraRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
                 rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
@@ -1896,11 +1914,11 @@ void RayTracer::BuildShaderBindingTable(
         for (; i < numObjects; i++) {
             auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
-                 rayID < static_cast<int>(DefaultRenderingRayType::RayTypeCount);
+                 rayID < static_cast<int>(CameraRenderingRayType::RayTypeCount);
                  rayID++) {
-                DefaultRenderingRayHitRecord rec;
+              CameraRenderingRayHitRecord rec;
                 OPTIX_CHECK(optixSbtRecordPackHeader(
-                        m_defaultRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
+                    m_cameraRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
                 rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                         m_transformedPositionsBuffer[i].DevicePointer());
@@ -1922,58 +1940,57 @@ void RayTracer::BuildShaderBindingTable(
                 hitGroupRecords.push_back(rec);
             }
         }
-        m_defaultRenderingPipeline.m_hitGroupRecordsBuffer.Upload(hitGroupRecords);
-        m_defaultRenderingPipeline.m_sbt.hitgroupRecordBase =
-                m_defaultRenderingPipeline.m_hitGroupRecordsBuffer.DevicePointer();
-        m_defaultRenderingPipeline.m_sbt.hitgroupRecordStrideInBytes =
-                sizeof(DefaultRenderingRayHitRecord);
-        m_defaultRenderingPipeline.m_sbt.hitgroupRecordCount =
+        m_cameraRenderingPipeline.m_hitGroupRecordsBuffer.Upload(hitGroupRecords);
+        m_cameraRenderingPipeline.m_sbt.hitgroupRecordBase =
+            m_cameraRenderingPipeline.m_hitGroupRecordsBuffer.DevicePointer();
+        m_cameraRenderingPipeline.m_sbt.hitgroupRecordStrideInBytes =
+                sizeof(CameraRenderingRayHitRecord);
+        m_cameraRenderingPipeline.m_sbt.hitgroupRecordCount =
                 static_cast<int>(hitGroupRecords.size());
     }
     {
         // ------------------------------------------------------------------
         // build raygen records
         // ------------------------------------------------------------------
-        std::vector<DefaultIlluminationEstimationRayGenRecord> raygenRecords;
+        std::vector<IlluminationEstimationRayGenRecord> raygenRecords;
         for (int i = 0;
-             i <
-             m_defaultIlluminationEstimationPipeline.m_rayGenProgramGroups.size();
+             i < m_illuminationEstimationPipeline.m_rayGenProgramGroups.size();
              i++) {
-            DefaultIlluminationEstimationRayGenRecord rec;
+          IlluminationEstimationRayGenRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_defaultIlluminationEstimationPipeline.m_rayGenProgramGroups[i],
+                m_illuminationEstimationPipeline.m_rayGenProgramGroups[i],
                     &rec));
             rec.m_data = nullptr; /* for now ... */
             raygenRecords.push_back(rec);
         }
-        m_defaultIlluminationEstimationPipeline.m_rayGenRecordsBuffer.Upload(
+        m_illuminationEstimationPipeline.m_rayGenRecordsBuffer.Upload(
                 raygenRecords);
-        m_defaultIlluminationEstimationPipeline.m_sbt.raygenRecord =
-                m_defaultIlluminationEstimationPipeline.m_rayGenRecordsBuffer
+        m_illuminationEstimationPipeline.m_sbt.raygenRecord =
+            m_illuminationEstimationPipeline.m_rayGenRecordsBuffer
                         .DevicePointer();
 
         // ------------------------------------------------------------------
         // build miss records
         // ------------------------------------------------------------------
-        std::vector<DefaultIlluminationEstimationRayMissRecord> missRecords;
+        std::vector<IlluminationEstimationRayMissRecord> missRecords;
         for (int i = 0;
-             i < m_defaultIlluminationEstimationPipeline.m_missProgramGroups.size();
+             i < m_illuminationEstimationPipeline.m_missProgramGroups.size();
              i++) {
-            DefaultIlluminationEstimationRayMissRecord rec;
+          IlluminationEstimationRayMissRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_defaultIlluminationEstimationPipeline.m_missProgramGroups[i],
+                m_illuminationEstimationPipeline.m_missProgramGroups[i],
                     &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
-        m_defaultIlluminationEstimationPipeline.m_missRecordsBuffer.Upload(
+        m_illuminationEstimationPipeline.m_missRecordsBuffer.Upload(
                 missRecords);
-        m_defaultIlluminationEstimationPipeline.m_sbt.missRecordBase =
-                m_defaultIlluminationEstimationPipeline.m_missRecordsBuffer
+        m_illuminationEstimationPipeline.m_sbt.missRecordBase =
+            m_illuminationEstimationPipeline.m_missRecordsBuffer
                         .DevicePointer();
-        m_defaultIlluminationEstimationPipeline.m_sbt.missRecordStrideInBytes =
-                sizeof(DefaultIlluminationEstimationRayMissRecord);
-        m_defaultIlluminationEstimationPipeline.m_sbt.missRecordCount =
+        m_illuminationEstimationPipeline.m_sbt.missRecordStrideInBytes =
+                sizeof(IlluminationEstimationRayMissRecord);
+        m_illuminationEstimationPipeline.m_sbt.missRecordCount =
                 static_cast<int>(missRecords.size());
 
         // ------------------------------------------------------------------
@@ -1983,18 +2000,19 @@ void RayTracer::BuildShaderBindingTable(
         // we don't actually have any objects in this example, but let's
         // create a dummy one so the SBT doesn't have any null pointers
         // (which the sanity checks in compilation would complain about)
-        std::vector<DefaultIlluminationEstimationRayHitRecord> hitGroupRecords;
+        std::vector<IlluminationEstimationRayHitRecord> hitGroupRecords;
         int i = 0;
         for (; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(DefaultIlluminationEstimationRayType::RayTypeCount);
+                 static_cast<int>(IlluminationEstimationRayType::RayTypeCount);
                  rayID++) {
-                DefaultIlluminationEstimationRayHitRecord rec;
+              IlluminationEstimationRayHitRecord rec;
                 OPTIX_CHECK(
-                        optixSbtRecordPackHeader(m_defaultIlluminationEstimationPipeline
-                                                         .m_hitGroupProgramGroups[rayID],
+                        optixSbtRecordPackHeader(
+                    m_illuminationEstimationPipeline
+                        .m_hitGroupProgramGroups[rayID],
                                                  &rec));
                 rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
@@ -2021,12 +2039,13 @@ void RayTracer::BuildShaderBindingTable(
             auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(DefaultIlluminationEstimationRayType::RayTypeCount);
+                 static_cast<int>(IlluminationEstimationRayType::RayTypeCount);
                  rayID++) {
-                DefaultIlluminationEstimationRayHitRecord rec;
+              IlluminationEstimationRayHitRecord rec;
                 OPTIX_CHECK(
-                        optixSbtRecordPackHeader(m_defaultIlluminationEstimationPipeline
-                                                         .m_hitGroupProgramGroups[rayID],
+                        optixSbtRecordPackHeader(
+                    m_illuminationEstimationPipeline
+                        .m_hitGroupProgramGroups[rayID],
                                                  &rec));
                 rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
@@ -2049,14 +2068,14 @@ void RayTracer::BuildShaderBindingTable(
                 hitGroupRecords.push_back(rec);
             }
         }
-        m_defaultIlluminationEstimationPipeline.m_hitGroupRecordsBuffer.Upload(
+        m_illuminationEstimationPipeline.m_hitGroupRecordsBuffer.Upload(
                 hitGroupRecords);
-        m_defaultIlluminationEstimationPipeline.m_sbt.hitgroupRecordBase =
-                m_defaultIlluminationEstimationPipeline.m_hitGroupRecordsBuffer
+        m_illuminationEstimationPipeline.m_sbt.hitgroupRecordBase =
+            m_illuminationEstimationPipeline.m_hitGroupRecordsBuffer
                         .DevicePointer();
-        m_defaultIlluminationEstimationPipeline.m_sbt.hitgroupRecordStrideInBytes =
-                sizeof(DefaultIlluminationEstimationRayHitRecord);
-        m_defaultIlluminationEstimationPipeline.m_sbt.hitgroupRecordCount =
+        m_illuminationEstimationPipeline.m_sbt.hitgroupRecordStrideInBytes =
+                sizeof(IlluminationEstimationRayHitRecord);
+        m_illuminationEstimationPipeline.m_sbt.hitgroupRecordCount =
                 static_cast<int>(hitGroupRecords.size());
     }
 
@@ -2064,46 +2083,45 @@ void RayTracer::BuildShaderBindingTable(
         // ------------------------------------------------------------------
         // build raygen records
         // ------------------------------------------------------------------
-        std::vector<DefaultPointCloudScanningRayGenRecord> raygenRecords;
+        std::vector<PointCloudScanningRayGenRecord> raygenRecords;
         for (int i = 0;
-             i <
-             m_defaultPointCloudScanningPipeline.m_rayGenProgramGroups.size();
+             i < m_pointCloudScanningPipeline.m_rayGenProgramGroups.size();
              i++) {
-            DefaultPointCloudScanningRayGenRecord rec;
+          PointCloudScanningRayGenRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_defaultPointCloudScanningPipeline.m_rayGenProgramGroups[i],
+                m_pointCloudScanningPipeline.m_rayGenProgramGroups[i],
                     &rec));
             rec.m_data = nullptr; /* for now ... */
             raygenRecords.push_back(rec);
         }
-        m_defaultPointCloudScanningPipeline.m_rayGenRecordsBuffer.Upload(
+        m_pointCloudScanningPipeline.m_rayGenRecordsBuffer.Upload(
                 raygenRecords);
-        m_defaultPointCloudScanningPipeline.m_sbt.raygenRecord =
-                m_defaultPointCloudScanningPipeline.m_rayGenRecordsBuffer
+        m_pointCloudScanningPipeline.m_sbt.raygenRecord =
+            m_pointCloudScanningPipeline.m_rayGenRecordsBuffer
                         .DevicePointer();
 
         // ------------------------------------------------------------------
         // build miss records
         // ------------------------------------------------------------------
-        std::vector<DefaultPointCloudScanningRayMissRecord> missRecords;
+        std::vector<PointCloudScanningRayMissRecord> missRecords;
         for (int i = 0;
-             i < m_defaultPointCloudScanningPipeline.m_missProgramGroups.size();
+             i < m_pointCloudScanningPipeline.m_missProgramGroups.size();
              i++) {
-            DefaultPointCloudScanningRayMissRecord rec;
+          PointCloudScanningRayMissRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_defaultPointCloudScanningPipeline.m_missProgramGroups[i],
+                m_pointCloudScanningPipeline.m_missProgramGroups[i],
                     &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
-        m_defaultPointCloudScanningPipeline.m_missRecordsBuffer.Upload(
+        m_pointCloudScanningPipeline.m_missRecordsBuffer.Upload(
                 missRecords);
-        m_defaultPointCloudScanningPipeline.m_sbt.missRecordBase =
-                m_defaultPointCloudScanningPipeline.m_missRecordsBuffer
+        m_pointCloudScanningPipeline.m_sbt.missRecordBase =
+            m_pointCloudScanningPipeline.m_missRecordsBuffer
                         .DevicePointer();
-        m_defaultPointCloudScanningPipeline.m_sbt.missRecordStrideInBytes =
-                sizeof(DefaultPointCloudScanningRayMissRecord);
-        m_defaultPointCloudScanningPipeline.m_sbt.missRecordCount =
+        m_pointCloudScanningPipeline.m_sbt.missRecordStrideInBytes =
+                sizeof(PointCloudScanningRayMissRecord);
+        m_pointCloudScanningPipeline.m_sbt.missRecordCount =
                 static_cast<int>(missRecords.size());
 
         // ------------------------------------------------------------------
@@ -2113,18 +2131,18 @@ void RayTracer::BuildShaderBindingTable(
         // we don't actually have any objects in this example, but let's
         // create a dummy one so the SBT doesn't have any null pointers
         // (which the sanity checks in compilation would complain about)
-        std::vector<DefaultPointCloudScanningRayHitRecord> hitGroupRecords;
+        std::vector<PointCloudScanningRayHitRecord> hitGroupRecords;
         int i = 0;
         for (; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(DefaultPointCloudScanningRayType::RayTypeCount);
+                 static_cast<int>(PointCloudScanningRayType::RayTypeCount);
                  rayID++) {
-                DefaultPointCloudScanningRayHitRecord rec;
+              PointCloudScanningRayHitRecord rec;
                 OPTIX_CHECK(
-                        optixSbtRecordPackHeader(m_defaultPointCloudScanningPipeline
-                                                         .m_hitGroupProgramGroups[rayID],
+                        optixSbtRecordPackHeader(
+                    m_pointCloudScanningPipeline.m_hitGroupProgramGroups[rayID],
                                                  &rec));
                 rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
@@ -2151,12 +2169,12 @@ void RayTracer::BuildShaderBindingTable(
             auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(DefaultPointCloudScanningRayType::RayTypeCount);
+                 static_cast<int>(PointCloudScanningRayType::RayTypeCount);
                  rayID++) {
-                DefaultPointCloudScanningRayHitRecord rec;
+              PointCloudScanningRayHitRecord rec;
                 OPTIX_CHECK(
-                        optixSbtRecordPackHeader(m_defaultPointCloudScanningPipeline
-                                                         .m_hitGroupProgramGroups[rayID],
+                        optixSbtRecordPackHeader(
+                    m_pointCloudScanningPipeline.m_hitGroupProgramGroups[rayID],
                                                  &rec));
                 rec.m_data.m_handle = instance.m_handle;
                 rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
@@ -2179,14 +2197,14 @@ void RayTracer::BuildShaderBindingTable(
                 hitGroupRecords.push_back(rec);
             }
         }
-        m_defaultPointCloudScanningPipeline.m_hitGroupRecordsBuffer.Upload(
+        m_pointCloudScanningPipeline.m_hitGroupRecordsBuffer.Upload(
                 hitGroupRecords);
-        m_defaultPointCloudScanningPipeline.m_sbt.hitgroupRecordBase =
-                m_defaultPointCloudScanningPipeline.m_hitGroupRecordsBuffer
+        m_pointCloudScanningPipeline.m_sbt.hitgroupRecordBase =
+            m_pointCloudScanningPipeline.m_hitGroupRecordsBuffer
                         .DevicePointer();
-        m_defaultPointCloudScanningPipeline.m_sbt.hitgroupRecordStrideInBytes =
-                sizeof(DefaultPointCloudScanningRayHitRecord);
-        m_defaultPointCloudScanningPipeline.m_sbt.hitgroupRecordCount =
+        m_pointCloudScanningPipeline.m_sbt.hitgroupRecordStrideInBytes =
+                sizeof(PointCloudScanningRayHitRecord);
+        m_pointCloudScanningPipeline.m_sbt.hitgroupRecordCount =
                 static_cast<int>(hitGroupRecords.size());
     }
 }

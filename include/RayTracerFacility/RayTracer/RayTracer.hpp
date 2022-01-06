@@ -160,24 +160,24 @@ namespace RayTracerFacility {
         void OnInspect();
     };
 
-    enum class DefaultRenderingRayType {
+    enum class CameraRenderingRayType {
         RadianceRayType,
         SampleSpRayType,
         RayTypeCount
     };
-    enum class DefaultIlluminationEstimationRayType {
+    enum class IlluminationEstimationRayType {
         RadianceRayType,
         RayTypeCount
     };
 
-    enum class DefaultPointCloudScanningRayType {
+    enum class PointCloudScanningRayType {
         RadianceRayType,
         RayTypeCount
     };
 
     struct VertexInfo;
 
-    struct DefaultRenderingLaunchParams {
+    struct CameraRenderingLaunchParams {
         CameraProperties m_cameraProperties;
         RayTracerProperties m_rayTracerProperties;
         OptixTraversableHandle m_traversable;
@@ -205,7 +205,7 @@ namespace RayTracerFacility {
         bool m_doubleFace = false;
     };
 
-    struct DefaultIlluminationEstimationLaunchParams {
+    struct IlluminationEstimationLaunchParams {
         unsigned m_seed = 0;
         float m_pushNormalDistance = 0.001f;
         size_t m_size;
@@ -226,7 +226,7 @@ namespace RayTracerFacility {
         glm::vec3 m_albedo;
     };
 
-    struct DefaultPointCloudScanningLaunchParams {
+    struct PointCloudScanningLaunchParams {
         size_t m_size;
         RayTracerProperties m_rayTracerProperties;
         PointCloudSample *m_samples;
@@ -373,15 +373,13 @@ namespace RayTracerFacility {
 #pragma endregion
 #pragma region Pipeline setup
 
-        DefaultRenderingLaunchParams m_defaultRenderingLaunchParams;
-        DefaultIlluminationEstimationLaunchParams
-                m_defaultIlluminationEstimationLaunchParams;
-        DefaultPointCloudScanningLaunchParams
-                m_defaultPointCloudScanningLaunchParams;
+        CameraRenderingLaunchParams m_cameraRenderingLaunchParams;
+        IlluminationEstimationLaunchParams m_illuminationEstimationLaunchParams;
+        PointCloudScanningLaunchParams m_pointCloudScanningLaunchParams;
 
-        RayTracerPipeline m_defaultRenderingPipeline;
-        RayTracerPipeline m_defaultIlluminationEstimationPipeline;
-        RayTracerPipeline m_defaultPointCloudScanningPipeline;
+        RayTracerPipeline m_cameraRenderingPipeline;
+        RayTracerPipeline m_illuminationEstimationPipeline;
+        RayTracerPipeline m_pointCloudScanningPipeline;
 
         /*! creates the module that contains all the programs we are going
           to use. in this simple example, we use a single module from a
