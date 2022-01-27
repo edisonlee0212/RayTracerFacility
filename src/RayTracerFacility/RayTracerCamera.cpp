@@ -46,7 +46,7 @@ void RayTracerCamera::OnInspect() {
 
 void RayTracerCamera::OnCreate() {
     m_colorTexture = AssetManager::CreateAsset<Texture2D>();
-    m_colorTexture->m_name = "CameraTexture";
+    m_colorTexture->SetName("CameraTexture");
     m_colorTexture->UnsafeGetGLTexture() =
             std::make_shared<OpenGLUtils::GLTexture2D>(0, GL_RGBA32F, 1, 1, false);
     m_colorTexture->UnsafeGetGLTexture()->SetData(0, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0);
