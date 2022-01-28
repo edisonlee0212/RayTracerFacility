@@ -1611,13 +1611,13 @@ void RayTracer::BuildShaderBindingTable(
         int i = 0;
         for (; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
-            switch (instance.m_materialType) {
+            switch (instance.m_material.m_materialType) {
                 case MaterialType::MLVQ: {
                     m_surfaceMaterials[i].m_type = MaterialType::MLVQ;
-                    if (instance.m_MLVQMaterialIndex >= 0 &&
-                        instance.m_MLVQMaterialIndex < m_MLVQMaterialStorage.size()) {
+                    if (instance.m_material.m_MLVQMaterialIndex >= 0 &&
+                        instance.m_material.m_MLVQMaterialIndex < m_MLVQMaterialStorage.size()) {
                         m_surfaceMaterials[i].m_buffer =
-                                m_MLVQMaterialStorage[instance.m_MLVQMaterialIndex].m_buffer;
+                                m_MLVQMaterialStorage[instance.m_material.m_MLVQMaterialIndex].m_buffer;
                     } else {
                         m_surfaceMaterials[i].m_buffer = m_MLVQMaterialStorage[0].m_buffer;
                     }
@@ -1631,16 +1631,20 @@ void RayTracer::BuildShaderBindingTable(
                     m_surfaceMaterials[i].m_type = MaterialType::Default;
                     DefaultMaterial material;
 #pragma region Material Settings
-                    material.m_surfaceColor = instance.m_surfaceColor;
-                    material.m_roughness = instance.m_roughness;
-                    material.m_metallic = instance.m_metallic;
+                    material.m_surfaceColor = instance.m_material.m_surfaceColor;
+                    material.m_subsurfaceColor = instance.m_material.m_subsurfaceColor;
+                    material.m_subsurfaceRadius = instance.m_material.m_subsurfaceRadius;
+                    material.m_roughness = instance.m_material.m_roughness;
+                    material.m_metallic = instance.m_material.m_metallic;
                     material.m_albedoTexture = 0;
                     material.m_normalTexture = 0;
-                    material.m_diffuseIntensity = instance.m_diffuseIntensity;
-                    if (instance.m_albedoTexture != 0) {
+                    material.m_roughnessTexture = 0;
+                    material.m_metallicTexture = 0;
+                    material.m_diffuseIntensity = instance.m_material.m_emission;
+                    if (instance.m_material.m_albedoTexture != 0) {
                         bool duplicate = false;
                         for (auto &boundTexture: boundTextures) {
-                            if (boundTexture.first == instance.m_albedoTexture) {
+                            if (boundTexture.first == instance.m_material.m_albedoTexture) {
                                 material.m_albedoTexture = boundTexture.second;
                                 duplicate = true;
                                 break;
@@ -1651,7 +1655,7 @@ void RayTracer::BuildShaderBindingTable(
                             cudaArray_t textureArray;
                             cudaGraphicsResource_t graphicsResource;
                             CUDA_CHECK(GraphicsGLRegisterImage(
-                                    &graphicsResource, instance.m_albedoTexture, GL_TEXTURE_2D,
+                                    &graphicsResource, instance.m_material.m_albedoTexture, GL_TEXTURE_2D,
                                     cudaGraphicsRegisterFlagsReadOnly));
                             CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
                             CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
@@ -1672,14 +1676,14 @@ void RayTracer::BuildShaderBindingTable(
                                                            nullptr));
 #pragma endregion
                             boundResources.push_back(graphicsResource);
-                            boundTextures.emplace_back(instance.m_albedoTexture,
+                            boundTextures.emplace_back(instance.m_material.m_albedoTexture,
                                                        material.m_albedoTexture);
                         }
                     }
-                    if (instance.m_normalTexture != 0) {
+                    if (instance.m_material.m_normalTexture != 0) {
                         bool duplicate = false;
                         for (auto &boundTexture: boundTextures) {
-                            if (boundTexture.first == instance.m_normalTexture) {
+                            if (boundTexture.first == instance.m_material.m_normalTexture) {
                                 material.m_normalTexture = boundTexture.second;
                                 duplicate = true;
                                 break;
@@ -1690,7 +1694,7 @@ void RayTracer::BuildShaderBindingTable(
                             cudaArray_t textureArray;
                             cudaGraphicsResource_t graphicsResource;
                             CUDA_CHECK(GraphicsGLRegisterImage(
-                                    &graphicsResource, instance.m_normalTexture, GL_TEXTURE_2D,
+                                    &graphicsResource, instance.m_material.m_normalTexture, GL_TEXTURE_2D,
                                     cudaGraphicsRegisterFlagsReadOnly));
                             CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
                             CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
@@ -1711,8 +1715,86 @@ void RayTracer::BuildShaderBindingTable(
                                                            nullptr));
 #pragma endregion
                             boundResources.push_back(graphicsResource);
-                            boundTextures.emplace_back(instance.m_normalTexture,
+                            boundTextures.emplace_back(instance.m_material.m_normalTexture,
                                                        material.m_normalTexture);
+                        }
+                    }
+                    if (instance.m_material.m_roughnessTexture != 0) {
+                        bool duplicate = false;
+                        for (auto &boundTexture: boundTextures) {
+                            if (boundTexture.first == instance.m_material.m_roughnessTexture) {
+                                material.m_roughnessTexture = boundTexture.second;
+                                duplicate = true;
+                                break;
+                            }
+                        }
+                        if (!duplicate) {
+#pragma region Bind output texture
+                            cudaArray_t textureArray;
+                            cudaGraphicsResource_t graphicsResource;
+                            CUDA_CHECK(GraphicsGLRegisterImage(
+                                    &graphicsResource, instance.m_material.m_roughnessTexture, GL_TEXTURE_2D,
+                                    cudaGraphicsRegisterFlagsReadOnly));
+                            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
+                            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
+                                                                         graphicsResource, 0, 0));
+                            struct cudaResourceDesc cudaResourceDesc;
+                            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
+                            cudaResourceDesc.resType = cudaResourceTypeArray;
+                            cudaResourceDesc.res.array.array = textureArray;
+                            struct cudaTextureDesc cudaTextureDesc;
+                            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
+                            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
+                            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
+                            cudaTextureDesc.filterMode = cudaFilterModeLinear;
+                            cudaTextureDesc.readMode = cudaReadModeElementType;
+                            cudaTextureDesc.normalizedCoords = 1;
+                            CUDA_CHECK(CreateTextureObject(&material.m_roughnessTexture,
+                                                           &cudaResourceDesc, &cudaTextureDesc,
+                                                           nullptr));
+#pragma endregion
+                            boundResources.push_back(graphicsResource);
+                            boundTextures.emplace_back(instance.m_material.m_roughnessTexture,
+                                                       material.m_roughnessTexture);
+                        }
+                    }
+                    if (instance.m_material.m_metallicTexture != 0) {
+                        bool duplicate = false;
+                        for (auto &boundTexture: boundTextures) {
+                            if (boundTexture.first == instance.m_material.m_metallicTexture) {
+                                material.m_metallicTexture = boundTexture.second;
+                                duplicate = true;
+                                break;
+                            }
+                        }
+                        if (!duplicate) {
+#pragma region Bind output texture
+                            cudaArray_t textureArray;
+                            cudaGraphicsResource_t graphicsResource;
+                            CUDA_CHECK(GraphicsGLRegisterImage(
+                                    &graphicsResource, instance.m_material.m_metallicTexture, GL_TEXTURE_2D,
+                                    cudaGraphicsRegisterFlagsReadOnly));
+                            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
+                            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
+                                                                         graphicsResource, 0, 0));
+                            struct cudaResourceDesc cudaResourceDesc;
+                            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
+                            cudaResourceDesc.resType = cudaResourceTypeArray;
+                            cudaResourceDesc.res.array.array = textureArray;
+                            struct cudaTextureDesc cudaTextureDesc;
+                            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
+                            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
+                            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
+                            cudaTextureDesc.filterMode = cudaFilterModeLinear;
+                            cudaTextureDesc.readMode = cudaReadModeElementType;
+                            cudaTextureDesc.normalizedCoords = 1;
+                            CUDA_CHECK(CreateTextureObject(&material.m_metallicTexture,
+                                                           &cudaResourceDesc, &cudaTextureDesc,
+                                                           nullptr));
+#pragma endregion
+                            boundResources.push_back(graphicsResource);
+                            boundTextures.emplace_back(instance.m_material.m_metallicTexture,
+                                                       material.m_metallicTexture);
                         }
                     }
 #pragma endregion
@@ -1743,16 +1825,20 @@ void RayTracer::BuildShaderBindingTable(
                     m_surfaceMaterials[i].m_type = MaterialType::Default;
                     DefaultMaterial material;
 #pragma region Material Settings
-                    material.m_surfaceColor = instance.m_surfaceColor;
-                    material.m_roughness = instance.m_roughness;
-                    material.m_metallic = instance.m_metallic;
+                    material.m_surfaceColor = instance.m_material.m_surfaceColor;
+                    material.m_subsurfaceColor = instance.m_material.m_subsurfaceColor;
+                    material.m_subsurfaceRadius = instance.m_material.m_subsurfaceRadius;
+                    material.m_roughness = instance.m_material.m_roughness;
+                    material.m_metallic = instance.m_material.m_metallic;
                     material.m_albedoTexture = 0;
                     material.m_normalTexture = 0;
-                    material.m_diffuseIntensity = instance.m_diffuseIntensity;
-                    if (instance.m_albedoTexture != 0) {
+                    material.m_roughnessTexture = 0;
+                    material.m_metallicTexture = 0;
+                    material.m_diffuseIntensity = instance.m_material.m_emission;
+                    if (instance.m_material.m_albedoTexture != 0) {
                         bool duplicate = false;
                         for (auto &boundTexture: boundTextures) {
-                            if (boundTexture.first == instance.m_albedoTexture) {
+                            if (boundTexture.first == instance.m_material.m_albedoTexture) {
                                 material.m_albedoTexture = boundTexture.second;
                                 duplicate = true;
                                 break;
@@ -1763,7 +1849,7 @@ void RayTracer::BuildShaderBindingTable(
                             cudaArray_t textureArray;
                             cudaGraphicsResource_t graphicsResource;
                             CUDA_CHECK(GraphicsGLRegisterImage(
-                                    &graphicsResource, instance.m_albedoTexture, GL_TEXTURE_2D,
+                                    &graphicsResource, instance.m_material.m_albedoTexture, GL_TEXTURE_2D,
                                     cudaGraphicsRegisterFlagsReadOnly));
                             CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
                             CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
@@ -1784,14 +1870,14 @@ void RayTracer::BuildShaderBindingTable(
                                                            nullptr));
 #pragma endregion
                             boundResources.push_back(graphicsResource);
-                            boundTextures.emplace_back(instance.m_albedoTexture,
+                            boundTextures.emplace_back(instance.m_material.m_albedoTexture,
                                                        material.m_albedoTexture);
                         }
                     }
-                    if (instance.m_normalTexture != 0) {
+                    if (instance.m_material.m_normalTexture != 0) {
                         bool duplicate = false;
                         for (auto &boundTexture: boundTextures) {
-                            if (boundTexture.first == instance.m_normalTexture) {
+                            if (boundTexture.first == instance.m_material.m_normalTexture) {
                                 material.m_normalTexture = boundTexture.second;
                                 duplicate = true;
                                 break;
@@ -1802,7 +1888,7 @@ void RayTracer::BuildShaderBindingTable(
                             cudaArray_t textureArray;
                             cudaGraphicsResource_t graphicsResource;
                             CUDA_CHECK(GraphicsGLRegisterImage(
-                                    &graphicsResource, instance.m_normalTexture, GL_TEXTURE_2D,
+                                    &graphicsResource, instance.m_material.m_normalTexture, GL_TEXTURE_2D,
                                     cudaGraphicsRegisterFlagsReadOnly));
                             CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
                             CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
@@ -1823,8 +1909,86 @@ void RayTracer::BuildShaderBindingTable(
                                                            nullptr));
 #pragma endregion
                             boundResources.push_back(graphicsResource);
-                            boundTextures.emplace_back(instance.m_normalTexture,
+                            boundTextures.emplace_back(instance.m_material.m_normalTexture,
                                                        material.m_normalTexture);
+                        }
+                    }
+                    if (instance.m_material.m_roughnessTexture != 0) {
+                        bool duplicate = false;
+                        for (auto &boundTexture: boundTextures) {
+                            if (boundTexture.first == instance.m_material.m_roughnessTexture) {
+                                material.m_roughnessTexture = boundTexture.second;
+                                duplicate = true;
+                                break;
+                            }
+                        }
+                        if (!duplicate) {
+#pragma region Bind output texture
+                            cudaArray_t textureArray;
+                            cudaGraphicsResource_t graphicsResource;
+                            CUDA_CHECK(GraphicsGLRegisterImage(
+                                    &graphicsResource, instance.m_material.m_roughnessTexture, GL_TEXTURE_2D,
+                                    cudaGraphicsRegisterFlagsReadOnly));
+                            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
+                            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
+                                                                         graphicsResource, 0, 0));
+                            struct cudaResourceDesc cudaResourceDesc;
+                            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
+                            cudaResourceDesc.resType = cudaResourceTypeArray;
+                            cudaResourceDesc.res.array.array = textureArray;
+                            struct cudaTextureDesc cudaTextureDesc;
+                            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
+                            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
+                            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
+                            cudaTextureDesc.filterMode = cudaFilterModeLinear;
+                            cudaTextureDesc.readMode = cudaReadModeElementType;
+                            cudaTextureDesc.normalizedCoords = 1;
+                            CUDA_CHECK(CreateTextureObject(&material.m_roughnessTexture,
+                                                           &cudaResourceDesc, &cudaTextureDesc,
+                                                           nullptr));
+#pragma endregion
+                            boundResources.push_back(graphicsResource);
+                            boundTextures.emplace_back(instance.m_material.m_roughnessTexture,
+                                                       material.m_roughnessTexture);
+                        }
+                    }
+                    if (instance.m_material.m_metallicTexture != 0) {
+                        bool duplicate = false;
+                        for (auto &boundTexture: boundTextures) {
+                            if (boundTexture.first == instance.m_material.m_metallicTexture) {
+                                material.m_metallicTexture = boundTexture.second;
+                                duplicate = true;
+                                break;
+                            }
+                        }
+                        if (!duplicate) {
+#pragma region Bind output texture
+                            cudaArray_t textureArray;
+                            cudaGraphicsResource_t graphicsResource;
+                            CUDA_CHECK(GraphicsGLRegisterImage(
+                                    &graphicsResource, instance.m_material.m_metallicTexture, GL_TEXTURE_2D,
+                                    cudaGraphicsRegisterFlagsReadOnly));
+                            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
+                            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
+                                                                         graphicsResource, 0, 0));
+                            struct cudaResourceDesc cudaResourceDesc;
+                            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
+                            cudaResourceDesc.resType = cudaResourceTypeArray;
+                            cudaResourceDesc.res.array.array = textureArray;
+                            struct cudaTextureDesc cudaTextureDesc;
+                            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
+                            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
+                            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
+                            cudaTextureDesc.filterMode = cudaFilterModeLinear;
+                            cudaTextureDesc.readMode = cudaReadModeElementType;
+                            cudaTextureDesc.normalizedCoords = 1;
+                            CUDA_CHECK(CreateTextureObject(&material.m_metallicTexture,
+                                                           &cudaResourceDesc, &cudaTextureDesc,
+                                                           nullptr));
+#pragma endregion
+                            boundResources.push_back(graphicsResource);
+                            boundTextures.emplace_back(instance.m_material.m_metallicTexture,
+                                                       material.m_metallicTexture);
                         }
                     }
 #pragma endregion
@@ -1905,7 +2069,7 @@ void RayTracer::BuildShaderBindingTable(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
 
-                rec.m_data.m_materialType = instance.m_materialType;
+                rec.m_data.m_materialType = instance.m_material.m_materialType;
                 rec.m_data.m_material = reinterpret_cast<void *>(
                         m_surfaceMaterials[i].m_buffer.DevicePointer());
                 hitGroupRecords.push_back(rec);
@@ -2029,7 +2193,7 @@ void RayTracer::BuildShaderBindingTable(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
 
-                rec.m_data.m_materialType = instance.m_materialType;
+                rec.m_data.m_materialType = instance.m_material.m_materialType;
                 rec.m_data.m_material = reinterpret_cast<void *>(
                         m_surfaceMaterials[i].m_buffer.DevicePointer());
                 hitGroupRecords.push_back(rec);
@@ -2159,7 +2323,7 @@ void RayTracer::BuildShaderBindingTable(
                         m_trianglesBuffer[i].DevicePointer());
                 rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
 
-                rec.m_data.m_materialType = instance.m_materialType;
+                rec.m_data.m_materialType = instance.m_material.m_materialType;
                 rec.m_data.m_material = reinterpret_cast<void *>(
                         m_surfaceMaterials[i].m_buffer.DevicePointer());
                 hitGroupRecords.push_back(rec);

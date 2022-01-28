@@ -67,10 +67,16 @@ namespace RayTracerFacility {
 
     struct DefaultMaterial {
         glm::vec3 m_surfaceColor;
+        glm::vec3 m_subsurfaceColor;
+        float m_subsurfaceRadius;
         float m_roughness = 15;
         float m_metallic = 0.5;
+
         cudaTextureObject_t m_albedoTexture;
         cudaTextureObject_t m_normalTexture;
+        cudaTextureObject_t m_metallicTexture;
+        cudaTextureObject_t m_roughnessTexture;
+
         float m_diffuseIntensity;
 
         __device__ glm::vec3 GetAlbedo(const glm::vec2 &texCoord) const {
@@ -79,6 +85,18 @@ namespace RayTracerFacility {
             float4 textureAlbedo =
                     tex2D<float4>(m_albedoTexture, texCoord.x, texCoord.y);
             return glm::vec3(textureAlbedo.x, textureAlbedo.y, textureAlbedo.z);
+        }
+
+        __device__ float GetRoughness(const glm::vec2 &texCoord) const {
+            if (!m_roughnessTexture)
+                return m_roughness;
+            return tex2D<float>(m_roughnessTexture, texCoord.x, texCoord.y);
+        }
+
+        __device__ float GetMetallic(const glm::vec2 &texCoord) const {
+            if (!m_metallicTexture)
+                return m_metallic;
+            return tex2D<float>(m_metallicTexture, texCoord.x, texCoord.y);
         }
 
         __device__ void ApplyNormalTexture(glm::vec3 &normal,

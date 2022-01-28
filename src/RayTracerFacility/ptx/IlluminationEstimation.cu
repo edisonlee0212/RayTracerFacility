@@ -40,9 +40,9 @@ extern "C" __global__ void __closesthit__illuminationEstimation() {
     static_cast<DefaultMaterial *>(sbtData.m_material)
         ->ApplyNormalTexture(normal, texCoord, tangent);
     float metallic =
-        static_cast<DefaultMaterial *>(sbtData.m_material)->m_metallic;
+        static_cast<DefaultMaterial *>(sbtData.m_material)->GetMetallic(texCoord);
     float roughness =
-        static_cast<DefaultMaterial *>(sbtData.m_material)->m_roughness;
+        static_cast<DefaultMaterial *>(sbtData.m_material)->GetRoughness(texCoord);
     glm::vec3 albedoColor =
         static_cast<DefaultMaterial *>(sbtData.m_material)->GetAlbedo(texCoord);
     if (perRayData.m_hitCount <=

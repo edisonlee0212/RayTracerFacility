@@ -57,6 +57,9 @@ namespace RayTracerFacility {
         friend class RayTracerCamera;
 
         static std::shared_ptr<RayTracerCamera> m_rayTracerCamera;
+
+        bool CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::shared_ptr<Material> &material) const;
+
     public:
         AssetRef m_environmentalMap;
 

@@ -20,6 +20,7 @@
 
 #include <filesystem>
 
+
 namespace RayTracerFacility {
     enum class OutputType {
         Color,
@@ -234,10 +235,27 @@ namespace RayTracerFacility {
     };
 
 #pragma endregion
-    struct RAY_TRACER_FACILITY_API RayTracerInstance {
+
+    struct RAY_TRACER_FACILITY_API RayTracerMaterial{
+
         MaterialType m_materialType = MaterialType::Default;
         int m_MLVQMaterialIndex;
+        glm::vec3 m_surfaceColor;
+        glm::vec3 m_subsurfaceColor;
+        float m_subsurfaceRadius;
+        float m_roughness;
+        float m_metallic;
+        float m_emission = 0;
 
+        unsigned m_albedoTexture = 0;
+        unsigned m_normalTexture = 0;
+        unsigned m_metallicTexture = 0;
+        unsigned m_roughnessTexture = 0;
+
+
+    };
+
+    struct RAY_TRACER_FACILITY_API RayTracerInstance {
         bool m_instancing = false;
         std::vector<Vertex> *m_vertices;
         std::vector<glm::uvec3> *m_triangles;
@@ -245,16 +263,11 @@ namespace RayTracerFacility {
         size_t m_version;
         size_t m_matricesVersion;
         uint64_t m_handle = 0;
-        glm::vec3 m_surfaceColor;
-        float m_roughness;
-        float m_metallic;
+
+        RayTracerMaterial m_material;
+
         bool m_removeTag = false;
-
         glm::mat4 m_globalTransform;
-
-        unsigned m_albedoTexture = 0;
-        unsigned m_normalTexture = 0;
-        float m_diffuseIntensity = 0;
     };
 
     struct RAY_TRACER_FACILITY_API SkinnedRayTracerInstance {
@@ -267,15 +280,11 @@ namespace RayTracerFacility {
 
         size_t m_version;
         uint64_t m_handle = 0;
-        glm::vec3 m_surfaceColor;
-        float m_roughness;
-        float m_metallic;
+
+        RayTracerMaterial m_material;
+
         bool m_removeTag = false;
         glm::mat4 m_globalTransform;
-
-        unsigned m_albedoTexture = 0;
-        unsigned m_normalTexture = 0;
-        float m_diffuseIntensity = 0;
     };
 
     enum PipelineType {
@@ -430,7 +439,6 @@ namespace RayTracerFacility {
 #pragma endregion
 
         friend class RayTracerCamera;
-
     };
 
 } // namespace RayTracerFacility

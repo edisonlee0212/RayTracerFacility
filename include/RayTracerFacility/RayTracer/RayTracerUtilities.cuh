@@ -19,7 +19,6 @@
 #include <CUDAModule.hpp>
 #include <Optix7.hpp>
 #include <RayDataDefinations.hpp>
-#include "DisneyBssrdf.hpp"
 
 namespace RayTracerFacility {
     typedef LinearCongruenceGenerator<16> Random;

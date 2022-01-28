@@ -50,66 +50,15 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                     if (rayTracerInstance->m_version != mesh->GetVersion())
                         needVerticesUpdate = true;
-                    if (rayTracerInstance->m_surfaceColor != material->m_albedoColor ||
-                        rayTracerInstance->m_metallic !=
-                        (material->m_metallic == 1.0f
-                         ? -1.0f
-                         : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f)) ||
-                        rayTracerInstance->m_roughness != material->m_roughness) {
-                        needMaterialUpdate = true;
-                    }
+                    if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
                 }
             }
-            rayTracerInstance->m_materialType = MaterialType::Default;
+            rayTracerInstance->m_material.m_materialType = MaterialType::Default;
             rayTracerInstance->m_version = mesh->GetVersion();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;
-                rayTracerInstance->m_surfaceColor = material->m_albedoColor;
-                rayTracerInstance->m_metallic =
-                        material->m_metallic == 1.0f
-                        ? -1.0f
-                        : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f);
-                rayTracerInstance->m_roughness = material->m_roughness;
-                rayTracerInstance->m_normalTexture = 0;
-                rayTracerInstance->m_albedoTexture = 0;
                 rayTracerInstance->m_handle = meshRenderer->GetHandle().GetValue();
-            }
-            if (material->m_albedoTexture.Get<Texture2D>() &&
-                material->m_albedoTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-                if (material->m_albedoTexture.Get<Texture2D>()
-                            ->UnsafeGetGLTexture()
-                            ->Id() != rayTracerInstance->m_albedoTexture) {
-                    updateShaderBindingTable = true;
-                    rayTracerInstance->m_albedoTexture =
-                            material->m_albedoTexture.Get<Texture2D>()
-                                    ->UnsafeGetGLTexture()
-                                    ->Id();
-                }
-            } else if (rayTracerInstance->m_albedoTexture != 0) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_albedoTexture = 0;
-            }
-
-            if (material->m_normalTexture.Get<Texture2D>() &&
-                material->m_normalTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-                if (material->m_normalTexture.Get<Texture2D>()
-                            ->UnsafeGetGLTexture()
-                            ->Id() != rayTracerInstance->m_normalTexture) {
-                    updateShaderBindingTable = true;
-                    rayTracerInstance->m_normalTexture =
-                            material->m_normalTexture.Get<Texture2D>()
-                                    ->UnsafeGetGLTexture()
-                                    ->Id();
-                }
-            } else if (rayTracerInstance->m_normalTexture != 0) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_normalTexture = 0;
-            }
-
-            if (rayTracerInstance->m_diffuseIntensity != material->m_emission) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_diffuseIntensity = material->m_emission;
             }
             if (fromNew || needVerticesUpdate) {
                 rebuildAccelerationStructure = true;
@@ -162,67 +111,16 @@ void RayTracerLayer::UpdateMeshesStorage(
                     if (rayTracerInstance->m_version != mesh->GetVersion() ||
                         matrices->GetVersion() != rayTracerInstance->m_matricesVersion)
                         needVerticesUpdate = true;
-                    if (rayTracerInstance->m_surfaceColor != material->m_albedoColor ||
-                        rayTracerInstance->m_metallic !=
-                        (material->m_metallic == 1.0f
-                         ? -1.0f
-                         : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f)) ||
-                        rayTracerInstance->m_roughness != material->m_roughness) {
-                        needMaterialUpdate = true;
-                    }
+                    if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
                 }
             }
-            rayTracerInstance->m_materialType = MaterialType::Default;
+            rayTracerInstance->m_material.m_materialType = MaterialType::Default;
             rayTracerInstance->m_version = mesh->GetVersion();
             rayTracerInstance->m_matricesVersion = matrices->GetVersion();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;
-                rayTracerInstance->m_surfaceColor = material->m_albedoColor;
-                rayTracerInstance->m_metallic =
-                        material->m_metallic == 1.0f
-                        ? -1.0f
-                        : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f);
-                rayTracerInstance->m_roughness = material->m_roughness;
-                rayTracerInstance->m_normalTexture = 0;
-                rayTracerInstance->m_albedoTexture = 0;
                 rayTracerInstance->m_handle = particles->GetHandle().GetValue();
-            }
-            if (material->m_albedoTexture.Get<Texture2D>() &&
-                material->m_albedoTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-                if (material->m_albedoTexture.Get<Texture2D>()
-                            ->UnsafeGetGLTexture()
-                            ->Id() != rayTracerInstance->m_albedoTexture) {
-                    updateShaderBindingTable = true;
-                    rayTracerInstance->m_albedoTexture =
-                            material->m_albedoTexture.Get<Texture2D>()
-                                    ->UnsafeGetGLTexture()
-                                    ->Id();
-                }
-            } else if (rayTracerInstance->m_albedoTexture != 0) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_albedoTexture = 0;
-            }
-
-            if (material->m_normalTexture.Get<Texture2D>() &&
-                material->m_normalTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-                if (material->m_normalTexture.Get<Texture2D>()
-                            ->UnsafeGetGLTexture()
-                            ->Id() != rayTracerInstance->m_normalTexture) {
-                    updateShaderBindingTable = true;
-                    rayTracerInstance->m_normalTexture =
-                            material->m_normalTexture.Get<Texture2D>()
-                                    ->UnsafeGetGLTexture()
-                                    ->Id();
-                }
-            } else if (rayTracerInstance->m_normalTexture != 0) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_normalTexture = 0;
-            }
-
-            if (rayTracerInstance->m_diffuseIntensity != material->m_emission) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_diffuseIntensity = material->m_emission;
             }
             if (fromNew || needVerticesUpdate) {
                 rebuildAccelerationStructure = true;
@@ -273,20 +171,22 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                     if (rayTracerInstance->m_version != mesh->GetVersion())
                         needVerticesUpdate = true;
-                    if (rayTracerInstance->m_MLVQMaterialIndex !=
+                    if (rayTracerInstance->m_material.m_MLVQMaterialIndex !=
                         mLVQRenderer->m_materialIndex) {
                         needMaterialUpdate = true;
                     }
                 }
             }
-            rayTracerInstance->m_materialType = MaterialType::MLVQ;
+            rayTracerInstance->m_material.m_materialType = MaterialType::MLVQ;
             rayTracerInstance->m_version = mesh->GetVersion();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;
-                rayTracerInstance->m_MLVQMaterialIndex = mLVQRenderer->m_materialIndex;
-                rayTracerInstance->m_normalTexture = 0;
-                rayTracerInstance->m_albedoTexture = 0;
+                rayTracerInstance->m_material.m_MLVQMaterialIndex = mLVQRenderer->m_materialIndex;
+                rayTracerInstance->m_material.m_normalTexture = 0;
+                rayTracerInstance->m_material.m_albedoTexture = 0;
+                rayTracerInstance->m_material.m_metallicTexture = 0;
+                rayTracerInstance->m_material.m_roughnessTexture = 0;
                 rayTracerInstance->m_handle = mLVQRenderer->GetHandle().GetValue();
             }
             if (fromNew || needVerticesUpdate) {
@@ -361,64 +261,14 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
                         skinnedMeshRenderer->m_animator.Get<Animator>()
                                 ->AnimatedCurrentFrame())
                         needVerticesUpdate = true;
-                    if (rayTracerInstance->m_surfaceColor != material->m_albedoColor ||
-                        rayTracerInstance->m_metallic !=
-                        (material->m_metallic == 1.0f
-                         ? -1.0f
-                         : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f)) ||
-                        rayTracerInstance->m_roughness != material->m_roughness) {
-                        needMaterialUpdate = true;
-                    }
+                    if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
                 }
             }
             rayTracerInstance->m_version = mesh->GetVersion();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;
-                rayTracerInstance->m_surfaceColor = material->m_albedoColor;
-                rayTracerInstance->m_metallic =
-                        material->m_metallic == 1.0f
-                        ? -1.0f
-                        : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f);
-                rayTracerInstance->m_roughness = material->m_roughness;
-                rayTracerInstance->m_normalTexture = 0;
-                rayTracerInstance->m_albedoTexture = 0;
                 rayTracerInstance->m_handle = skinnedMeshRenderer->GetHandle().GetValue();
-            }
-            if (material->m_albedoTexture.Get<Texture2D>() &&
-                material->m_albedoTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-                if (material->m_albedoTexture.Get<Texture2D>()
-                            ->UnsafeGetGLTexture()
-                            ->Id() != rayTracerInstance->m_albedoTexture) {
-                    updateShaderBindingTable = true;
-                    rayTracerInstance->m_albedoTexture =
-                            material->m_albedoTexture.Get<Texture2D>()
-                                    ->UnsafeGetGLTexture()
-                                    ->Id();
-                }
-            } else if (rayTracerInstance->m_albedoTexture != 0) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_albedoTexture = 0;
-            }
-
-            if (material->m_normalTexture.Get<Texture2D>() &&
-                material->m_normalTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-                if (material->m_normalTexture.Get<Texture2D>()
-                            ->UnsafeGetGLTexture()
-                            ->Id() != rayTracerInstance->m_normalTexture) {
-                    updateShaderBindingTable = true;
-                    rayTracerInstance->m_normalTexture =
-                            material->m_normalTexture.Get<Texture2D>()
-                                    ->UnsafeGetGLTexture()
-                                    ->Id();
-                }
-            } else if (rayTracerInstance->m_normalTexture != 0) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_normalTexture = 0;
-            }
-            if (rayTracerInstance->m_diffuseIntensity != material->m_emission) {
-                updateShaderBindingTable = true;
-                rayTracerInstance->m_diffuseIntensity = material->m_emission;
             }
             if (fromNew || needVerticesUpdate) {
                 rebuildAccelerationStructure = true;
@@ -508,6 +358,7 @@ void RayTracerLayer::OnCreate() {
 
 
 void RayTracerLayer::LateUpdate() {
+    UpdateScene();
     auto environmentalMap = m_environmentalMap.Get<Cubemap>();
     if (environmentalMap) {
         m_environmentProperties.m_environmentalMapId =
@@ -547,7 +398,7 @@ void RayTracerLayer::LateUpdate() {
             }
         }
     }
-    UpdateScene();
+
 }
 
 void RayTracerLayer::OnInspect() {
@@ -841,6 +692,100 @@ void RayTracerLayer::Update() {
     }
     ImGui::End();
     ImGui::PopStyleVar();
+}
+
+bool
+RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::shared_ptr<Material> &material) const {
+    bool changed = false;
+    if (rayTracerMaterial.m_surfaceColor != material->m_albedoColor){
+        changed = true;
+        rayTracerMaterial.m_surfaceColor = material->m_albedoColor;
+    }
+    if (rayTracerMaterial.m_subsurfaceColor != material->m_subsurfaceColor){
+        changed = true;
+        rayTracerMaterial.m_subsurfaceColor = material->m_subsurfaceColor;
+    }
+    if (rayTracerMaterial.m_subsurfaceRadius != material->m_subsurfaceRadius){
+        changed = true;
+        rayTracerMaterial.m_subsurfaceRadius = material->m_subsurfaceRadius;
+    }
+    if (rayTracerMaterial.m_roughness != material->m_roughness){
+        changed = true;
+        rayTracerMaterial.m_roughness = material->m_roughness;
+    }
+    if (rayTracerMaterial.m_emission != material->m_emission){
+        changed = true;
+        rayTracerMaterial.m_emission = material->m_emission;
+    }
+    if (rayTracerMaterial.m_metallic != (material->m_metallic == 1.0f
+                                         ? -1.0f
+                                         : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f))){
+        changed = true;
+        rayTracerMaterial.m_metallic = material->m_metallic == 1.0f
+                                                ? -1.0f
+                                                : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f);
+    }
+    if (material->m_albedoTexture.Get<Texture2D>() &&
+        material->m_albedoTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
+        if (material->m_albedoTexture.Get<Texture2D>()
+                    ->UnsafeGetGLTexture()
+                    ->Id() != rayTracerMaterial.m_albedoTexture) {
+            changed = true;
+            rayTracerMaterial.m_albedoTexture =
+                    material->m_albedoTexture.Get<Texture2D>()
+                            ->UnsafeGetGLTexture()
+                            ->Id();
+        }
+    } else if (rayTracerMaterial.m_albedoTexture != 0) {
+        changed = true;
+        rayTracerMaterial.m_albedoTexture = 0;
+    }
+    if (material->m_normalTexture.Get<Texture2D>() &&
+        material->m_normalTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
+        if (material->m_normalTexture.Get<Texture2D>()
+                    ->UnsafeGetGLTexture()
+                    ->Id() != rayTracerMaterial.m_normalTexture) {
+            changed = true;
+            rayTracerMaterial.m_normalTexture =
+                    material->m_normalTexture.Get<Texture2D>()
+                            ->UnsafeGetGLTexture()
+                            ->Id();
+        }
+    } else if (rayTracerMaterial.m_normalTexture != 0) {
+        changed = true;
+        rayTracerMaterial.m_normalTexture = 0;
+    }
+    if (material->m_metallicTexture.Get<Texture2D>() &&
+        material->m_metallicTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
+        if (material->m_metallicTexture.Get<Texture2D>()
+                    ->UnsafeGetGLTexture()
+                    ->Id() != rayTracerMaterial.m_metallicTexture) {
+            changed = true;
+            rayTracerMaterial.m_metallicTexture =
+                    material->m_metallicTexture.Get<Texture2D>()
+                            ->UnsafeGetGLTexture()
+                            ->Id();
+        }
+    } else if (rayTracerMaterial.m_metallicTexture != 0) {
+        changed = true;
+        rayTracerMaterial.m_metallicTexture = 0;
+    }
+    if (material->m_roughnessTexture.Get<Texture2D>() &&
+        material->m_roughnessTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
+        if (material->m_roughnessTexture.Get<Texture2D>()
+                    ->UnsafeGetGLTexture()
+                    ->Id() != rayTracerMaterial.m_roughnessTexture) {
+            changed = true;
+            rayTracerMaterial.m_roughnessTexture =
+                    material->m_roughnessTexture.Get<Texture2D>()
+                            ->UnsafeGetGLTexture()
+                            ->Id();
+        }
+    } else if (rayTracerMaterial.m_roughnessTexture != 0) {
+        changed = true;
+        rayTracerMaterial.m_roughnessTexture = 0;
+    }
+    return changed;
 }
 
 float LerpHelper(float x, float y, float t) { return x * (1.f - t) + y * t; }
