@@ -23,7 +23,7 @@
 namespace RayTracerFacility {
     typedef LinearCongruenceGenerator<16> Random;
 #pragma region Data
-    template <typename T>
+    template<typename T>
     struct PerRayData {
         unsigned m_hitCount;
         Random m_random;
@@ -31,6 +31,8 @@ namespace RayTracerFacility {
         glm::vec3 m_normal;
         glm::vec3 m_albedo;
     };
+
+
 #pragma endregion
 #pragma region Helpers
 
@@ -150,18 +152,122 @@ namespace RayTracerFacility {
                          glm::sin(phi) * glm::sin(theta), glm::cos(phi));
     }
 
+    static __forceinline__ __device__ glm::vec2 RandomSampleDisk(Random &random) {
+        const float theta = 2 * glm::pi<float>() * random();
+        return glm::vec2(glm::cos(theta), glm::sin(theta));
+    }
+
+#pragma endregion
+#pragma region Ray
+
     static __forceinline__ __device__ void
-    BRDF(const float &metallic, Random &random, const glm::vec3 &normal,
-         const glm::vec3 &hitPoint, const glm::vec3 &in, float3 &origin,
-         float3 &out) {
-        const glm::vec3 reflected = Reflect(in, normal);
+    BRDF(float metallic, Random &random,
+         const glm::vec3 &inPosition, const glm::vec3 &inDirection, const glm::vec3 &inNormal,
+         float3 &outPosition, float3 &outDirection) {
+        const glm::vec3 reflected = Reflect(inDirection, inNormal);
         const glm::vec3 newRayDirection =
                 RandomSampleHemisphere(random, reflected, metallic);
-        origin =
-                make_float3(hitPoint.x + normal.x * 1e-3f, hitPoint.y + normal.y * 1e-3f,
-                            hitPoint.z + normal.z * 1e-3f);
-        out = make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z);
+        outPosition =
+                make_float3(inPosition.x + inNormal.x * 1e-3f, inPosition.y + inNormal.y * 1e-3f,
+                            inPosition.z + inNormal.z * 1e-3f);
+        outDirection = make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z);
     }
+
+    struct SSPerRayData {
+        unsigned long long m_handle;
+        Random m_random;
+        bool m_hit;
+        glm::vec3 m_outPosition;
+        glm::vec3 m_outNormal;
+    };
+
+    static __forceinline__ __device__ void
+    BSSRDF(float metallic, Random &random, float radius, unsigned long long handle, OptixTraversableHandle traversable,
+           const glm::vec3 &inPosition, const glm::vec3 &inDirection, const glm::vec3 &inNormal,
+           float3 &outPosition, float3 &outDirection, glm::vec3 &outNormal) {
+        if (radius > 0.0f) {
+            glm::vec3 diskNormal = RandomSampleSphere(random);
+            glm::vec3 diskCenter = inPosition + radius * diskNormal / 2.0f;
+            float diskRadius = radius * glm::sqrt(random());
+            float distance = glm::sqrt(radius * radius - diskRadius * diskRadius);
+            glm::vec3 samplePosition = diskCenter +
+                                       diskRadius * glm::rotate(glm::vec3(diskNormal.y, diskNormal.z, diskNormal.x),
+                                                                2.0f * glm::pi<float>() * random(), diskNormal);
+            glm::vec3 sampleDirection = -diskNormal;
+            SSPerRayData perRayData;
+            perRayData.m_handle = handle;
+            perRayData.m_hit = false;
+            perRayData.m_random = random;
+            uint32_t u0, u1;
+            PackRayDataPointer(&perRayData, u0, u1);
+            optixTrace(
+                    traversable, make_float3(samplePosition.x, samplePosition.y, samplePosition.z),
+                    make_float3(sampleDirection.x, sampleDirection.y, sampleDirection.z),
+                    distance, // tmin
+                    radius + distance, // tmax
+                    0.0f,  // rayTime
+                    static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_NONE,
+                    static_cast<int>(
+                            RayType::SpacialSampling), // SBT offset
+                    static_cast<int>(
+                            RayType::RayTypeCount), // SBT stride
+                    static_cast<int>(
+                            RayType::SpacialSampling), // missSBTIndex
+                    u0, u1);
+            if (perRayData.m_hit && glm::distance(inPosition, perRayData.m_outPosition) <= radius) {
+                outNormal = perRayData.m_outNormal;
+                outPosition = make_float3(perRayData.m_outPosition.x,
+                                          perRayData.m_outPosition.y,
+                                          perRayData.m_outPosition.z);
+                auto dir = RandomSampleHemisphere(random, outNormal);
+                outDirection = make_float3(dir.x, dir.y, dir.z);
+                return;
+            }
+        }
+        //Fallback to BRDF
+        BRDF(metallic, random, inPosition, inDirection, inNormal, outPosition, outDirection);
+        outNormal = inNormal;
+    }
+
+    static __forceinline__ __device__ void SSAnyHit() {
+        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
+        SSPerRayData &perRayData =
+                *GetRayDataPointer<SSPerRayData>();
+        if (perRayData.m_handle != sbtData.m_handle) {
+            optixIgnoreIntersection();
+        }
+        optixTerminateRay();
+    }
+
+    static __forceinline__ __device__ void SSHit() {
+        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
+        SSPerRayData &perRayData =
+                *GetRayDataPointer<SSPerRayData>();
+
+        const float3 rayDirectionInternal = optixGetWorldRayDirection();
+        glm::vec3 rayDirection = glm::vec3(
+                rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
+
+        const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
+        const int primitiveId = optixGetPrimitiveIndex();
+        auto indices = sbtData.m_mesh.GetIndices(primitiveId);
+        auto texCoord =
+                sbtData.m_mesh.GetTexCoord(triangleBarycentricsInternal, indices);
+        auto normal = sbtData.m_mesh.GetNormal(triangleBarycentricsInternal, indices);
+        auto tangent =
+                sbtData.m_mesh.GetTangent(triangleBarycentricsInternal, indices);
+        auto hitPoint =
+                sbtData.m_mesh.GetPosition(triangleBarycentricsInternal, indices);
+        static_cast<DefaultMaterial *>(sbtData.m_material)
+                ->ApplyNormalTexture(normal, texCoord, tangent);
+
+        perRayData.m_hit = true;
+        perRayData.m_outNormal = normal;
+        perRayData.m_outPosition = hitPoint;
+    }
+
+#pragma endregion
+#pragma region Sky illuminance
 
     static __forceinline__ __device__ float
     CIESkyIntensity(glm::vec3 rayDir, const glm::vec3 &sunDir, const glm::vec3 &zenith) {
@@ -222,6 +328,7 @@ namespace RayTracerFacility {
         return true;
     }
 
+
     /**
      * From https://www.scratchapixel.com/lessons/procedural-generation-virtual-worlds/simulating-sky/simulating-colors-of-the-sky
      * @param position
@@ -230,9 +337,12 @@ namespace RayTracerFacility {
      * @return
      */
     static __forceinline__ __device__ glm::vec3
-    NishitaSkyIncidentLight(const glm::vec3 &position, const glm::vec3 &rayDir, const const EnvironmentProperties &environment) {
-        float earthRadius = environment.m_atmosphere.m_earthRadius * 1000.0f;      // In the paper this is usually Rg or Re (radius ground, eart)
-        float atmosphereRadius = environment.m_atmosphere.m_atmosphereRadius * 1000.0f; // In the paper this is usually R or Ra (radius atmosphere)
+    NishitaSkyIncidentLight(const glm::vec3 &position, const glm::vec3 &rayDir,
+                            const const EnvironmentProperties &environment) {
+        float earthRadius = environment.m_atmosphere.m_earthRadius *
+                            1000.0f;      // In the paper this is usually Rg or Re (radius ground, eart)
+        float atmosphereRadius = environment.m_atmosphere.m_atmosphereRadius *
+                                 1000.0f; // In the paper this is usually R or Ra (radius atmosphere)
         float Hr = environment.m_atmosphere.m_Hr;               // Thickness of the atmosphere if density was uniform (Hr)
         float Hm = environment.m_atmosphere.m_Hm;               // Same as above but for Mie scattering (Hm)
 
@@ -299,7 +409,8 @@ namespace RayTracerFacility {
     }
 
     static __forceinline__ __device__ glm::vec3
-    CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir, const EnvironmentProperties &environment) {
+    CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir,
+                                const EnvironmentProperties &environment) {
         glm::vec3 environmentalLightColor;
         switch (environment.m_environmentalLightingType) {
             case EnvironmentalLightingType::Color:
@@ -320,5 +431,6 @@ namespace RayTracerFacility {
         }
         return environmentalLightColor * environment.m_skylightIntensity;
     }
+
 #pragma endregion
 } // namespace RayTracerFacility

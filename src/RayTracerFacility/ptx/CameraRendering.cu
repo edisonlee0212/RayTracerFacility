@@ -3,13 +3,6 @@
 namespace RayTracerFacility {
     extern "C" __constant__ CameraRenderingLaunchParams cameraRenderingLaunchParams;
 
-    struct DefaultRenderingSpSamplerRayData {
-        unsigned m_instanceId;
-        glm::vec3 m_p0;
-        glm::vec3 m_p1;
-        glm::vec3 m_n1;
-        bool m_found = false;
-    };
 #pragma region Closest hit functions
     extern "C" __global__ void __closesthit__CR_R() {
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
@@ -67,8 +60,10 @@ namespace RayTracerFacility {
                         f = (metallic + 2) / (metallic + 1);
                     float3 incidentRayOrigin;
                     float3 newRayDirectionInternal;
-                    BRDF(metallic, perRayData.m_random, normal, hitPoint, rayDirection,
-                         incidentRayOrigin, newRayDirectionInternal);
+                    glm::vec3 outNormal;
+                    BSSRDF(metallic, perRayData.m_random, static_cast<DefaultMaterial *>(sbtData.m_material)->m_subsurfaceRadius, sbtData.m_handle, cameraRenderingLaunchParams.m_traversable,
+                           hitPoint, rayDirection, normal,
+                         incidentRayOrigin, newRayDirectionInternal, outNormal);
                     optixTrace(
                             cameraRenderingLaunchParams.m_traversable, incidentRayOrigin,
                             newRayDirectionInternal,
@@ -86,7 +81,7 @@ namespace RayTracerFacility {
                     energy +=
                             albedoColor *
                             glm::clamp(
-                                    glm::abs(glm::dot(normal, glm::vec3(newRayDirectionInternal.x,
+                                    glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
                                                                         newRayDirectionInternal.y,
                                                                         newRayDirectionInternal.z))) *
                                     roughness +
@@ -151,33 +146,13 @@ namespace RayTracerFacility {
         }
     }
     extern "C" __global__ void __closesthit__CR_SS() {
-        DefaultRenderingSpSamplerRayData &perRayData =
-                *GetRayDataPointer<DefaultRenderingSpSamplerRayData>();
-        assert(perRayData.m_instanceId == optixGetInstanceId());
-        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
-        const auto indices = sbtData.m_mesh.GetIndices(optixGetPrimitiveIndex());
-        const auto centrics = optixGetTriangleBarycentrics();
-        perRayData.m_p1 = sbtData.m_mesh.GetPosition(centrics, indices);
-        perRayData.m_n1 = sbtData.m_mesh.GetNormal(centrics, indices);
-        perRayData.m_found = true;
+        SSHit();
     }
 #pragma endregion
 #pragma region Any hit functions
     extern "C" __global__ void __anyhit__CR_R() {}
     extern "C" __global__ void __anyhit__CR_SS() {
-        DefaultRenderingSpSamplerRayData &perRayData =
-                *GetRayDataPointer<DefaultRenderingSpSamplerRayData>();
-        if (perRayData.m_instanceId != optixGetInstanceId())
-            optixIgnoreIntersection();
-        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
-        const auto indices = sbtData.m_mesh.GetIndices(optixGetPrimitiveIndex());
-        const auto hitPoint =
-                sbtData.m_mesh.GetPosition(optixGetTriangleBarycentrics(), indices);
-        const auto origin = optixGetWorldRayOrigin();
-        const float distance =
-                glm::distance(hitPoint, glm::vec3(origin.x, origin.y, origin.z));
-        // if (distance > sbtData.m_material.GetRadiusMax())
-        // optixIgnoreIntersection();
+        SSAnyHit();
     }
 #pragma endregion
 #pragma region Miss functions
@@ -194,7 +169,9 @@ namespace RayTracerFacility {
                 cameraRenderingLaunchParams.m_rayTracerProperties.m_environment);
         perRayData.m_albedo = perRayData.m_energy = environmentalLightColor;
     }
-    extern "C" __global__ void __miss__CR_SS() {}
+    extern "C" __global__ void __miss__CR_SS() {
+
+    }
 #pragma endregion
 #pragma region Main ray generation
     extern "C" __global__ void __raygen__CR() {

@@ -55,8 +55,10 @@ namespace RayTracerFacility {
                         f = (metallic + 2) / (metallic + 1);
                     float3 incidentRayOrigin;
                     float3 newRayDirectionInternal;
-                    BRDF(metallic, perRayData.m_random, normal, hitPoint, rayDirection,
-                         incidentRayOrigin, newRayDirectionInternal);
+                    glm::vec3 outNormal;
+                    BSSRDF(metallic, perRayData.m_random, static_cast<DefaultMaterial *>(sbtData.m_material)->m_subsurfaceRadius, sbtData.m_handle, illuminationEstimationLaunchParams.m_traversable,
+                           hitPoint, rayDirection, normal,
+                           incidentRayOrigin, newRayDirectionInternal, outNormal);
                     optixTrace(
                             illuminationEstimationLaunchParams.m_traversable, incidentRayOrigin,
                             newRayDirectionInternal,
@@ -74,7 +76,7 @@ namespace RayTracerFacility {
                             u0, u1);
                     energy +=
                             glm::clamp(
-                                    glm::abs(glm::dot(normal, glm::vec3(newRayDirectionInternal.x,
+                                    glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
                                                                         newRayDirectionInternal.y,
                                                                         newRayDirectionInternal.z))) *
                                     roughness +
