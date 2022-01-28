@@ -82,10 +82,11 @@ extern "C" __global__ void __raygen__pointCloudScanning() {
       static_cast<OptixVisibilityMask>(255),
       OPTIX_RAY_FLAG_DISABLE_ANYHIT, // OPTIX_RAY_FLAG_NONE,
       static_cast<int>(
-          PointCloudScanningRayType::RadianceRayType),           // SBT offset
-      static_cast<int>(PointCloudScanningRayType::RayTypeCount), // SBT stride
+              RayType::Radiance), // SBT offset
       static_cast<int>(
-          PointCloudScanningRayType::RadianceRayType), // missSBTIndex
+              RayType::RayTypeCount) - 1, // SBT stride
+      static_cast<int>(
+              RayType::Radiance), // missSBTIndex
       u0, u1);
   samples.m_handle = perRayData.m_energy;
   samples.m_hit = perRayData.m_hitCount != 0;

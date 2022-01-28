@@ -161,18 +161,9 @@ namespace RayTracerFacility {
         void OnInspect();
     };
 
-    enum class CameraRenderingRayType {
-        RadianceRayType,
-        SampleSpRayType,
-        RayTypeCount
-    };
-    enum class IlluminationEstimationRayType {
-        RadianceRayType,
-        RayTypeCount
-    };
-
-    enum class PointCloudScanningRayType {
-        RadianceRayType,
+    enum class RayType {
+        Radiance,
+        SpacialSampling,
         RayTypeCount
     };
 

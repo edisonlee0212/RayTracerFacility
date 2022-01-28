@@ -900,9 +900,9 @@ void RayTracer::CreateModules() {
 }
 
 void RayTracer::CreateRayGenPrograms() {
-    CreateRayGenProgram(m_cameraRenderingPipeline, "__raygen__renderFrame");
+    CreateRayGenProgram(m_cameraRenderingPipeline, "__raygen__CR");
     CreateRayGenProgram(m_illuminationEstimationPipeline,
-                        "__raygen__illuminationEstimation");
+                        "__raygen__IE");
     CreateRayGenProgram(m_pointCloudScanningPipeline,
                         "__raygen__pointCloudScanning");
 }
@@ -910,7 +910,7 @@ void RayTracer::CreateRayGenPrograms() {
 void RayTracer::CreateMissPrograms() {
     {
       m_cameraRenderingPipeline.m_missProgramGroups.resize(
-                static_cast<int>(CameraRenderingRayType::RayTypeCount));
+                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -922,28 +922,28 @@ void RayTracer::CreateMissPrograms() {
         // ------------------------------------------------------------------
         // radiance rays
         // ------------------------------------------------------------------
-        pgDesc.miss.entryFunctionName = "__miss__radiance";
+        pgDesc.miss.entryFunctionName = "__miss__CR_R";
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_cameraRenderingPipeline.m_missProgramGroups[static_cast<int>(
-                CameraRenderingRayType::RadianceRayType)]));
+                        RayType::Radiance)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // ------------------------------------------------------------------
         // BSSRDF Spatial sampler rays
         // ------------------------------------------------------------------
-        pgDesc.miss.entryFunctionName = "__miss__sampleSp";
+        pgDesc.miss.entryFunctionName = "__miss__CR_SS";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_cameraRenderingPipeline.m_missProgramGroups[static_cast<int>(
-                CameraRenderingRayType::SampleSpRayType)]));
+                        RayType::SpacialSampling)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
       m_illuminationEstimationPipeline.m_missProgramGroups.resize(
-                static_cast<int>(IlluminationEstimationRayType::RayTypeCount));
+                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -955,19 +955,29 @@ void RayTracer::CreateMissPrograms() {
         // ------------------------------------------------------------------
         // radiance rays
         // ------------------------------------------------------------------
-        pgDesc.miss.entryFunctionName = "__miss__illuminationEstimation";
+        pgDesc.miss.entryFunctionName = "__miss__IE_R";
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_illuminationEstimationPipeline
                  .m_missProgramGroups[static_cast<int>(
-                     IlluminationEstimationRayType::RadianceRayType)]));
+                        RayType::Radiance)]));
+        if (sizeofLog > 1)
+            std::cout << log << std::endl;
+        // ------------------------------------------------------------------
+        // BSSRDF Spatial sampler rays
+        // ------------------------------------------------------------------
+        pgDesc.miss.entryFunctionName = "__miss__IE_SS";
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_illuminationEstimationPipeline.m_missProgramGroups[static_cast<int>(
+                        RayType::SpacialSampling)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
       m_pointCloudScanningPipeline.m_missProgramGroups.resize(
-                static_cast<int>(PointCloudScanningRayType::RayTypeCount));
+                static_cast<int>(RayType::RayTypeCount) - 1);
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -984,7 +994,7 @@ void RayTracer::CreateMissPrograms() {
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_pointCloudScanningPipeline.m_missProgramGroups[static_cast<int>(
-                PointCloudScanningRayType::RadianceRayType)]));
+                        RayType::Radiance)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -993,7 +1003,7 @@ void RayTracer::CreateMissPrograms() {
 void RayTracer::CreateHitGroupPrograms() {
     {
       m_cameraRenderingPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(CameraRenderingRayType::RayTypeCount));
+                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -1005,31 +1015,31 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         // radiance rays
         // -------------------------------------------------------
-        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__radiance";
-        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__radiance";
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CR_R";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CR_R";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_cameraRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                CameraRenderingRayType::RadianceRayType)]));
+                        RayType::Radiance)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
 
         // -------------------------------------------------------
         // BSSRDF Sampler ray
         // -------------------------------------------------------
-        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__sampleSp";
-        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__sampleSp";
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CR_SS";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CR_SS";
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_cameraRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                CameraRenderingRayType::SampleSpRayType)]));
+                        RayType::SpacialSampling)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
       m_illuminationEstimationPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(IlluminationEstimationRayType::RayTypeCount));
+                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -1042,19 +1052,31 @@ void RayTracer::CreateHitGroupPrograms() {
         // radiance rays
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH =
-                "__closesthit__illuminationEstimation";
-        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__illuminationEstimation";
+                "__closesthit__IE_R";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__IE_R";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_illuminationEstimationPipeline
                  .m_hitGroupProgramGroups[static_cast<int>(
-                     IlluminationEstimationRayType::RadianceRayType)]));
+                     RayType::Radiance)]));
+        if (sizeofLog > 1)
+            std::cout << log << std::endl;
+        // -------------------------------------------------------
+        // BSSRDF Sampler ray
+        // -------------------------------------------------------
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__IE_SS";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__IE_SS";
+
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups[static_cast<int>(
+                        RayType::SpacialSampling)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
       m_pointCloudScanningPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(PointCloudScanningRayType::RayTypeCount));
+                static_cast<int>(RayType::RayTypeCount) - 1);
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -1073,7 +1095,7 @@ void RayTracer::CreateHitGroupPrograms() {
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_pointCloudScanningPipeline
                  .m_hitGroupProgramGroups[static_cast<int>(
-                     PointCloudScanningRayType::RadianceRayType)]));
+                        RayType::Radiance)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -2049,7 +2071,7 @@ void RayTracer::BuildShaderBindingTable(
         for (; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
             for (int rayID = 0;
-                 rayID < static_cast<int>(CameraRenderingRayType::RayTypeCount);
+                 rayID < static_cast<int>(RayType::RayTypeCount);
                  rayID++) {
               CameraRenderingRayHitRecord rec;
                 OPTIX_CHECK(optixSbtRecordPackHeader(
@@ -2078,7 +2100,7 @@ void RayTracer::BuildShaderBindingTable(
         for (; i < numObjects; i++) {
             auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
-                 rayID < static_cast<int>(CameraRenderingRayType::RayTypeCount);
+                 rayID < static_cast<int>(RayType::RayTypeCount);
                  rayID++) {
               CameraRenderingRayHitRecord rec;
                 OPTIX_CHECK(optixSbtRecordPackHeader(
@@ -2170,7 +2192,7 @@ void RayTracer::BuildShaderBindingTable(
             auto &instance = m_instances[i];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(IlluminationEstimationRayType::RayTypeCount);
+                 static_cast<int>(RayType::RayTypeCount);
                  rayID++) {
               IlluminationEstimationRayHitRecord rec;
                 OPTIX_CHECK(
@@ -2203,7 +2225,7 @@ void RayTracer::BuildShaderBindingTable(
             auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(IlluminationEstimationRayType::RayTypeCount);
+                 static_cast<int>(RayType::RayTypeCount);
                  rayID++) {
               IlluminationEstimationRayHitRecord rec;
                 OPTIX_CHECK(
@@ -2301,7 +2323,7 @@ void RayTracer::BuildShaderBindingTable(
             auto &instance = m_instances[i];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(PointCloudScanningRayType::RayTypeCount);
+                 static_cast<int>(RayType::RayTypeCount) - 1;
                  rayID++) {
               PointCloudScanningRayHitRecord rec;
                 OPTIX_CHECK(
@@ -2333,7 +2355,7 @@ void RayTracer::BuildShaderBindingTable(
             auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(PointCloudScanningRayType::RayTypeCount);
+                 static_cast<int>(RayType::RayTypeCount) - 1;
                  rayID++) {
               PointCloudScanningRayHitRecord rec;
                 OPTIX_CHECK(
