@@ -228,8 +228,8 @@ namespace RayTracerFacility {
 #pragma endregion
 
     struct RAY_TRACER_FACILITY_API RayTracerTexture{
-        unsigned m_textureId;
-        int m_channel;
+        unsigned m_textureId = 0;
+        int m_channel = 0;
     };
 
     struct RAY_TRACER_FACILITY_API RayTracerMaterial{
