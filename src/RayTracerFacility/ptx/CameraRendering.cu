@@ -61,16 +61,18 @@ namespace RayTracerFacility {
                     float3 incidentRayOrigin;
                     float3 newRayDirectionInternal;
                     glm::vec3 outNormal;
-                    BSSRDF(metallic, perRayData.m_random, static_cast<DefaultMaterial *>(sbtData.m_material)->m_subsurfaceRadius, sbtData.m_handle, cameraRenderingLaunchParams.m_traversable,
+                    BSSRDF(metallic, perRayData.m_random,
+                           static_cast<DefaultMaterial *>(sbtData.m_material)->m_subsurfaceRadius, sbtData.m_handle,
+                           cameraRenderingLaunchParams.m_traversable,
                            hitPoint, rayDirection, normal,
-                         incidentRayOrigin, newRayDirectionInternal, outNormal);
+                           incidentRayOrigin, newRayDirectionInternal, outNormal);
                     optixTrace(
                             cameraRenderingLaunchParams.m_traversable, incidentRayOrigin,
                             newRayDirectionInternal,
                             1e-3f, // tmin
                             1e20f, // tmax
                             0.0f,  // rayTime
-                            static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_DISABLE_ANYHIT,
+                            static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_NONE,
                             static_cast<int>(
                                     RayType::Radiance), // SBT offset
                             static_cast<int>(
@@ -82,8 +84,8 @@ namespace RayTracerFacility {
                             albedoColor *
                             glm::clamp(
                                     glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
-                                                                        newRayDirectionInternal.y,
-                                                                        newRayDirectionInternal.z))) *
+                                                                           newRayDirectionInternal.y,
+                                                                           newRayDirectionInternal.z))) *
                                     roughness +
                                     (1.0f - roughness) * f,
                                     0.0f, 1.0f) *
@@ -150,7 +152,29 @@ namespace RayTracerFacility {
     }
 #pragma endregion
 #pragma region Any hit functions
-    extern "C" __global__ void __anyhit__CR_R() {}
+    extern "C" __global__ void __anyhit__CR_R() {
+        const float3 rayDirectionInternal = optixGetWorldRayDirection();
+        glm::vec3 rayDirection = glm::vec3(
+                rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
+#pragma region Retrive information
+        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
+        const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
+        const int primitiveId = optixGetPrimitiveIndex();
+
+        auto indices = sbtData.m_mesh.GetIndices(primitiveId);
+        auto texCoord =
+                sbtData.m_mesh.GetTexCoord(triangleBarycentricsInternal, indices);
+        auto normal = sbtData.m_mesh.GetNormal(triangleBarycentricsInternal, indices);
+#pragma endregion
+        switch (sbtData.m_materialType) {
+            case MaterialType::Default: {
+                glm::vec4 albedoColor =
+                        static_cast<DefaultMaterial *>(sbtData.m_material)->GetAlbedo(texCoord);
+                if(albedoColor.w <= 0.05f) optixIgnoreIntersection();
+            }
+                break;
+        }
+    }
     extern "C" __global__ void __anyhit__CR_SS() {
         SSAnyHit();
     }
@@ -229,7 +253,7 @@ namespace RayTracerFacility {
                     1e20f, // tmax
                     0.0f,  // rayTime
                     static_cast<OptixVisibilityMask>(255),
-                    OPTIX_RAY_FLAG_DISABLE_ANYHIT, // OPTIX_RAY_FLAG_NONE,
+                    OPTIX_RAY_FLAG_NONE, // OPTIX_RAY_FLAG_NONE,
                     static_cast<int>(
                             RayType::Radiance), // SBT offset
                     static_cast<int>(

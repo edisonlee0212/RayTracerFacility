@@ -6,6 +6,7 @@
 
 #include <glm/glm.hpp>
 #include <MaterialType.hpp>
+
 namespace RayTracerFacility {
     struct Mesh {
         glm::vec3 *m_positions;
@@ -38,11 +39,11 @@ namespace RayTracerFacility {
         }
 
         __device__ glm::vec4 GetColor(const float2 &triangleBarycentrics,
-                                       const glm::uvec3 &triangleIndices) const {
+                                      const glm::uvec3 &triangleIndices) const {
             auto z = 1.f - triangleBarycentrics.x - triangleBarycentrics.y;
-            if(triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y){
+            if (triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y) {
                 return m_colors[triangleIndices.x];
-            }else if(triangleBarycentrics.y > z){
+            } else if (triangleBarycentrics.y > z) {
                 return m_colors[triangleIndices.y];
             }
             return m_colors[triangleIndices.z];
@@ -65,6 +66,11 @@ namespace RayTracerFacility {
         }
     };
 
+    struct DefaultMaterialTexture {
+        cudaTextureObject_t m_texture;
+        int m_channel;
+    };
+
     struct DefaultMaterial {
         glm::vec3 m_surfaceColor;
         glm::vec3 m_subsurfaceColor;
@@ -72,40 +78,40 @@ namespace RayTracerFacility {
         float m_roughness = 15;
         float m_metallic = 0.5;
 
-        cudaTextureObject_t m_albedoTexture;
-        cudaTextureObject_t m_normalTexture;
-        cudaTextureObject_t m_metallicTexture;
-        cudaTextureObject_t m_roughnessTexture;
+        DefaultMaterialTexture m_albedoTexture;
+        DefaultMaterialTexture m_normalTexture;
+        DefaultMaterialTexture m_metallicTexture;
+        DefaultMaterialTexture m_roughnessTexture;
 
         float m_diffuseIntensity;
 
-        __device__ glm::vec3 GetAlbedo(const glm::vec2 &texCoord) const {
-            if (!m_albedoTexture)
-                return m_surfaceColor;
+        __device__ glm::vec4 GetAlbedo(const glm::vec2 &texCoord) const {
+            if (!m_albedoTexture.m_texture)
+                return glm::vec4(m_surfaceColor, 1.0f);
             float4 textureAlbedo =
-                    tex2D<float4>(m_albedoTexture, texCoord.x, texCoord.y);
-            return glm::vec3(textureAlbedo.x, textureAlbedo.y, textureAlbedo.z);
+                    tex2D<float4>(m_albedoTexture.m_texture, texCoord.x, texCoord.y);
+            return glm::vec4(textureAlbedo.x, textureAlbedo.y, textureAlbedo.z, textureAlbedo.w);
         }
 
         __device__ float GetRoughness(const glm::vec2 &texCoord) const {
-            if (!m_roughnessTexture)
+            if (!m_roughnessTexture.m_texture)
                 return m_roughness;
-            return tex2D<float>(m_roughnessTexture, texCoord.x, texCoord.y);
+            return tex2D<float4>(m_roughnessTexture.m_texture, texCoord.x, texCoord.y).x;
         }
 
         __device__ float GetMetallic(const glm::vec2 &texCoord) const {
-            if (!m_metallicTexture)
+            if (!m_metallicTexture.m_texture)
                 return m_metallic;
-            return tex2D<float>(m_metallicTexture, texCoord.x, texCoord.y);
+            return tex2D<float4>(m_metallicTexture.m_texture, texCoord.x, texCoord.y).x;
         }
 
         __device__ void ApplyNormalTexture(glm::vec3 &normal,
                                            const glm::vec2 &texCoord,
                                            const glm::vec3 &tangent) const {
-            if (!m_normalTexture)
+            if (!m_normalTexture.m_texture)
                 return;
             float4 textureNormal =
-                    tex2D<float4>(m_normalTexture, texCoord.x, texCoord.y);
+                    tex2D<float4>(m_normalTexture.m_texture, texCoord.x, texCoord.y);
             glm::vec3 B = glm::cross(normal, tangent);
             glm::mat3 TBN = glm::mat3(tangent, B, normal);
             normal =
@@ -120,6 +126,7 @@ namespace RayTracerFacility {
     struct MLVQMaterial {
         BtfBase m_btf;
 #pragma region Device functions
+
         __device__ void ComputeAngles(const glm::vec3 &direction,
                                       const glm::vec3 &normal,
                                       const glm::vec3 &tangent, float &theta,
@@ -182,6 +189,7 @@ namespace RayTracerFacility {
                 printf("ColBase[%.2f, %.2f, %.2f]\n", out.x, out.y, out.z);
             }
         }
+
 #pragma endregion
     };
 
@@ -189,7 +197,7 @@ namespace RayTracerFacility {
         unsigned long long m_handle;
         Mesh m_mesh;
         MaterialType m_materialType;
-        void* m_material;
+        void *m_material;
     };
 
 /*! SBT record for a raygen program */
@@ -221,7 +229,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a raygen program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-        IlluminationEstimationRayGenRecord {
+    IlluminationEstimationRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -231,7 +239,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a miss program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-        IlluminationEstimationRayMissRecord {
+    IlluminationEstimationRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -241,7 +249,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a hitgroup program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-        IlluminationEstimationRayHitRecord {
+    IlluminationEstimationRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -250,7 +258,7 @@ namespace RayTracerFacility {
     };
     /*! SBT record for a raygen program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-        PointCloudScanningRayGenRecord {
+    PointCloudScanningRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -260,7 +268,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a miss program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-        PointCloudScanningRayMissRecord {
+    PointCloudScanningRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting
@@ -270,7 +278,7 @@ namespace RayTracerFacility {
 
 /*! SBT record for a hitgroup program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
-        PointCloudScanningRayHitRecord {
+    PointCloudScanningRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
         // just a dummy value - later examples will use more interesting

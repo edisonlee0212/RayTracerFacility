@@ -183,10 +183,10 @@ void RayTracerLayer::UpdateMeshesStorage(
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;
                 rayTracerInstance->m_material.m_MLVQMaterialIndex = mLVQRenderer->m_materialIndex;
-                rayTracerInstance->m_material.m_normalTexture = 0;
-                rayTracerInstance->m_material.m_albedoTexture = 0;
-                rayTracerInstance->m_material.m_metallicTexture = 0;
-                rayTracerInstance->m_material.m_roughnessTexture = 0;
+                rayTracerInstance->m_material.m_normalTexture.m_textureId = 0;
+                rayTracerInstance->m_material.m_albedoTexture.m_textureId = 0;
+                rayTracerInstance->m_material.m_metallicTexture.m_textureId = 0;
+                rayTracerInstance->m_material.m_roughnessTexture.m_textureId = 0;
                 rayTracerInstance->m_handle = mLVQRenderer->GetHandle().GetValue();
             }
             if (fromNew || needVerticesUpdate) {
@@ -725,65 +725,73 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
                                                 ? -1.0f
                                                 : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f);
     }
-    if (material->m_albedoTexture.Get<Texture2D>() &&
-        material->m_albedoTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-        if (material->m_albedoTexture.Get<Texture2D>()
+    auto albedoTexture = material->m_albedoTexture.Get<Texture2D>();
+    if (albedoTexture &&
+            albedoTexture->UnsafeGetGLTexture()) {
+        if (albedoTexture
                     ->UnsafeGetGLTexture()
-                    ->Id() != rayTracerMaterial.m_albedoTexture) {
+                    ->Id() != rayTracerMaterial.m_albedoTexture.m_textureId) {
             changed = true;
-            rayTracerMaterial.m_albedoTexture =
-                    material->m_albedoTexture.Get<Texture2D>()
+            rayTracerMaterial.m_albedoTexture.m_textureId =
+                    albedoTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
+            rayTracerMaterial.m_albedoTexture.m_channel = (int)albedoTexture->m_textureColorType;
         }
-    } else if (rayTracerMaterial.m_albedoTexture != 0) {
+    } else if (rayTracerMaterial.m_albedoTexture.m_textureId != 0) {
         changed = true;
-        rayTracerMaterial.m_albedoTexture = 0;
+        rayTracerMaterial.m_albedoTexture.m_textureId = 0;
     }
-    if (material->m_normalTexture.Get<Texture2D>() &&
-        material->m_normalTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-        if (material->m_normalTexture.Get<Texture2D>()
+    auto normalTexture = material->m_normalTexture.Get<Texture2D>();
+    if (normalTexture &&
+            normalTexture->UnsafeGetGLTexture()) {
+        if (normalTexture
                     ->UnsafeGetGLTexture()
-                    ->Id() != rayTracerMaterial.m_normalTexture) {
+                    ->Id() != rayTracerMaterial.m_normalTexture.m_textureId) {
             changed = true;
-            rayTracerMaterial.m_normalTexture =
-                    material->m_normalTexture.Get<Texture2D>()
+            rayTracerMaterial.m_normalTexture.m_textureId =
+                    normalTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
+            rayTracerMaterial.m_normalTexture.m_channel = (int)normalTexture->m_textureColorType;
         }
-    } else if (rayTracerMaterial.m_normalTexture != 0) {
+    } else if (rayTracerMaterial.m_normalTexture.m_textureId != 0) {
         changed = true;
-        rayTracerMaterial.m_normalTexture = 0;
+        rayTracerMaterial.m_normalTexture.m_textureId = 0;
     }
-    if (material->m_metallicTexture.Get<Texture2D>() &&
-        material->m_metallicTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-        if (material->m_metallicTexture.Get<Texture2D>()
+    auto roughnessTexture = material->m_normalTexture.Get<Texture2D>();
+    if (roughnessTexture &&
+            roughnessTexture->UnsafeGetGLTexture()) {
+        if (roughnessTexture
                     ->UnsafeGetGLTexture()
-                    ->Id() != rayTracerMaterial.m_metallicTexture) {
+                    ->Id() != rayTracerMaterial.m_roughnessTexture.m_textureId) {
             changed = true;
-            rayTracerMaterial.m_metallicTexture =
-                    material->m_metallicTexture.Get<Texture2D>()
+            rayTracerMaterial.m_roughnessTexture.m_textureId =
+                    normalTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
+            rayTracerMaterial.m_roughnessTexture.m_channel = (int)roughnessTexture->m_textureColorType;
         }
-    } else if (rayTracerMaterial.m_metallicTexture != 0) {
+    } else if (rayTracerMaterial.m_roughnessTexture.m_textureId != 0) {
         changed = true;
-        rayTracerMaterial.m_metallicTexture = 0;
+        rayTracerMaterial.m_roughnessTexture.m_textureId = 0;
     }
-    if (material->m_roughnessTexture.Get<Texture2D>() &&
-        material->m_roughnessTexture.Get<Texture2D>()->UnsafeGetGLTexture()) {
-        if (material->m_roughnessTexture.Get<Texture2D>()
+    auto metallicTexture = material->m_metallicTexture.Get<Texture2D>();
+    if (metallicTexture &&
+            metallicTexture->UnsafeGetGLTexture()) {
+        if (metallicTexture
                     ->UnsafeGetGLTexture()
-                    ->Id() != rayTracerMaterial.m_roughnessTexture) {
+                    ->Id() != rayTracerMaterial.m_metallicTexture.m_textureId) {
             changed = true;
-            rayTracerMaterial.m_roughnessTexture =
-                    material->m_roughnessTexture.Get<Texture2D>()
+            rayTracerMaterial.m_metallicTexture.m_textureId =
+                    metallicTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
+            rayTracerMaterial.m_metallicTexture.m_channel = (int)metallicTexture->m_textureColorType;
         }
-    } else if (rayTracerMaterial.m_roughnessTexture != 0) {
+    } else if (rayTracerMaterial.m_metallicTexture.m_textureId != 0) {
         changed = true;
-        rayTracerMaterial.m_roughnessTexture = 0;
+        rayTracerMaterial.m_metallicTexture.m_textureId = 0;
     }
     return changed;
 }

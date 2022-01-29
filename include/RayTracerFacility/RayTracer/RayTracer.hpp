@@ -227,6 +227,11 @@ namespace RayTracerFacility {
 
 #pragma endregion
 
+    struct RAY_TRACER_FACILITY_API RayTracerTexture{
+        unsigned m_textureId;
+        int m_channel;
+    };
+
     struct RAY_TRACER_FACILITY_API RayTracerMaterial{
 
         MaterialType m_materialType = MaterialType::Default;
@@ -238,12 +243,10 @@ namespace RayTracerFacility {
         float m_metallic;
         float m_emission = 0;
 
-        unsigned m_albedoTexture = 0;
-        unsigned m_normalTexture = 0;
-        unsigned m_metallicTexture = 0;
-        unsigned m_roughnessTexture = 0;
-
-
+        RayTracerTexture m_albedoTexture;
+        RayTracerTexture m_normalTexture;
+        RayTracerTexture m_metallicTexture;
+        RayTracerTexture m_roughnessTexture;
     };
 
     struct RAY_TRACER_FACILITY_API RayTracerInstance {
@@ -343,7 +346,7 @@ namespace RayTracerFacility {
 
         /*! constructs the shader binding table */
         void BuildShaderBindingTable(
-                std::vector<std::pair<unsigned, cudaTextureObject_t>> &boundTextures,
+                std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
                 std::vector<cudaGraphicsResource_t> &boundResources);
 
 
