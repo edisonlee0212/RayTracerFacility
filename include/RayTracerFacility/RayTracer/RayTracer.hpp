@@ -20,7 +20,6 @@
 
 #include <filesystem>
 
-
 namespace RayTracerFacility {
     enum class OutputType {
         Color,
@@ -239,6 +238,7 @@ namespace RayTracerFacility {
         glm::vec3 m_surfaceColor;
         glm::vec3 m_subsurfaceColor;
         float m_subsurfaceRadius;
+        float m_subsurfaceFactor;
         float m_roughness;
         float m_metallic;
         float m_emission = 0;
@@ -316,7 +316,7 @@ namespace RayTracerFacility {
         MaterialType m_type;
         CudaBuffer m_buffer;
     };
-
+    struct DefaultMaterial;
     class RayTracer {
     public:
         bool m_requireUpdate = false;
@@ -353,6 +353,10 @@ namespace RayTracerFacility {
         void LoadBtfMaterials(const std::vector<std::string> &folderPathes);
 
     protected:
+        void UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMaterial& rayTracerMaterial,
+                                   std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
+                                   std::vector<cudaGraphicsResource_t> &boundResources);
+
 #pragma region MLVQ
         std::vector<MLVQMaterialStorage> m_MLVQMaterialStorage;
 #pragma endregion

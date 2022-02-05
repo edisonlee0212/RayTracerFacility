@@ -6,7 +6,7 @@ namespace RayTracerFacility {
 #pragma region Closest hit functions
     extern "C" __global__ void __closesthit__IE_R() {
 #pragma region Retrive information
-        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
+        const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
         const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
         const int primitiveId = optixGetPrimitiveIndex();
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
@@ -38,37 +38,66 @@ namespace RayTracerFacility {
             }
                 break;
             case MaterialType::Default: {
-                static_cast<DefaultMaterial *>(sbtData.m_material)
-                        ->ApplyNormalTexture(normal, texCoord, tangent);
+                auto *material = static_cast<DefaultMaterial *>(sbtData.m_material);
+                material->ApplyNormalTexture(normal, texCoord, tangent);
                 float metallic =
-                        static_cast<DefaultMaterial *>(sbtData.m_material)->GetMetallic(texCoord);
+                        material->GetMetallic(texCoord);
                 float roughness =
-                        static_cast<DefaultMaterial *>(sbtData.m_material)->GetRoughness(texCoord);
+                        material->GetRoughness(texCoord);
                 glm::vec3 albedoColor =
-                        static_cast<DefaultMaterial *>(sbtData.m_material)->GetAlbedo(texCoord);
+                        material->GetAlbedo(texCoord);
+                energy = 0.0;
+                float f = 1.0f;
+                if (metallic >= 0.0f)
+                    f = (metallic + 2) / (metallic + 1);
                 if (perRayData.m_hitCount <=
-                    illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties
+                        illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties
                             .m_bounces) {
-                    energy = 0.0f;
-                    float f = 1.0f;
-                    if (metallic >= 0.0f)
-                        f = (metallic + 2) / (metallic + 1);
-                    float3 incidentRayOrigin;
+                    if (hitCount <= 1 && material->m_subsurfaceFactor > 0.0f && material->m_subsurfaceRadius > 0.0f) {
+                        float3 incidentRayOrigin;
+                        float3 newRayDirectionInternal;
+                        glm::vec3 outNormal;
+                        bool needSample = BSSRDF(metallic, perRayData.m_random,
+                                                 material->m_subsurfaceRadius, sbtData.m_handle,
+                                                 illuminationEstimationLaunchParams.m_traversable,
+                                                 hitPoint, rayDirection, normal,
+                                                 incidentRayOrigin, newRayDirectionInternal, outNormal);
+                        if (needSample) {
+                            optixTrace(
+                                    illuminationEstimationLaunchParams.m_traversable, incidentRayOrigin,
+                                    newRayDirectionInternal,
+                                    1e-3f, // tmin
+                                    1e20f, // tmax
+                                    0.0f,  // rayTime
+                                    static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_NONE,
+                                    static_cast<int>(
+                                            RayType::Radiance), // SBT offset
+                                    static_cast<int>(
+                                            RayType::RayTypeCount), // SBT stride
+                                    static_cast<int>(
+                                            RayType::Radiance), // missSBTIndex
+                                    u0, u1);
+                            energy += material->m_subsurfaceFactor *
+                                      glm::clamp(
+                                              glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
+                                                                                     newRayDirectionInternal.y,
+                                                                                     newRayDirectionInternal.z))) *
+                                              roughness +
+                                              (1.0f - roughness) * f,
+                                              0.0f, 1.0f) *
+                                      perRayData.m_energy;
+                        }
+                    }
                     float3 newRayDirectionInternal;
-                    glm::vec3 outNormal;
-                    BSSRDF(metallic, perRayData.m_random,
-                           static_cast<DefaultMaterial *>(sbtData.m_material)->m_subsurfaceRadius, sbtData.m_handle,
-                           illuminationEstimationLaunchParams.m_traversable,
-                           hitPoint, rayDirection, normal,
-                           incidentRayOrigin, newRayDirectionInternal, outNormal);
+                    BRDF(metallic, perRayData.m_random, rayDirection, normal, newRayDirectionInternal);
                     optixTrace(
-                            illuminationEstimationLaunchParams.m_traversable, incidentRayOrigin,
+                            illuminationEstimationLaunchParams.m_traversable, make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
                             newRayDirectionInternal,
                             1e-3f, // tmin
                             1e20f, // tmax
                             0.0f,  // rayTime
                             static_cast<OptixVisibilityMask>(255),
-                            OPTIX_RAY_FLAG_NONE, // OPTIX_RAY_FLAG_NONE,
+                            OPTIX_RAY_FLAG_NONE,
                             static_cast<int>(
                                     RayType::Radiance), // SBT offset
                             static_cast<int>(
@@ -76,19 +105,24 @@ namespace RayTracerFacility {
                             static_cast<int>(
                                     RayType::Radiance), // missSBTIndex
                             u0, u1);
-                    energy +=
-                            glm::clamp(
-                                    glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
-                                                                           newRayDirectionInternal.y,
-                                                                           newRayDirectionInternal.z))) *
-                                    roughness +
-                                    (1.0f - roughness) * f,
-                                    0.0f, 1.0f) *
-                            perRayData.m_energy;
+                    energy += (1.0f - material->m_subsurfaceFactor) *
+                              glm::clamp(glm::abs(glm::dot(
+                                                 normal, glm::vec3(newRayDirectionInternal.x,
+                                                                   newRayDirectionInternal.y,
+                                                                   newRayDirectionInternal.z))) *
+                                         roughness +
+                                         (1.0f - roughness) * f,
+                                         0.0f, 1.0f) *
+                              perRayData.m_energy;
+                }
+                if (hitCount == 1) {
+                    perRayData.m_normal = normal;
+                    perRayData.m_albedo = albedoColor;
                 }
                 perRayData.m_energy =
                         energy +
                         static_cast<DefaultMaterial *>(sbtData.m_material)->m_diffuseIntensity;
+
             }
                 break;
             case MaterialType::MLVQ: {
@@ -142,7 +176,7 @@ namespace RayTracerFacility {
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
 #pragma region Retrive information
-        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
+        const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
         const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
         const int primitiveId = optixGetPrimitiveIndex();
 

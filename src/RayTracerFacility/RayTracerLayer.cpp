@@ -709,6 +709,10 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
         changed = true;
         rayTracerMaterial.m_subsurfaceRadius = material->m_subsurfaceRadius;
     }
+    if (rayTracerMaterial.m_subsurfaceFactor != material->m_subsurfaceFactor){
+        changed = true;
+        rayTracerMaterial.m_subsurfaceFactor = glm::clamp(material->m_subsurfaceFactor, 0.0f, 1.0f);
+    }
     if (rayTracerMaterial.m_roughness != material->m_roughness){
         changed = true;
         rayTracerMaterial.m_roughness = material->m_roughness;

@@ -75,6 +75,7 @@ namespace RayTracerFacility {
         glm::vec3 m_surfaceColor;
         glm::vec3 m_subsurfaceColor;
         float m_subsurfaceRadius;
+        float m_subsurfaceFactor;
         float m_roughness = 15;
         float m_metallic = 0.5;
 
@@ -193,7 +194,7 @@ namespace RayTracerFacility {
 #pragma endregion
     };
 
-    struct DefaultSbtData {
+    struct SBT {
         unsigned long long m_handle;
         Mesh m_mesh;
         MaterialType m_materialType;
@@ -204,8 +205,6 @@ namespace RayTracerFacility {
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) CameraRenderingRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
         void *m_data;
     };
 
@@ -213,8 +212,6 @@ namespace RayTracerFacility {
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) CameraRenderingRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
         void *m_data;
     };
 
@@ -222,9 +219,7 @@ namespace RayTracerFacility {
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT) CameraRenderingRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
-        DefaultSbtData m_data;
+        SBT m_data;
     };
 
 /*! SBT record for a raygen program */
@@ -232,8 +227,6 @@ namespace RayTracerFacility {
     IlluminationEstimationRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
         void *m_data;
     };
 
@@ -242,8 +235,6 @@ namespace RayTracerFacility {
     IlluminationEstimationRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
         void *m_data;
     };
 
@@ -252,17 +243,13 @@ namespace RayTracerFacility {
     IlluminationEstimationRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
-        DefaultSbtData m_data;
+        SBT m_data;
     };
     /*! SBT record for a raygen program */
     struct __align__(OPTIX_SBT_RECORD_ALIGNMENT)
     PointCloudScanningRayGenRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
         void *m_data;
     };
 
@@ -271,8 +258,6 @@ namespace RayTracerFacility {
     PointCloudScanningRayMissRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
         void *m_data;
     };
 
@@ -281,8 +266,6 @@ namespace RayTracerFacility {
     PointCloudScanningRayHitRecord {
         __align__(
                 OPTIX_SBT_RECORD_ALIGNMENT) char header[OPTIX_SBT_RECORD_HEADER_SIZE];
-        // just a dummy value - later examples will use more interesting
-        // data here
-        DefaultSbtData m_data;
+        SBT m_data;
     };
 } // namespace RayTracerFacility

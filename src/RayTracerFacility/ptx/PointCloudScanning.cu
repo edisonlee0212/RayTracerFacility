@@ -5,7 +5,7 @@ extern "C" __constant__ PointCloudScanningLaunchParams
     pointCloudScanningLaunchParams;
 #pragma region Closest hit functions
 extern "C" __global__ void __closesthit__pointCloudScanning() {
-  const auto &sbtData = *(const DefaultSbtData *)optixGetSbtDataPointer();
+  const auto &sbtData = *(const SBT *)optixGetSbtDataPointer();
   const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
   const int primitiveId = optixGetPrimitiveIndex();
   const float3 rayDirectionInternal = optixGetWorldRayDirection();

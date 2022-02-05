@@ -161,15 +161,10 @@ namespace RayTracerFacility {
 #pragma region Ray
 
     static __forceinline__ __device__ void
-    BRDF(float metallic, Random &random,
-         const glm::vec3 &inPosition, const glm::vec3 &inDirection, const glm::vec3 &inNormal,
-         float3 &outPosition, float3 &outDirection) {
+    BRDF(float metallic, Random &random, const glm::vec3 &inDirection, const glm::vec3 &inNormal, float3 &outDirection) {
         const glm::vec3 reflected = Reflect(inDirection, inNormal);
         const glm::vec3 newRayDirection =
                 RandomSampleHemisphere(random, reflected, metallic);
-        outPosition =
-                make_float3(inPosition.x + inNormal.x * 1e-3f, inPosition.y + inNormal.y * 1e-3f,
-                            inPosition.z + inNormal.z * 1e-3f);
         outDirection = make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z);
     }
 
@@ -181,56 +176,52 @@ namespace RayTracerFacility {
         glm::vec3 m_outNormal;
     };
 
-    static __forceinline__ __device__ void
+    static __forceinline__ __device__ bool
     BSSRDF(float metallic, Random &random, float radius, unsigned long long handle, OptixTraversableHandle traversable,
            const glm::vec3 &inPosition, const glm::vec3 &inDirection, const glm::vec3 &inNormal,
            float3 &outPosition, float3 &outDirection, glm::vec3 &outNormal) {
-        if (radius > 0.0f) {
-            glm::vec3 diskNormal = RandomSampleSphere(random);
-            glm::vec3 diskCenter = inPosition + radius * diskNormal / 2.0f;
-            float diskRadius = radius * glm::sqrt(random());
-            float distance = glm::sqrt(radius * radius - diskRadius * diskRadius);
-            glm::vec3 samplePosition = diskCenter +
-                                       diskRadius * glm::rotate(glm::vec3(diskNormal.y, diskNormal.z, diskNormal.x),
-                                                                2.0f * glm::pi<float>() * random(), diskNormal);
-            glm::vec3 sampleDirection = -diskNormal;
-            SSPerRayData perRayData;
-            perRayData.m_handle = handle;
-            perRayData.m_hit = false;
-            perRayData.m_random = random;
-            uint32_t u0, u1;
-            PackRayDataPointer(&perRayData, u0, u1);
-            optixTrace(
-                    traversable, make_float3(samplePosition.x, samplePosition.y, samplePosition.z),
-                    make_float3(sampleDirection.x, sampleDirection.y, sampleDirection.z),
-                    distance, // tmin
-                    radius + distance, // tmax
-                    0.0f,  // rayTime
-                    static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_NONE,
-                    static_cast<int>(
-                            RayType::SpacialSampling), // SBT offset
-                    static_cast<int>(
-                            RayType::RayTypeCount), // SBT stride
-                    static_cast<int>(
-                            RayType::SpacialSampling), // missSBTIndex
-                    u0, u1);
-            if (perRayData.m_hit && glm::distance(inPosition, perRayData.m_outPosition) <= radius) {
-                outNormal = perRayData.m_outNormal;
-                outPosition = make_float3(perRayData.m_outPosition.x,
-                                          perRayData.m_outPosition.y,
-                                          perRayData.m_outPosition.z);
-                auto dir = RandomSampleHemisphere(random, outNormal);
-                outDirection = make_float3(dir.x, dir.y, dir.z);
-                return;
-            }
+        glm::vec3 diskNormal = RandomSampleHemisphere(random, inNormal);
+        glm::vec3 diskCenter = inPosition + radius * diskNormal / 2.0f;
+        float diskRadius = radius * glm::sqrt(random());
+        float distance = glm::sqrt(radius * radius - diskRadius * diskRadius);
+        glm::vec3 samplePosition = diskCenter +
+                                   diskRadius * glm::rotate(glm::vec3(diskNormal.y, diskNormal.z, diskNormal.x),
+                                                            2.0f * glm::pi<float>() * random(), diskNormal);
+        glm::vec3 sampleDirection = -diskNormal;
+        SSPerRayData perRayData;
+        perRayData.m_handle = handle;
+        perRayData.m_hit = false;
+        perRayData.m_random = random;
+        uint32_t u0, u1;
+        PackRayDataPointer(&perRayData, u0, u1);
+        optixTrace(
+                traversable, make_float3(samplePosition.x, samplePosition.y, samplePosition.z),
+                make_float3(sampleDirection.x, sampleDirection.y, sampleDirection.z),
+                distance, // tmin
+                radius + distance, // tmax
+                0.0f,  // rayTime
+                static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_NONE,
+                static_cast<int>(
+                        RayType::SpacialSampling), // SBT offset
+                static_cast<int>(
+                        RayType::RayTypeCount), // SBT stride
+                static_cast<int>(
+                        RayType::SpacialSampling), // missSBTIndex
+                u0, u1);
+        if (perRayData.m_hit && glm::distance(inPosition, perRayData.m_outPosition) <= radius) {
+            outNormal = perRayData.m_outNormal;
+            outPosition = make_float3(perRayData.m_outPosition.x,
+                                      perRayData.m_outPosition.y,
+                                      perRayData.m_outPosition.z);
+            //outDirection = make_float3(outNormal.x, outNormal.y, outNormal.z);
+            BRDF(metallic, random, inDirection, outNormal, outDirection);
+            return true;
         }
-        //Fallback to BRDF
-        BRDF(metallic, random, inPosition, inDirection, inNormal, outPosition, outDirection);
-        outNormal = inNormal;
+        return false;
     }
 
     static __forceinline__ __device__ void SSAnyHit() {
-        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
+        const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
         SSPerRayData &perRayData =
                 *GetRayDataPointer<SSPerRayData>();
         if (perRayData.m_handle != sbtData.m_handle) {
@@ -240,7 +231,7 @@ namespace RayTracerFacility {
     }
 
     static __forceinline__ __device__ void SSHit() {
-        const auto &sbtData = *(const DefaultSbtData *) optixGetSbtDataPointer();
+        const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
         SSPerRayData &perRayData =
                 *GetRayDataPointer<SSPerRayData>();
 
