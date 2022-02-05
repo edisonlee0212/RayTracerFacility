@@ -53,12 +53,12 @@ namespace RayTracerFacility {
                 if (perRayData.m_hitCount <=
                         illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties
                             .m_bounces) {
-                    if (hitCount <= 1 && material->m_subsurfaceFactor > 0.0f && material->m_subsurfaceRadius > 0.0f) {
+                    if (hitCount <= 1 && material->m_materialProperties.m_subsurfaceFactor > 0.0f && material->m_materialProperties.m_subsurfaceRadius > 0.0f) {
                         float3 incidentRayOrigin;
                         float3 newRayDirectionInternal;
                         glm::vec3 outNormal;
                         bool needSample = BSSRDF(metallic, perRayData.m_random,
-                                                 material->m_subsurfaceRadius, sbtData.m_handle,
+                                                 material->m_materialProperties.m_subsurfaceRadius, sbtData.m_handle,
                                                  illuminationEstimationLaunchParams.m_traversable,
                                                  hitPoint, rayDirection, normal,
                                                  incidentRayOrigin, newRayDirectionInternal, outNormal);
@@ -77,7 +77,7 @@ namespace RayTracerFacility {
                                     static_cast<int>(
                                             RayType::Radiance), // missSBTIndex
                                     u0, u1);
-                            energy += material->m_subsurfaceFactor *
+                            energy += material->m_materialProperties.m_subsurfaceFactor *
                                       glm::clamp(
                                               glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
                                                                                      newRayDirectionInternal.y,
@@ -105,7 +105,7 @@ namespace RayTracerFacility {
                             static_cast<int>(
                                     RayType::Radiance), // missSBTIndex
                             u0, u1);
-                    energy += (1.0f - material->m_subsurfaceFactor) *
+                    energy += (1.0f - material->m_materialProperties.m_subsurfaceFactor) *
                               glm::clamp(glm::abs(glm::dot(
                                                  normal, glm::vec3(newRayDirectionInternal.x,
                                                                    newRayDirectionInternal.y,
@@ -121,7 +121,7 @@ namespace RayTracerFacility {
                 }
                 perRayData.m_energy =
                         energy +
-                        static_cast<DefaultMaterial *>(sbtData.m_material)->m_diffuseIntensity;
+                        static_cast<DefaultMaterial *>(sbtData.m_material)->m_materialProperties.m_emission;
 
             }
                 break;

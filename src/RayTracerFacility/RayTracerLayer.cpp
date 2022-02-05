@@ -13,7 +13,7 @@ using namespace RayTracerFacility;
 std::shared_ptr<RayTracerCamera> RayTracerLayer::m_rayTracerCamera;
 
 void RayTracerLayer::UpdateMeshesStorage(
-        std::vector<RayTracerInstance> &meshesStorage,
+        std::vector<MeshInstance> &meshesStorage,
         bool &rebuildAccelerationStructure, bool &updateShaderBindingTable) const {
     for (auto &i: meshesStorage) {
         i.m_removeTag = true;
@@ -34,8 +34,8 @@ void RayTracerLayer::UpdateMeshesStorage(
             if (!material || !mesh || mesh->UnsafeGetVertices().empty())
                 continue;
             auto globalTransform = entity.GetDataComponent<GlobalTransform>().m_value;
-            RayTracerInstance newRayTracerInstance;
-            RayTracerInstance *rayTracerInstance = &newRayTracerInstance;
+            MeshInstance newRayTracerInstance;
+            MeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
             bool needTransformUpdate = false;
             bool fromNew = true;
@@ -94,8 +94,8 @@ void RayTracerLayer::UpdateMeshesStorage(
             if (!material || !mesh || mesh->UnsafeGetVertices().empty() || matrices->m_value.empty())
                 continue;
             auto globalTransform = entity.GetDataComponent<GlobalTransform>().m_value;
-            RayTracerInstance newRayTracerInstance;
-            RayTracerInstance *rayTracerInstance = &newRayTracerInstance;
+            MeshInstance newRayTracerInstance;
+            MeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
             bool needTransformUpdate = false;
             bool fromNew = true;
@@ -155,8 +155,8 @@ void RayTracerLayer::UpdateMeshesStorage(
             if (!mesh || mesh->UnsafeGetVertices().empty())
                 continue;
             auto globalTransform = entity.GetDataComponent<GlobalTransform>().m_value;
-            RayTracerInstance newRayTracerInstance;
-            RayTracerInstance *rayTracerInstance = &newRayTracerInstance;
+            MeshInstance newRayTracerInstance;
+            MeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
             bool needTransformUpdate = false;
             bool fromNew = true;
@@ -216,7 +216,7 @@ void RayTracerLayer::UpdateMeshesStorage(
 }
 
 void RayTracerLayer::UpdateSkinnedMeshesStorage(
-        std::vector<SkinnedRayTracerInstance> &meshesStorage,
+        std::vector<SkinnedMeshInstance> &meshesStorage,
         bool &rebuildAccelerationStructure, bool &updateShaderBindingTable) const {
     for (auto &i: meshesStorage) {
         i.m_removeTag = true;
@@ -241,8 +241,8 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
                     skinnedMeshRenderer->RagDoll()
                     ? glm::mat4(1.0f)
                     : entity.GetDataComponent<GlobalTransform>().m_value;
-            SkinnedRayTracerInstance newRayTracerInstance;
-            SkinnedRayTracerInstance *rayTracerInstance = &newRayTracerInstance;
+            SkinnedMeshInstance newRayTracerInstance;
+            SkinnedMeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
             bool needTransformUpdate = false;
             bool fromNew = true;
@@ -697,35 +697,35 @@ void RayTracerLayer::Update() {
 bool
 RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::shared_ptr<Material> &material) const {
     bool changed = false;
-    if (rayTracerMaterial.m_surfaceColor != material->m_albedoColor){
+    if (rayTracerMaterial.m_materialProperties.m_surfaceColor != material->m_albedoColor){
         changed = true;
-        rayTracerMaterial.m_surfaceColor = material->m_albedoColor;
+        rayTracerMaterial.m_materialProperties.m_surfaceColor = material->m_albedoColor;
     }
-    if (rayTracerMaterial.m_subsurfaceColor != material->m_subsurfaceColor){
+    if (rayTracerMaterial.m_materialProperties.m_subsurfaceColor != material->m_subsurfaceColor){
         changed = true;
-        rayTracerMaterial.m_subsurfaceColor = material->m_subsurfaceColor;
+        rayTracerMaterial.m_materialProperties.m_subsurfaceColor = material->m_subsurfaceColor;
     }
-    if (rayTracerMaterial.m_subsurfaceRadius != material->m_subsurfaceRadius){
+    if (rayTracerMaterial.m_materialProperties.m_subsurfaceRadius != material->m_subsurfaceRadius){
         changed = true;
-        rayTracerMaterial.m_subsurfaceRadius = material->m_subsurfaceRadius;
+        rayTracerMaterial.m_materialProperties.m_subsurfaceRadius = material->m_subsurfaceRadius;
     }
-    if (rayTracerMaterial.m_subsurfaceFactor != material->m_subsurfaceFactor){
+    if (rayTracerMaterial.m_materialProperties.m_subsurfaceFactor != material->m_subsurfaceFactor){
         changed = true;
-        rayTracerMaterial.m_subsurfaceFactor = glm::clamp(material->m_subsurfaceFactor, 0.0f, 1.0f);
+        rayTracerMaterial.m_materialProperties.m_subsurfaceFactor = glm::clamp(material->m_subsurfaceFactor, 0.0f, 1.0f);
     }
-    if (rayTracerMaterial.m_roughness != material->m_roughness){
+    if (rayTracerMaterial.m_materialProperties.m_roughness != material->m_roughness){
         changed = true;
-        rayTracerMaterial.m_roughness = material->m_roughness;
+        rayTracerMaterial.m_materialProperties.m_roughness = material->m_roughness;
     }
-    if (rayTracerMaterial.m_emission != material->m_emission){
+    if (rayTracerMaterial.m_materialProperties.m_emission != material->m_emission){
         changed = true;
-        rayTracerMaterial.m_emission = material->m_emission;
+        rayTracerMaterial.m_materialProperties.m_emission = material->m_emission;
     }
-    if (rayTracerMaterial.m_metallic != (material->m_metallic == 1.0f
+    if (rayTracerMaterial.m_materialProperties.m_metallic != (material->m_metallic == 1.0f
                                          ? -1.0f
                                          : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f))){
         changed = true;
-        rayTracerMaterial.m_metallic = material->m_metallic == 1.0f
+        rayTracerMaterial.m_materialProperties.m_metallic = material->m_metallic == 1.0f
                                                 ? -1.0f
                                                 : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f);
     }

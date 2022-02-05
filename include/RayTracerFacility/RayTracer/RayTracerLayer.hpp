@@ -42,11 +42,11 @@ namespace RayTracerFacility {
 
     class RAY_TRACER_FACILITY_API RayTracerLayer : public ILayer {
     protected:
-        void UpdateMeshesStorage(std::vector<RayTracerInstance> &meshesStorage, bool &rebuildAccelerationStructure,
+        void UpdateMeshesStorage(std::vector<MeshInstance> &meshesStorage, bool &rebuildAccelerationStructure,
                                  bool &updateShaderBindingTable) const;
 
         void
-        UpdateSkinnedMeshesStorage(std::vector<SkinnedRayTracerInstance> &meshesStorage,
+        UpdateSkinnedMeshesStorage(std::vector<SkinnedMeshInstance> &meshesStorage,
                                    bool &rebuildAccelerationStructure,
                                    bool &updateShaderBindingTable) const;
 

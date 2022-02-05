@@ -1245,7 +1245,7 @@ void RayTracer::BuildAccelerationStructure() {
     CudaBuffer matricesBuffer;
     for (; meshID < m_instances.size(); meshID++) {
         // upload the model to the device: the builder
-        RayTracerInstance &triangleMesh = m_instances[meshID];
+        MeshInstance &triangleMesh = m_instances[meshID];
         verticesBuffer.Upload(*triangleMesh.m_vertices);
         if (triangleMesh.m_instancing) {
             matricesBuffer.Upload(*triangleMesh.m_matrices);
@@ -1364,7 +1364,7 @@ void RayTracer::BuildAccelerationStructure() {
     }
     for (; meshID < instanceSize; meshID++) {
         // upload the model to the device: the builder
-        SkinnedRayTracerInstance &triangleMesh =
+        SkinnedMeshInstance &triangleMesh =
                 m_skinnedInstances[meshID - m_instances.size()];
 
         verticesBuffer.Upload(*triangleMesh.m_skinnedVertices);
@@ -1621,69 +1621,116 @@ void RayTracer::BuildShaderBindingTable(
         std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
         std::vector<cudaGraphicsResource_t> &boundResources) {
     const int numObjects = m_instances.size() + m_skinnedInstances.size();
-    {
-        // ------------------------------------------------------------------
-        // Prepare surface materials
-        // ------------------------------------------------------------------
-        for (auto &i: m_surfaceMaterials)
-            if (i.m_type == MaterialType::Default || i.m_type == MaterialType::VertexColor)
-                i.m_buffer.Free();
-        m_surfaceMaterials.clear();
-        m_surfaceMaterials.resize(numObjects);
-        int i = 0;
-        for (; i < m_instances.size(); i++) {
-            auto &instance = m_instances[i];
-            switch (instance.m_material.m_materialType) {
-                case MaterialType::MLVQ: {
-                    m_surfaceMaterials[i].m_type = MaterialType::MLVQ;
-                    if (instance.m_material.m_MLVQMaterialIndex >= 0 &&
-                        instance.m_material.m_MLVQMaterialIndex < m_MLVQMaterialStorage.size()) {
-                        m_surfaceMaterials[i].m_buffer =
-                                m_MLVQMaterialStorage[instance.m_material.m_MLVQMaterialIndex].m_buffer;
-                    } else {
-                        m_surfaceMaterials[i].m_buffer = m_MLVQMaterialStorage[0].m_buffer;
-                    }
-                    break;
+#pragma region Materials
+    // ------------------------------------------------------------------
+    // Prepare surface materials
+    // ------------------------------------------------------------------
+    for (auto &i: m_surfaceMaterials)
+        if (i.m_type == MaterialType::Default || i.m_type == MaterialType::VertexColor)
+            i.m_buffer.Free();
+    m_surfaceMaterials.clear();
+    m_surfaceMaterials.resize(numObjects);
+    int i = 0;
+    for (; i < m_instances.size(); i++) {
+        auto &instance = m_instances[i];
+        switch (instance.m_material.m_materialType) {
+            case MaterialType::MLVQ: {
+                m_surfaceMaterials[i].m_type = MaterialType::MLVQ;
+                if (instance.m_material.m_MLVQMaterialIndex >= 0 &&
+                    instance.m_material.m_MLVQMaterialIndex < m_MLVQMaterialStorage.size()) {
+                    m_surfaceMaterials[i].m_buffer =
+                            m_MLVQMaterialStorage[instance.m_material.m_MLVQMaterialIndex].m_buffer;
+                } else {
+                    m_surfaceMaterials[i].m_buffer = m_MLVQMaterialStorage[0].m_buffer;
                 }
-                case MaterialType::VertexColor: {
-                    m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
-                    break;
-                }
-                case MaterialType::Default: m_surfaceMaterials[i].m_type = MaterialType::Default;
-                    DefaultMaterial material;
-                    UpdateDefaultMaterial(material, instance.m_material, boundTextures, boundResources);
-                    m_surfaceMaterials[i].m_buffer.Upload(&material, 1);
-                    break;
+                break;
             }
-        }
-        for (; i < numObjects; i++) {
-            auto &instance = m_skinnedInstances[i - m_instances.size()];
-            switch (instance.m_materialType) {
-                case MaterialType::MLVQ: {
-                    m_surfaceMaterials[i].m_type = MaterialType::MLVQ;
-                    if (instance.m_MLVQMaterialIndex >= 0 &&
-                        instance.m_MLVQMaterialIndex < m_MLVQMaterialStorage.size()) {
-                        m_surfaceMaterials[i].m_buffer =
-                                m_MLVQMaterialStorage[instance.m_MLVQMaterialIndex].m_buffer;
-                    } else {
-                        m_surfaceMaterials[i].m_buffer = m_MLVQMaterialStorage[0].m_buffer;
-                    }
-                    break;
-                }
-                case MaterialType::VertexColor: {
-                    m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
-                    break;
-                }
-                case MaterialType::Default:
-                    m_surfaceMaterials[i].m_type = MaterialType::Default;
-                    DefaultMaterial material;
-                    UpdateDefaultMaterial(material, instance.m_material, boundTextures, boundResources);
-                    m_surfaceMaterials[i].m_buffer.Upload(&material, 1);
-                    break;
+            case MaterialType::VertexColor: {
+                m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
+                break;
             }
+            case MaterialType::Default:
+                m_surfaceMaterials[i].m_type = MaterialType::Default;
+                DefaultMaterial material;
+                UpdateDefaultMaterial(material, instance.m_material, boundTextures, boundResources);
+                m_surfaceMaterials[i].m_buffer.Upload(&material, 1);
+                break;
         }
-
     }
+    for (; i < numObjects; i++) {
+        auto &instance = m_skinnedInstances[i - m_instances.size()];
+        switch (instance.m_materialType) {
+            case MaterialType::MLVQ: {
+                m_surfaceMaterials[i].m_type = MaterialType::MLVQ;
+                if (instance.m_MLVQMaterialIndex >= 0 &&
+                    instance.m_MLVQMaterialIndex < m_MLVQMaterialStorage.size()) {
+                    m_surfaceMaterials[i].m_buffer =
+                            m_MLVQMaterialStorage[instance.m_MLVQMaterialIndex].m_buffer;
+                } else {
+                    m_surfaceMaterials[i].m_buffer = m_MLVQMaterialStorage[0].m_buffer;
+                }
+                break;
+            }
+            case MaterialType::VertexColor: {
+                m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
+                break;
+            }
+            case MaterialType::Default:
+                m_surfaceMaterials[i].m_type = MaterialType::Default;
+                DefaultMaterial material;
+                UpdateDefaultMaterial(material, instance.m_material, boundTextures, boundResources);
+                m_surfaceMaterials[i].m_buffer.Upload(&material, 1);
+                break;
+        }
+    }
+#pragma endregion
+#pragma region Prepare SBTs
+    std::vector<SBT> sBTs;
+    sBTs.resize(numObjects);
+    i = 0;
+    for (; i < m_instances.size(); i++) {
+        auto &instance = m_instances[i];
+        sBTs[i].m_handle = instance.m_handle;
+        sBTs[i].m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
+                m_transformedPositionsBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
+                m_transformedNormalsBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
+                m_transformedTangentBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_texCoords =
+                reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_colors =
+                reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
+                m_trianglesBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_transform = instance.m_globalTransform;
+
+        sBTs[i].m_materialType = instance.m_material.m_materialType;
+        sBTs[i].m_material = reinterpret_cast<void *>(
+                m_surfaceMaterials[i].m_buffer.DevicePointer());
+    }
+    for (; i < numObjects; i++) {
+        auto &instance = m_skinnedInstances[i - m_instances.size()];
+        sBTs[i].m_handle = instance.m_handle;
+        sBTs[i].m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
+                m_transformedPositionsBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
+                m_transformedNormalsBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
+                m_transformedTangentBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_texCoords =
+                reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_colors =
+                reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
+                m_trianglesBuffer[i].DevicePointer());
+        sBTs[i].m_mesh.m_transform = instance.m_globalTransform;
+
+        sBTs[i].m_materialType = instance.m_materialType;
+        sBTs[i].m_material = reinterpret_cast<void *>(
+                m_surfaceMaterials[i].m_buffer.DevicePointer());
+    }
+#pragma endregion
     {
         // ------------------------------------------------------------------
         // build raygen records
@@ -1730,8 +1777,7 @@ void RayTracer::BuildShaderBindingTable(
         // (which the sanity checks in compilation would complain about)
 
         std::vector<CameraRenderingRayHitRecord> hitGroupRecords;
-        int i = 0;
-        for (; i < m_instances.size(); i++) {
+        for (int i = 0; i < numObjects; i++) {
             auto &instance = m_instances[i];
             for (int rayID = 0;
                  rayID < static_cast<int>(RayType::RayTypeCount);
@@ -1739,53 +1785,7 @@ void RayTracer::BuildShaderBindingTable(
                 CameraRenderingRayHitRecord rec;
                 OPTIX_CHECK(optixSbtRecordPackHeader(
                         m_cameraRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
-                rec.m_data.m_handle = instance.m_handle;
-                rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
-                        m_transformedPositionsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
-                        m_transformedNormalsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
-                        m_transformedTangentBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_texCoords =
-                        reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_colors =
-                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
-                        m_trianglesBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
-
-                rec.m_data.m_materialType = instance.m_material.m_materialType;
-                rec.m_data.m_material = reinterpret_cast<void *>(
-                        m_surfaceMaterials[i].m_buffer.DevicePointer());
-                hitGroupRecords.push_back(rec);
-            }
-        }
-        for (; i < numObjects; i++) {
-            auto &instance = m_skinnedInstances[i - m_instances.size()];
-            for (int rayID = 0;
-                 rayID < static_cast<int>(RayType::RayTypeCount);
-                 rayID++) {
-                CameraRenderingRayHitRecord rec;
-                OPTIX_CHECK(optixSbtRecordPackHeader(
-                        m_cameraRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
-                rec.m_data.m_handle = instance.m_handle;
-                rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
-                        m_transformedPositionsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
-                        m_transformedNormalsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
-                        m_transformedTangentBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_texCoords =
-                        reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_colors =
-                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
-                        m_trianglesBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
-
-                rec.m_data.m_materialType = instance.m_materialType;
-                rec.m_data.m_material = reinterpret_cast<void *>(
-                        m_surfaceMaterials[i].m_buffer.DevicePointer());
+                rec.m_data = sBTs[i];
                 hitGroupRecords.push_back(rec);
             }
         }
@@ -1850,8 +1850,7 @@ void RayTracer::BuildShaderBindingTable(
         // create a dummy one so the SBT doesn't have any null pointers
         // (which the sanity checks in compilation would complain about)
         std::vector<IlluminationEstimationRayHitRecord> hitGroupRecords;
-        int i = 0;
-        for (; i < m_instances.size(); i++) {
+        for (int i = 0; i < numObjects; i++) {
             auto &instance = m_instances[i];
             for (int rayID = 0;
                  rayID <
@@ -1863,57 +1862,7 @@ void RayTracer::BuildShaderBindingTable(
                                 m_illuminationEstimationPipeline
                                         .m_hitGroupProgramGroups[rayID],
                                 &rec));
-                rec.m_data.m_handle = instance.m_handle;
-                rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
-                        m_transformedPositionsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
-                        m_transformedNormalsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
-                        m_transformedTangentBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_texCoords =
-                        reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_colors =
-                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
-                        m_trianglesBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
-
-                rec.m_data.m_materialType = instance.m_material.m_materialType;
-                rec.m_data.m_material = reinterpret_cast<void *>(
-                        m_surfaceMaterials[i].m_buffer.DevicePointer());
-                hitGroupRecords.push_back(rec);
-            }
-        }
-        for (; i < numObjects; i++) {
-            auto &instance = m_skinnedInstances[i - m_instances.size()];
-            for (int rayID = 0;
-                 rayID <
-                 static_cast<int>(RayType::RayTypeCount);
-                 rayID++) {
-                IlluminationEstimationRayHitRecord rec;
-                OPTIX_CHECK(
-                        optixSbtRecordPackHeader(
-                                m_illuminationEstimationPipeline
-                                        .m_hitGroupProgramGroups[rayID],
-                                &rec));
-                rec.m_data.m_handle = instance.m_handle;
-                rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
-                        m_transformedPositionsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
-                        m_transformedNormalsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
-                        m_transformedTangentBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_texCoords =
-                        reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_colors =
-                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
-                        m_trianglesBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
-
-                rec.m_data.m_materialType = instance.m_materialType;
-                rec.m_data.m_material = reinterpret_cast<void *>(
-                        m_surfaceMaterials[i].m_buffer.DevicePointer());
+                rec.m_data = sBTs[i];
                 hitGroupRecords.push_back(rec);
             }
         }
@@ -1981,8 +1930,7 @@ void RayTracer::BuildShaderBindingTable(
         // create a dummy one so the SBT doesn't have any null pointers
         // (which the sanity checks in compilation would complain about)
         std::vector<PointCloudScanningRayHitRecord> hitGroupRecords;
-        int i = 0;
-        for (; i < m_instances.size(); i++) {
+        for (int i = 0; i < numObjects; i++) {
             auto &instance = m_instances[i];
             for (int rayID = 0;
                  rayID <
@@ -1993,56 +1941,7 @@ void RayTracer::BuildShaderBindingTable(
                         optixSbtRecordPackHeader(
                                 m_pointCloudScanningPipeline.m_hitGroupProgramGroups[rayID],
                                 &rec));
-                rec.m_data.m_handle = instance.m_handle;
-                rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
-                        m_transformedPositionsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
-                        m_transformedNormalsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
-                        m_transformedTangentBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_texCoords =
-                        reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_colors =
-                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
-                        m_trianglesBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
-
-                rec.m_data.m_materialType = instance.m_material.m_materialType;
-                rec.m_data.m_material = reinterpret_cast<void *>(
-                        m_surfaceMaterials[i].m_buffer.DevicePointer());
-                hitGroupRecords.push_back(rec);
-            }
-        }
-        for (; i < numObjects; i++) {
-            auto &instance = m_skinnedInstances[i - m_instances.size()];
-            for (int rayID = 0;
-                 rayID <
-                 static_cast<int>(RayType::RayTypeCount) - 1;
-                 rayID++) {
-                PointCloudScanningRayHitRecord rec;
-                OPTIX_CHECK(
-                        optixSbtRecordPackHeader(
-                                m_pointCloudScanningPipeline.m_hitGroupProgramGroups[rayID],
-                                &rec));
-                rec.m_data.m_handle = instance.m_handle;
-                rec.m_data.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
-                        m_transformedPositionsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
-                        m_transformedNormalsBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_tangents = reinterpret_cast<glm::vec3 *>(
-                        m_transformedTangentBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_texCoords =
-                        reinterpret_cast<glm::vec2 *>(m_texCoordBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_colors =
-                        reinterpret_cast<glm::vec4 *>(m_vertexColorBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(
-                        m_trianglesBuffer[i].DevicePointer());
-                rec.m_data.m_mesh.m_transform = instance.m_globalTransform;
-
-                rec.m_data.m_materialType = instance.m_materialType;
-                rec.m_data.m_material = reinterpret_cast<void *>(
-                        m_surfaceMaterials[i].m_buffer.DevicePointer());
+                rec.m_data = sBTs[i];
                 hitGroupRecords.push_back(rec);
             }
         }
@@ -2069,23 +1968,15 @@ void RayTracer::LoadBtfMaterials(const std::vector<std::string> &folderPathes) {
     }
 }
 
-void RayTracer::UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMaterial& rayTracerMaterial,
+void RayTracer::UpdateDefaultMaterial(DefaultMaterial &material, RayTracerMaterial &rayTracerMaterial,
                                       std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
                                       std::vector<cudaGraphicsResource_t> &boundResources) {
-
-
 #pragma region Material Settings
-    material.m_surfaceColor = rayTracerMaterial.m_surfaceColor;
-    material.m_subsurfaceColor = rayTracerMaterial.m_subsurfaceColor;
-    material.m_subsurfaceRadius = rayTracerMaterial.m_subsurfaceRadius;
-    material.m_subsurfaceFactor = rayTracerMaterial.m_subsurfaceFactor;
-    material.m_roughness = rayTracerMaterial.m_roughness;
-    material.m_metallic = rayTracerMaterial.m_metallic;
+    material.m_materialProperties = rayTracerMaterial.m_materialProperties;
     material.m_albedoTexture.m_texture = 0;
     material.m_normalTexture.m_texture = 0;
     material.m_roughnessTexture.m_texture = 0;
     material.m_metallicTexture.m_texture = 0;
-    material.m_diffuseIntensity = rayTracerMaterial.m_emission;
     if (rayTracerMaterial.m_albedoTexture.m_textureId != 0) {
         bool duplicate = false;
         for (auto &boundTexture: boundTextures) {
@@ -2097,30 +1988,8 @@ void RayTracer::UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMateri
             }
         }
         if (!duplicate) {
-#pragma region Bind output texture
-            cudaArray_t textureArray;
             cudaGraphicsResource_t graphicsResource;
-            CUDA_CHECK(GraphicsGLRegisterImage(
-                    &graphicsResource, rayTracerMaterial.m_albedoTexture.m_textureId, GL_TEXTURE_2D,
-                    cudaGraphicsRegisterFlagsReadOnly));
-            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
-            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
-                                                         graphicsResource, 0, 0));
-            struct cudaResourceDesc cudaResourceDesc;
-            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
-            cudaResourceDesc.resType = cudaResourceTypeArray;
-            cudaResourceDesc.res.array.array = textureArray;
-            struct cudaTextureDesc cudaTextureDesc;
-            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
-            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
-            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
-            cudaTextureDesc.filterMode = cudaFilterModeLinear;
-            cudaTextureDesc.readMode = cudaReadModeElementType;
-            cudaTextureDesc.normalizedCoords = 1;
-            CUDA_CHECK(CreateTextureObject(&material.m_albedoTexture.m_texture,
-                                           &cudaResourceDesc, &cudaTextureDesc,
-                                           nullptr));
-#pragma endregion
+            BindTexture(rayTracerMaterial.m_albedoTexture.m_textureId, graphicsResource, material.m_albedoTexture.m_texture);
             boundResources.push_back(graphicsResource);
             boundTextures.emplace_back(rayTracerMaterial.m_albedoTexture.m_textureId,
                                        std::make_pair(material.m_albedoTexture.m_texture,
@@ -2138,30 +2007,8 @@ void RayTracer::UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMateri
             }
         }
         if (!duplicate) {
-#pragma region Bind output texture
-            cudaArray_t textureArray;
             cudaGraphicsResource_t graphicsResource;
-            CUDA_CHECK(GraphicsGLRegisterImage(
-                    &graphicsResource, rayTracerMaterial.m_normalTexture.m_textureId, GL_TEXTURE_2D,
-                    cudaGraphicsRegisterFlagsReadOnly));
-            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
-            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
-                                                         graphicsResource, 0, 0));
-            struct cudaResourceDesc cudaResourceDesc;
-            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
-            cudaResourceDesc.resType = cudaResourceTypeArray;
-            cudaResourceDesc.res.array.array = textureArray;
-            struct cudaTextureDesc cudaTextureDesc;
-            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
-            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
-            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
-            cudaTextureDesc.filterMode = cudaFilterModeLinear;
-            cudaTextureDesc.readMode = cudaReadModeElementType;
-            cudaTextureDesc.normalizedCoords = 1;
-            CUDA_CHECK(CreateTextureObject(&material.m_normalTexture.m_texture,
-                                           &cudaResourceDesc, &cudaTextureDesc,
-                                           nullptr));
-#pragma endregion
+            BindTexture(rayTracerMaterial.m_normalTexture.m_textureId, graphicsResource, material.m_normalTexture.m_texture);
             boundResources.push_back(graphicsResource);
             boundTextures.emplace_back(rayTracerMaterial.m_normalTexture.m_textureId,
                                        std::make_pair(material.m_normalTexture.m_texture,
@@ -2179,30 +2026,8 @@ void RayTracer::UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMateri
             }
         }
         if (!duplicate) {
-#pragma region Bind output texture
-            cudaArray_t textureArray;
             cudaGraphicsResource_t graphicsResource;
-            CUDA_CHECK(GraphicsGLRegisterImage(
-                    &graphicsResource, rayTracerMaterial.m_roughnessTexture.m_textureId, GL_TEXTURE_2D,
-                    cudaGraphicsRegisterFlagsReadOnly));
-            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
-            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
-                                                         graphicsResource, 0, 0));
-            struct cudaResourceDesc cudaResourceDesc;
-            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
-            cudaResourceDesc.resType = cudaResourceTypeArray;
-            cudaResourceDesc.res.array.array = textureArray;
-            struct cudaTextureDesc cudaTextureDesc;
-            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
-            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
-            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
-            cudaTextureDesc.filterMode = cudaFilterModeLinear;
-            cudaTextureDesc.readMode = cudaReadModeElementType;
-            cudaTextureDesc.normalizedCoords = 1;
-            CUDA_CHECK(CreateTextureObject(&material.m_roughnessTexture.m_texture,
-                                           &cudaResourceDesc, &cudaTextureDesc,
-                                           nullptr));
-#pragma endregion
+            BindTexture(rayTracerMaterial.m_roughnessTexture.m_textureId, graphicsResource, material.m_roughnessTexture.m_texture);
             boundResources.push_back(graphicsResource);
             boundTextures.emplace_back(rayTracerMaterial.m_roughnessTexture.m_textureId,
                                        std::make_pair(material.m_roughnessTexture.m_texture,
@@ -2220,30 +2045,8 @@ void RayTracer::UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMateri
             }
         }
         if (!duplicate) {
-#pragma region Bind output texture
-            cudaArray_t textureArray;
             cudaGraphicsResource_t graphicsResource;
-            CUDA_CHECK(GraphicsGLRegisterImage(
-                    &graphicsResource, rayTracerMaterial.m_metallicTexture.m_textureId, GL_TEXTURE_2D,
-                    cudaGraphicsRegisterFlagsReadOnly));
-            CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
-            CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
-                                                         graphicsResource, 0, 0));
-            struct cudaResourceDesc cudaResourceDesc;
-            memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
-            cudaResourceDesc.resType = cudaResourceTypeArray;
-            cudaResourceDesc.res.array.array = textureArray;
-            struct cudaTextureDesc cudaTextureDesc;
-            memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
-            cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
-            cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
-            cudaTextureDesc.filterMode = cudaFilterModeLinear;
-            cudaTextureDesc.readMode = cudaReadModeElementType;
-            cudaTextureDesc.normalizedCoords = 1;
-            CUDA_CHECK(CreateTextureObject(&material.m_metallicTexture.m_texture,
-                                           &cudaResourceDesc, &cudaTextureDesc,
-                                           nullptr));
-#pragma endregion
+            BindTexture(rayTracerMaterial.m_metallicTexture.m_textureId, graphicsResource, material.m_metallicTexture.m_texture);
             boundResources.push_back(graphicsResource);
             boundTextures.emplace_back(rayTracerMaterial.m_metallicTexture.m_textureId,
                                        std::make_pair(material.m_metallicTexture.m_texture,
@@ -2253,6 +2056,30 @@ void RayTracer::UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMateri
 #pragma endregion
 
 
+}
+
+void RayTracer::BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t& textureObject) {
+    cudaArray_t textureArray;
+    CUDA_CHECK(GraphicsGLRegisterImage(
+            &graphicsResource, id, GL_TEXTURE_2D,
+            cudaGraphicsRegisterFlagsReadOnly));
+    CUDA_CHECK(GraphicsMapResources(1, &graphicsResource, nullptr));
+    CUDA_CHECK(GraphicsSubResourceGetMappedArray(&textureArray,
+                                                 graphicsResource, 0, 0));
+    struct cudaResourceDesc cudaResourceDesc;
+    memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
+    cudaResourceDesc.resType = cudaResourceTypeArray;
+    cudaResourceDesc.res.array.array = textureArray;
+    struct cudaTextureDesc cudaTextureDesc;
+    memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
+    cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
+    cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
+    cudaTextureDesc.filterMode = cudaFilterModeLinear;
+    cudaTextureDesc.readMode = cudaReadModeElementType;
+    cudaTextureDesc.normalizedCoords = 1;
+    CUDA_CHECK(CreateTextureObject(&textureObject,
+                                   &cudaResourceDesc, &cudaTextureDesc,
+                                   nullptr));
 }
 
 

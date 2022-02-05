@@ -10,13 +10,11 @@
 
 #include <cuda.h>
 
-#include <glm/glm.hpp>
-
 #include <string>
 
 #include <vector>
 
-#include <MaterialType.hpp>
+#include "MaterialProperties.hpp"
 
 #include <filesystem>
 
@@ -166,8 +164,6 @@ namespace RayTracerFacility {
         RayTypeCount
     };
 
-    struct VertexInfo;
-
     struct CameraRenderingLaunchParams {
         CameraProperties m_cameraProperties;
         RayTracerProperties m_rayTracerProperties;
@@ -232,16 +228,9 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API RayTracerMaterial{
-
         MaterialType m_materialType = MaterialType::Default;
         int m_MLVQMaterialIndex;
-        glm::vec3 m_surfaceColor;
-        glm::vec3 m_subsurfaceColor;
-        float m_subsurfaceRadius;
-        float m_subsurfaceFactor;
-        float m_roughness;
-        float m_metallic;
-        float m_emission = 0;
+        MaterialProperties m_materialProperties;
 
         RayTracerTexture m_albedoTexture;
         RayTracerTexture m_normalTexture;
@@ -249,7 +238,7 @@ namespace RayTracerFacility {
         RayTracerTexture m_roughnessTexture;
     };
 
-    struct RAY_TRACER_FACILITY_API RayTracerInstance {
+    struct RAY_TRACER_FACILITY_API MeshInstance {
         bool m_instancing = false;
         std::vector<Vertex> *m_vertices;
         std::vector<glm::uvec3> *m_triangles;
@@ -264,7 +253,7 @@ namespace RayTracerFacility {
         glm::mat4 m_globalTransform;
     };
 
-    struct RAY_TRACER_FACILITY_API SkinnedRayTracerInstance {
+    struct RAY_TRACER_FACILITY_API SkinnedMeshInstance {
         MaterialType m_materialType = MaterialType::Default;
         int m_MLVQMaterialIndex;
 
@@ -279,13 +268,6 @@ namespace RayTracerFacility {
 
         bool m_removeTag = false;
         glm::mat4 m_globalTransform;
-    };
-
-    enum PipelineType {
-        DefaultRendering,
-        IlluminationEstimation,
-
-        PipelineSize
     };
 
     struct RayTracerPipeline {
@@ -320,8 +302,8 @@ namespace RayTracerFacility {
     class RayTracer {
     public:
         bool m_requireUpdate = false;
-        std::vector<RayTracerInstance> m_instances;
-        std::vector<SkinnedRayTracerInstance> m_skinnedInstances;
+        std::vector<MeshInstance> m_instances;
+        std::vector<SkinnedMeshInstance> m_skinnedInstances;
 
         // ------------------------------------------------------------------
         // internal helper functions
@@ -353,6 +335,8 @@ namespace RayTracerFacility {
         void LoadBtfMaterials(const std::vector<std::string> &folderPathes);
 
     protected:
+        void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t& textureObject);
+
         void UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMaterial& rayTracerMaterial,
                                    std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
                                    std::vector<cudaGraphicsResource_t> &boundResources);

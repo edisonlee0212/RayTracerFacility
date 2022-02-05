@@ -4,8 +4,7 @@
 
 #include <Vertex.hpp>
 
-#include <glm/glm.hpp>
-#include <MaterialType.hpp>
+#include "MaterialProperties.hpp"
 
 namespace RayTracerFacility {
     struct Mesh {
@@ -72,23 +71,16 @@ namespace RayTracerFacility {
     };
 
     struct DefaultMaterial {
-        glm::vec3 m_surfaceColor;
-        glm::vec3 m_subsurfaceColor;
-        float m_subsurfaceRadius;
-        float m_subsurfaceFactor;
-        float m_roughness = 15;
-        float m_metallic = 0.5;
+        MaterialProperties m_materialProperties;
 
         DefaultMaterialTexture m_albedoTexture;
         DefaultMaterialTexture m_normalTexture;
         DefaultMaterialTexture m_metallicTexture;
         DefaultMaterialTexture m_roughnessTexture;
 
-        float m_diffuseIntensity;
-
         __device__ glm::vec4 GetAlbedo(const glm::vec2 &texCoord) const {
             if (!m_albedoTexture.m_texture)
-                return glm::vec4(m_surfaceColor, 1.0f);
+                return glm::vec4(m_materialProperties.m_surfaceColor, 1.0f);
             float4 textureAlbedo =
                     tex2D<float4>(m_albedoTexture.m_texture, texCoord.x, texCoord.y);
             return glm::vec4(textureAlbedo.x, textureAlbedo.y, textureAlbedo.z, textureAlbedo.w);
@@ -96,13 +88,13 @@ namespace RayTracerFacility {
 
         __device__ float GetRoughness(const glm::vec2 &texCoord) const {
             if (!m_roughnessTexture.m_texture)
-                return m_roughness;
+                return m_materialProperties.m_roughness;
             return tex2D<float4>(m_roughnessTexture.m_texture, texCoord.x, texCoord.y).x;
         }
 
         __device__ float GetMetallic(const glm::vec2 &texCoord) const {
             if (!m_metallicTexture.m_texture)
-                return m_metallic;
+                return m_materialProperties.m_metallic;
             return tex2D<float4>(m_metallicTexture.m_texture, texCoord.x, texCoord.y).x;
         }
 
