@@ -89,16 +89,17 @@ namespace RayTracerFacility {
 
 #pragma region MyRegion
     enum class EnvironmentalLightingType {
-        Skydome, EnvironmentalMap, Color
+        Scene, Skydome
     };
 
 
     struct RAY_TRACER_FACILITY_API EnvironmentProperties {
         EnvironmentalLightingType m_environmentalLightingType =
-                EnvironmentalLightingType::Skydome;
+                EnvironmentalLightingType::Scene;
         float m_skylightIntensity = 1.0f;
+        float m_gamma = 1.0f;
         glm::vec3 m_sunDirection = glm::vec3(0, 1, 0);
-        glm::vec3 m_sunColor = glm::vec3(1, 1, 1);
+        glm::vec3 m_color = glm::vec3(1, 1, 1);
         unsigned m_environmentalMapId = 0;
         cudaTextureObject_t m_environmentalMaps[6];
 
@@ -117,9 +118,10 @@ namespace RayTracerFacility {
             return properties.m_environmentalLightingType !=
                    m_environmentalLightingType ||
                    properties.m_skylightIntensity != m_skylightIntensity ||
+                   properties.m_gamma != m_gamma ||
                    properties.m_sunDirection != m_sunDirection ||
                    properties.m_environmentalMapId != m_environmentalMapId ||
-                   properties.m_sunColor != m_sunColor ||
+                   properties.m_color != m_color ||
                    properties.m_atmosphere.m_earthRadius != m_atmosphere.m_earthRadius ||
                    properties.m_atmosphere.m_atmosphereRadius != m_atmosphere.m_atmosphereRadius ||
                    properties.m_atmosphere.m_Hr != m_atmosphere.m_Hr ||
@@ -222,12 +224,12 @@ namespace RayTracerFacility {
 
 #pragma endregion
 
-    struct RAY_TRACER_FACILITY_API RayTracerTexture{
+    struct RAY_TRACER_FACILITY_API RayTracerTexture {
         unsigned m_textureId = 0;
         int m_channel = 0;
     };
 
-    struct RAY_TRACER_FACILITY_API RayTracerMaterial{
+    struct RAY_TRACER_FACILITY_API RayTracerMaterial {
         MaterialType m_materialType = MaterialType::Default;
         int m_MLVQMaterialIndex;
         MaterialProperties m_materialProperties;
@@ -299,6 +301,7 @@ namespace RayTracerFacility {
         CudaBuffer m_buffer;
     };
     struct DefaultMaterial;
+
     class RayTracer {
     public:
         bool m_requireUpdate = false;
@@ -335,9 +338,9 @@ namespace RayTracerFacility {
         void LoadBtfMaterials(const std::vector<std::string> &folderPathes);
 
     protected:
-        void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t& textureObject);
+        void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t &textureObject);
 
-        void UpdateDefaultMaterial(DefaultMaterial& material, RayTracerMaterial& rayTracerMaterial,
+        void UpdateDefaultMaterial(DefaultMaterial &material, RayTracerMaterial &rayTracerMaterial,
                                    std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
                                    std::vector<cudaGraphicsResource_t> &boundResources);
 

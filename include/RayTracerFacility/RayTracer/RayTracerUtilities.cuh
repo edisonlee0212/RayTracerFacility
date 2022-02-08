@@ -122,9 +122,7 @@ namespace RayTracerFacility {
     RandomSampleHemisphere(Random &random, const glm::vec3 &normal,
                            const float &alpha) {
         // Uniformly sample hemisphere direction
-        auto cosTheta = 1.0f;
-        if (alpha >= 0.0f)
-            cosTheta = pow(random(), 1.0f / (alpha + 1.0f));
+        auto cosTheta = 1.0f - random() * (1.0f - alpha) * (1.0f - alpha);
         const auto sinTheta = sqrt(glm::max(0.0f, 1.0f - cosTheta * cosTheta));
         const auto phi = 2.0f * glm::pi<float>() * random();
         const auto tangentSpaceDir =
@@ -402,17 +400,16 @@ namespace RayTracerFacility {
     static __forceinline__ __device__ glm::vec3
     CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir,
                                 const EnvironmentProperties &environment) {
-        glm::vec3 environmentalLightColor;
+        glm::vec3 environmentalLightColor = glm::vec3(1.0f);
         switch (environment.m_environmentalLightingType) {
-            case EnvironmentalLightingType::Color:
-                environmentalLightColor = environment.m_sunColor;
-                break;
-            case EnvironmentalLightingType::EnvironmentalMap:
+            case EnvironmentalLightingType::Scene:
                 if (environment.m_environmentalMapId != 0) {
                     float4 color = SampleCubeMap<float4>(
                             environment.m_environmentalMaps,
                             rayDir);
                     environmentalLightColor = glm::vec3(color.x, color.y, color.z);
+                }else {
+                    environmentalLightColor = environment.m_color;
                 }
                 break;
             case EnvironmentalLightingType::Skydome:
@@ -420,7 +417,8 @@ namespace RayTracerFacility {
                                                                   environment);
                 break;
         }
-        return environmentalLightColor * environment.m_skylightIntensity;
+        environmentalLightColor = pow(environmentalLightColor * environment.m_skylightIntensity, glm::vec3(1.0f / environment.m_gamma));
+        return environmentalLightColor;
     }
 
 #pragma endregion

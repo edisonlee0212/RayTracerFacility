@@ -58,12 +58,9 @@ namespace RayTracerFacility {
 
         static std::shared_ptr<RayTracerCamera> m_rayTracerCamera;
 
-        bool CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::shared_ptr<Material> &material) const;
+        bool CheckMaterial(RayTracerMaterial &rayTracerMaterial, const std::shared_ptr<Material> &material) const;
 
     public:
-        AssetRef m_environmentalMap;
-
-
         bool m_renderMeshRenderer = true;
         bool m_renderParticles = true;
         bool m_renderMLVQRenderer = true;
@@ -83,7 +80,7 @@ namespace RayTracerFacility {
         float m_resolutionMultiplier = 0.5f;
         std::shared_ptr<RayTracerCamera> m_sceneCamera;
 
-        void UpdateScene() const;
+        void UpdateScene();
 
         void Update() override;
 

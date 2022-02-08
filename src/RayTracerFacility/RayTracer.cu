@@ -127,10 +127,9 @@ void CameraProperties::SetOutputType(OutputType value) {
     m_outputType = value;
 }
 
-const char *EnvironmentalLightingTypes[]{"Skydome", "EnvironmentalMap", "Color"};
+const char *EnvironmentalLightingTypes[]{"Scene", "Skydome"};
 
 void EnvironmentProperties::OnInspect() {
-
     static int type = 0;
     if (ImGui::Combo("Environment Lighting", &type, EnvironmentalLightingTypes,
                      IM_ARRAYSIZE(EnvironmentalLightingTypes))) {
@@ -175,11 +174,6 @@ void EnvironmentProperties::OnInspect() {
             m_atmosphere.m_numSamplesLight = 8;
         }
     }
-    if (m_environmentalLightingType ==
-        EnvironmentalLightingType::Color) {
-        ImGui::ColorEdit3("Sky light color", &m_sunColor.x);
-    }
-
 }
 
 void RayProperties::OnInspect() {

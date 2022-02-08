@@ -299,7 +299,7 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
     }
 }
 
-void RayTracerLayer::UpdateScene() const {
+void RayTracerLayer::UpdateScene() {
     bool rebuildAccelerationStructure = false;
     bool updateShaderBindingTable = false;
     auto &meshesStorage = CudaModule::GetRayTracer()->m_instances;
@@ -308,6 +308,31 @@ void RayTracerLayer::UpdateScene() const {
                         updateShaderBindingTable);
     UpdateSkinnedMeshesStorage(skinnedMeshesStorage, rebuildAccelerationStructure,
                                updateShaderBindingTable);
+    unsigned int envMapId = 0;
+    auto& envSettings = Entities::GetCurrentScene()->m_environmentSettings;
+    if(envSettings.m_environmentType == UniEngine::EnvironmentType::EnvironmentalMap) {
+        auto environmentalMap = envSettings.m_environmentalMap.Get<EnvironmentalMap>();
+        if (environmentalMap) {
+            auto cubeMap = environmentalMap->GetCubemap().Get<Cubemap>();
+            if (cubeMap) envMapId = cubeMap->Texture()->Id();
+        }
+    }else if(envSettings.m_backgroundColor != m_environmentProperties.m_color){
+        m_environmentProperties.m_color = envSettings.m_backgroundColor;
+        updateShaderBindingTable = true;
+    }
+    if(m_environmentProperties.m_skylightIntensity != envSettings.m_ambientLightIntensity){
+        m_environmentProperties.m_skylightIntensity = envSettings.m_ambientLightIntensity;
+        updateShaderBindingTable = true;
+    }
+    if(m_environmentProperties.m_gamma != envSettings.m_environmentGamma){
+        m_environmentProperties.m_gamma = envSettings.m_environmentGamma;
+        updateShaderBindingTable = true;
+    }
+    if(m_environmentProperties.m_environmentalMapId != envMapId){
+        m_environmentProperties.m_environmentalMapId = envMapId;
+        updateShaderBindingTable = true;
+    }
+
     CudaModule::GetRayTracer()->m_requireUpdate = false;
     if (rebuildAccelerationStructure &&
         (!meshesStorage.empty() || !skinnedMeshesStorage.empty())) {
@@ -359,11 +384,7 @@ void RayTracerLayer::OnCreate() {
 
 void RayTracerLayer::LateUpdate() {
     UpdateScene();
-    auto environmentalMap = m_environmentalMap.Get<Cubemap>();
-    if (environmentalMap) {
-        m_environmentProperties.m_environmentalMapId =
-                environmentalMap->Texture()->Id();
-    }
+
     if (!CudaModule::GetRayTracer()->m_instances.empty() ||
         !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
         auto editorLayer = Application::GetLayer<EditorLayer>();
@@ -419,11 +440,7 @@ void RayTracerLayer::OnInspect() {
             m_sceneCamera->OnInspect();
             ImGui::TreePop();
         }
-
         if (ImGui::TreeNodeEx("Environment Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
-            Editor::DragAndDropButton<Cubemap>(
-                    m_environmentalMap,
-                    "Environmental Map");
             m_environmentProperties.OnInspect();
             if (m_environmentProperties.m_environmentalLightingType ==
                 EnvironmentalLightingType::Skydome) {
@@ -438,10 +455,6 @@ void RayTracerLayer::OnInspect() {
                                     glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
                                     glm::vec3(0, 0, -1);
                         }
-                        ImGui::DragFloat(
-                                "Zenith radiance",
-                                &m_environmentProperties.m_skylightIntensity, 0.01f,
-                                0.0f, 10.0f);
                     } else {
                         static bool autoUpdate = true;
                         ImGui::Checkbox("Auto update", &autoUpdate);
@@ -481,6 +494,7 @@ void RayTracerLayer::OnInspect() {
                                     m_environmentProperties.m_skylightIntensity);
                             m_environmentProperties.m_skylightIntensity *=
                                     zenithIntensityFactor;
+                            Entities::GetCurrentScene()->m_environmentSettings.m_ambientLightIntensity = m_environmentProperties.m_skylightIntensity;
                             m_environmentProperties.m_sunDirection =
                                     glm::quat(glm::radians(glm::vec3(angles.x, angles.y, 0.0f))) *
                                     glm::vec3(0, 0, -1);
@@ -494,10 +508,6 @@ void RayTracerLayer::OnInspect() {
                     }
                     ImGui::TreePop();
                 }
-            } else {
-                ImGui::DragFloat("Sun intensity",
-                                 &m_environmentProperties.m_skylightIntensity, 0.01f, 0.0f,
-                                 100.0f);
             }
             ImGui::TreePop();
         }
@@ -721,13 +731,9 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
         changed = true;
         rayTracerMaterial.m_materialProperties.m_emission = material->m_emission;
     }
-    if (rayTracerMaterial.m_materialProperties.m_metallic != (material->m_metallic == 1.0f
-                                         ? -1.0f
-                                         : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f))){
+    if (rayTracerMaterial.m_materialProperties.m_metallic != material->m_metallic){
         changed = true;
-        rayTracerMaterial.m_materialProperties.m_metallic = material->m_metallic == 1.0f
-                                                ? -1.0f
-                                                : 1.0f / glm::pow(1.0f - material->m_metallic, 3.0f);
+        rayTracerMaterial.m_materialProperties.m_metallic = material->m_metallic;
     }
     auto albedoTexture = material->m_albedoTexture.Get<Texture2D>();
     if (albedoTexture &&
