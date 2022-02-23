@@ -173,7 +173,7 @@ namespace RayTracerFacility {
     };
 
     template<typename T>
-    struct RAY_TRACER_FACILITY_API LightProbe {
+    struct RAY_TRACER_FACILITY_API IlluminationSampler {
         glm::vec3 m_surfaceNormal;
         /**
          * \brief The position of the light probe.
@@ -199,7 +199,7 @@ namespace RayTracerFacility {
         float m_pushNormalDistance = 0.001f;
         size_t m_size;
         RayTracerProperties m_rayTracerProperties;
-        LightProbe<float> *m_lightProbes;
+        IlluminationSampler<float> *m_lightProbes;
         OptixTraversableHandle m_traversable;
     };
 

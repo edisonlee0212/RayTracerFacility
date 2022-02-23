@@ -66,7 +66,7 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
                 const float p = (a + b + c) * 0.5f;
                 const float area = glm::sqrt(p * (p - a) * (p - b) * (p - c));
                 m_totalArea += area;
-                LightProbe<float> lightProbe;
+                IlluminationSampler<float> lightProbe;
                 lightProbe.m_direction = glm::vec3(0.0f);
                 lightProbe.m_energy = 0.0f;
                 lightProbe.m_doubleFace = material->m_cullingMode == MaterialCullingMode::Off;
@@ -94,7 +94,7 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
                 const float p = (a + b + c) * 0.5f;
                 const float area = glm::sqrt(p * (p - a) * (p - b) * (p - c));
                 m_totalArea += area;
-                RayTracerFacility::LightProbe<float> lightProbe;
+                RayTracerFacility::IlluminationSampler<float> lightProbe;
                 lightProbe.m_direction = glm::vec3(0.0f);
                 lightProbe.m_energy = 0.0f;
                 lightProbe.m_doubleFace = material->m_cullingMode == MaterialCullingMode::Off;

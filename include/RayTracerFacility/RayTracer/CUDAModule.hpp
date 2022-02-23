@@ -37,7 +37,7 @@ namespace RayTracerFacility {
 
         static void EstimateIlluminationRayTracing(const EnvironmentProperties &environmentProperties,
                                                    const RayProperties &rayProperties,
-                                                   std::vector<LightProbe<float>> &lightProbes, unsigned seed,
+                                                   std::vector<IlluminationSampler<float>> &lightProbes, unsigned seed,
                                                    float pushNormalDistance);
 
         static void
