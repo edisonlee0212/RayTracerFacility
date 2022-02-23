@@ -421,6 +421,10 @@ void RayTracerLayer::OnInspect() {
             m_sceneCamera->OnInspect();
             ImGui::TreePop();
         }
+        if (ImGui::TreeNodeEx("Environment Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
+            m_environmentProperties.OnInspect();
+            ImGui::TreePop();
+        }
         if (ImGui::Button("Load all MLVQ Materials")) {
             std::vector<std::string> pathes;
             std::filesystem::path folder("../Resources/btfs");
