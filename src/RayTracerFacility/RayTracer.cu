@@ -702,84 +702,6 @@ void RayTracer::ScanPointCloud(const size_t &size, const EnvironmentProperties &
     std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> boundTextures;
     std::vector<cudaGraphicsResource_t> boundResources;
     BuildShaderBindingTable(boundTextures, boundResources);
-#pragma region Bind environmental map as cudaTexture
-    struct cudaResourceDesc cudaResourceDesc;
-    cudaArray_t environmentalMapPosXArray;
-    cudaArray_t environmentalMapNegXArray;
-    cudaArray_t environmentalMapPosYArray;
-    cudaArray_t environmentalMapNegYArray;
-    cudaArray_t environmentalMapPosZArray;
-    cudaArray_t environmentalMapNegZArray;
-    cudaGraphicsResource_t environmentalMapTexture;
-    if (m_pointCloudScanningLaunchParams.m_rayTracerProperties
-                .m_environment.m_environmentalMapId != 0) {
-        CUDA_CHECK(GraphicsGLRegisterImage(
-                &environmentalMapTexture,
-                m_pointCloudScanningLaunchParams.m_rayTracerProperties
-                        .m_environment.m_environmentalMapId,
-                GL_TEXTURE_CUBE_MAP, cudaGraphicsRegisterFlagsNone));
-        CUDA_CHECK(GraphicsMapResources(1, &environmentalMapTexture, nullptr));
-        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
-                &environmentalMapPosXArray, environmentalMapTexture,
-                cudaGraphicsCubeFacePositiveX, 0));
-        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
-                &environmentalMapNegXArray, environmentalMapTexture,
-                cudaGraphicsCubeFaceNegativeX, 0));
-        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
-                &environmentalMapPosYArray, environmentalMapTexture,
-                cudaGraphicsCubeFacePositiveY, 0));
-        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
-                &environmentalMapNegYArray, environmentalMapTexture,
-                cudaGraphicsCubeFaceNegativeY, 0));
-        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
-                &environmentalMapPosZArray, environmentalMapTexture,
-                cudaGraphicsCubeFacePositiveZ, 0));
-        CUDA_CHECK(GraphicsSubResourceGetMappedArray(
-                &environmentalMapNegZArray, environmentalMapTexture,
-                cudaGraphicsCubeFaceNegativeZ, 0));
-        memset(&cudaResourceDesc, 0, sizeof(cudaResourceDesc));
-        cudaResourceDesc.resType = cudaResourceTypeArray;
-        struct cudaTextureDesc cudaTextureDesc;
-        memset(&cudaTextureDesc, 0, sizeof(cudaTextureDesc));
-        cudaTextureDesc.addressMode[0] = cudaAddressModeWrap;
-        cudaTextureDesc.addressMode[1] = cudaAddressModeWrap;
-        cudaTextureDesc.filterMode = cudaFilterModeLinear;
-        cudaTextureDesc.readMode = cudaReadModeElementType;
-        cudaTextureDesc.normalizedCoords = 1;
-        // Create texture object
-        cudaResourceDesc.res.array.array = environmentalMapPosXArray;
-        CUDA_CHECK(CreateTextureObject(
-                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0],
-                &cudaResourceDesc, &cudaTextureDesc, nullptr));
-        cudaResourceDesc.res.array.array = environmentalMapNegXArray;
-        CUDA_CHECK(CreateTextureObject(
-                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1],
-                &cudaResourceDesc, &cudaTextureDesc, nullptr));
-        cudaResourceDesc.res.array.array = environmentalMapPosYArray;
-        CUDA_CHECK(CreateTextureObject(
-                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2],
-                &cudaResourceDesc, &cudaTextureDesc, nullptr));
-        cudaResourceDesc.res.array.array = environmentalMapNegYArray;
-        CUDA_CHECK(CreateTextureObject(
-                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3],
-                &cudaResourceDesc, &cudaTextureDesc, nullptr));
-        cudaResourceDesc.res.array.array = environmentalMapPosZArray;
-        CUDA_CHECK(CreateTextureObject(
-                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4],
-                &cudaResourceDesc, &cudaTextureDesc, nullptr));
-        cudaResourceDesc.res.array.array = environmentalMapNegZArray;
-        CUDA_CHECK(CreateTextureObject(
-                &m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5],
-                &cudaResourceDesc, &cudaTextureDesc, nullptr));
-    } else {
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
-    }
-#pragma endregion
 #pragma region Upload parameters
     m_pointCloudScanningLaunchParams.m_size = size;
     m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
@@ -802,30 +724,6 @@ void RayTracer::ScanPointCloud(const size_t &size, const EnvironmentProperties &
     CUDA_SYNC_CHECK();
 #pragma endregion
 #pragma region Remove textures binding.
-    if (m_pointCloudScanningLaunchParams.m_rayTracerProperties
-                .m_environment.m_environmentalMapId != 0) {
-        CUDA_CHECK(DestroyTextureObject(
-                m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0]));
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[0] = 0;
-        CUDA_CHECK(DestroyTextureObject(
-                m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1]));
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[1] = 0;
-        CUDA_CHECK(DestroyTextureObject(
-                m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2]));
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[2] = 0;
-        CUDA_CHECK(DestroyTextureObject(
-                m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3]));
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[3] = 0;
-        CUDA_CHECK(DestroyTextureObject(
-                m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4]));
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[4] = 0;
-        CUDA_CHECK(DestroyTextureObject(
-                m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5]));
-        m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment.m_environmentalMaps[5] = 0;
-
-        CUDA_CHECK(GraphicsUnmapResources(1, &environmentalMapTexture, 0));
-        CUDA_CHECK(GraphicsUnregisterResource(environmentalMapTexture));
-    }
     for (int i = 0; i < boundResources.size(); i++) {
         CUDA_CHECK(DestroySurfaceObject(boundTextures[i].second.first));
         CUDA_CHECK(GraphicsUnmapResources(1, &boundResources[i], 0));
