@@ -48,15 +48,20 @@ void RayTracerLayer::UpdateMeshesStorage(
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
-                        needVerticesUpdate = true;
-                    if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
                 }
             }
+            rayTracerInstance->m_version = meshRenderer->GetVersion();
+            rayTracerInstance->m_handle = meshRenderer->GetHandle();
+
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
+                needVerticesUpdate = true;
+            if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
-            rayTracerInstance->m_version = mesh->GetVersion();
+
+            rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
+            rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_mesh.m_vertices =
-                reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
+                    reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
             rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
@@ -109,17 +114,21 @@ void RayTracerLayer::UpdateMeshesStorage(
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion() ||
-                        matrices->GetVersion() != rayTracerInstance->m_matricesVersion)
-                        needVerticesUpdate = true;
-                    if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
                 }
             }
+            rayTracerInstance->m_version = particles->GetVersion();
+            rayTracerInstance->m_handle = particles->GetHandle();
+
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
+                needVerticesUpdate = true;
+            if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
-            rayTracerInstance->m_version = mesh->GetVersion();
+
+            rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
+            rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_matricesVersion = matrices->GetVersion();
             rayTracerInstance->m_mesh.m_vertices =
-                reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
+                    reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
             rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             rayTracerInstance->m_matrices = &matrices->m_value;
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
@@ -171,18 +180,23 @@ void RayTracerLayer::UpdateMeshesStorage(
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
-                        needVerticesUpdate = true;
-                    if (rayTracerInstance->m_material.m_MLVQMaterialIndex !=
-                        mLVQRenderer->m_materialIndex) {
-                        needMaterialUpdate = true;
-                    }
                 }
             }
+            rayTracerInstance->m_version = mLVQRenderer->GetVersion();
+            rayTracerInstance->m_handle = mLVQRenderer->GetHandle();
+
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
+                needVerticesUpdate = true;
+            if (rayTracerInstance->m_material.m_MLVQMaterialIndex !=
+                mLVQRenderer->m_materialIndex) {
+                needMaterialUpdate = true;
+            }
             rayTracerInstance->m_material.m_materialType = MaterialType::MLVQ;
-            rayTracerInstance->m_version = mesh->GetVersion();
+
+            rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
+            rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_mesh.m_vertices =
-                reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
+                    reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
             rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
@@ -258,22 +272,28 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_skinnedMesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion() ||
-                        (skinnedMeshRenderer->RagDoll() &&
-                         !skinnedMeshRenderer->m_ragDollFreeze) ||
-                        skinnedMeshRenderer->m_animator.Get<Animator>()
-                                ->AnimatedCurrentFrame())
-                        needVerticesUpdate = true;
-                    if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
+
                 }
             }
-            rayTracerInstance->m_version = mesh->GetVersion();
+            rayTracerInstance->m_version = skinnedMeshRenderer->GetVersion();
+            rayTracerInstance->m_handle = skinnedMeshRenderer->GetHandle();
+
+            if (rayTracerInstance->m_skinnedMesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion() ||
+                (skinnedMeshRenderer->RagDoll() &&
+                 !skinnedMeshRenderer->m_ragDollFreeze) ||
+                skinnedMeshRenderer->m_animator.Get<Animator>()
+                        ->AnimatedCurrentFrame())
+                needVerticesUpdate = true;
+            if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
+
+            rayTracerInstance->m_skinnedMesh.m_version = mesh->GetVersion();
+            rayTracerInstance->m_skinnedMesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_skinnedMesh.m_skinnedVertices =
-                reinterpret_cast<std::vector<SkinnedVertex> *>(
-                    &mesh->UnsafeGetSkinnedVertices());
+                    reinterpret_cast<std::vector<SkinnedVertex> *>(
+                            &mesh->UnsafeGetSkinnedVertices());
             rayTracerInstance->m_skinnedMesh.m_boneMatrices =
-                reinterpret_cast<std::vector<glm::mat4> *>(
-                    &skinnedMeshRenderer->m_finalResults.get()->m_value);
+                    reinterpret_cast<std::vector<glm::mat4> *>(
+                            &skinnedMeshRenderer->m_finalResults.get()->m_value);
             rayTracerInstance->m_skinnedMesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
@@ -655,7 +675,7 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
     }
     auto albedoTexture = material->m_albedoTexture.Get<Texture2D>();
     if (albedoTexture &&
-            albedoTexture->UnsafeGetGLTexture()) {
+        albedoTexture->UnsafeGetGLTexture()) {
         if (albedoTexture
                     ->UnsafeGetGLTexture()
                     ->Id() != rayTracerMaterial.m_albedoTexture.m_textureId) {
@@ -672,7 +692,7 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
     }
     auto normalTexture = material->m_normalTexture.Get<Texture2D>();
     if (normalTexture &&
-            normalTexture->UnsafeGetGLTexture()) {
+        normalTexture->UnsafeGetGLTexture()) {
         if (normalTexture
                     ->UnsafeGetGLTexture()
                     ->Id() != rayTracerMaterial.m_normalTexture.m_textureId) {
@@ -689,7 +709,7 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
     }
     auto roughnessTexture = material->m_normalTexture.Get<Texture2D>();
     if (roughnessTexture &&
-            roughnessTexture->UnsafeGetGLTexture()) {
+        roughnessTexture->UnsafeGetGLTexture()) {
         if (roughnessTexture
                     ->UnsafeGetGLTexture()
                     ->Id() != rayTracerMaterial.m_roughnessTexture.m_textureId) {
@@ -706,7 +726,7 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
     }
     auto metallicTexture = material->m_metallicTexture.Get<Texture2D>();
     if (metallicTexture &&
-            metallicTexture->UnsafeGetGLTexture()) {
+        metallicTexture->UnsafeGetGLTexture()) {
         if (metallicTexture
                     ->UnsafeGetGLTexture()
                     ->Id() != rayTracerMaterial.m_metallicTexture.m_textureId) {
@@ -720,6 +740,11 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
     } else if (rayTracerMaterial.m_metallicTexture.m_textureId != 0) {
         changed = true;
         rayTracerMaterial.m_metallicTexture.m_textureId = 0;
+    }
+
+    if(rayTracerMaterial.m_handle != material->GetHandle()){
+        changed = true;
+        rayTracerMaterial.m_handle = material->GetHandle();
     }
     return changed;
 }
