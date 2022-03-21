@@ -19,11 +19,7 @@
 #include <filesystem>
 
 namespace RayTracerFacility {
-    enum class OutputType {
-        Color,
-        Normal,
-        Albedo
-    };
+    enum class OutputType { Color, Normal, Albedo };
 
     struct RAY_TRACER_FACILITY_API CameraProperties {
 #pragma region FrameBuffer
@@ -88,10 +84,7 @@ namespace RayTracerFacility {
     };
 
 #pragma region MyRegion
-    enum class EnvironmentalLightingType {
-        Scene, Skydome, SingleLightSource
-    };
-
+    enum class EnvironmentalLightingType { Scene, Skydome, SingleLightSource };
 
     struct RAY_TRACER_FACILITY_API EnvironmentProperties {
         EnvironmentalLightingType m_environmentalLightingType =
@@ -105,17 +98,19 @@ namespace RayTracerFacility {
         cudaTextureObject_t m_environmentalMaps[6];
 
         struct {
-            float m_earthRadius = 6360;      // In the paper this is usually Rg or Re (radius ground, eart)
-            float m_atmosphereRadius = 6420; // In the paper this is usually R or Ra (radius atmosphere)
-            float m_Hr = 7994;               // Thickness of the atmosphere if density was uniform (Hr)
-            float m_Hm = 1200;               // Same as above but for Mie scattering (Hm)
-            float m_g = 0.76f;               // Mean cosine for Mie scattering
+            float m_earthRadius =
+                    6360; // In the paper this is usually Rg or Re (radius ground, eart)
+            float m_atmosphereRadius =
+                    6420; // In the paper this is usually R or Ra (radius atmosphere)
+            float m_Hr =
+                    7994; // Thickness of the atmosphere if density was uniform (Hr)
+            float m_Hm = 1200; // Same as above but for Mie scattering (Hm)
+            float m_g = 0.76f; // Mean cosine for Mie scattering
             int m_numSamples = 16;
             int m_numSamplesLight = 8;
         } m_atmosphere;
 
-        [[nodiscard]] bool
-        Changed(const EnvironmentProperties &properties) const {
+        [[nodiscard]] bool Changed(const EnvironmentProperties &properties) const {
             return properties.m_environmentalLightingType !=
                    m_environmentalLightingType ||
                    properties.m_lightSize != m_lightSize ||
@@ -124,13 +119,16 @@ namespace RayTracerFacility {
                    properties.m_sunDirection != m_sunDirection ||
                    properties.m_environmentalMapId != m_environmentalMapId ||
                    properties.m_color != m_color ||
-                   properties.m_atmosphere.m_earthRadius != m_atmosphere.m_earthRadius ||
-                   properties.m_atmosphere.m_atmosphereRadius != m_atmosphere.m_atmosphereRadius ||
+                   properties.m_atmosphere.m_earthRadius !=
+                   m_atmosphere.m_earthRadius ||
+                   properties.m_atmosphere.m_atmosphereRadius !=
+                   m_atmosphere.m_atmosphereRadius ||
                    properties.m_atmosphere.m_Hr != m_atmosphere.m_Hr ||
                    properties.m_atmosphere.m_Hm != m_atmosphere.m_Hm ||
                    properties.m_atmosphere.m_g != m_atmosphere.m_g ||
                    properties.m_atmosphere.m_numSamples != m_atmosphere.m_numSamples ||
-                   properties.m_atmosphere.m_numSamplesLight != m_atmosphere.m_numSamplesLight;
+                   properties.m_atmosphere.m_numSamplesLight !=
+                   m_atmosphere.m_numSamplesLight;
         }
 
         void OnInspect();
@@ -140,8 +138,7 @@ namespace RayTracerFacility {
         int m_bounces = 4;
         int m_samples = 1;
 
-        [[nodiscard]] bool
-        Changed(const RayProperties &properties) const {
+        [[nodiscard]] bool Changed(const RayProperties &properties) const {
             return properties.m_bounces != m_bounces ||
                    properties.m_samples != m_samples;
         }
@@ -153,8 +150,7 @@ namespace RayTracerFacility {
         EnvironmentProperties m_environment;
         RayProperties m_rayProperties;
 
-        [[nodiscard]] bool
-        Changed(const RayTracerProperties &properties) const {
+        [[nodiscard]] bool Changed(const RayTracerProperties &properties) const {
             return m_environment.Changed(properties.m_environment) ||
                    m_rayProperties.Changed(properties.m_rayProperties);
         }
@@ -162,11 +158,7 @@ namespace RayTracerFacility {
         void OnInspect();
     };
 
-    enum class RayType {
-        Radiance,
-        SpacialSampling,
-        RayTypeCount
-    };
+    enum class RayType { Radiance, SpacialSampling, RayTypeCount };
 
     struct CameraRenderingLaunchParams {
         CameraProperties m_cameraProperties;
@@ -174,8 +166,7 @@ namespace RayTracerFacility {
         OptixTraversableHandle m_traversable;
     };
 
-    template<typename T>
-    struct RAY_TRACER_FACILITY_API IlluminationSampler {
+    template <typename T> struct RAY_TRACER_FACILITY_API IlluminationSampler {
         glm::vec3 m_surfaceNormal;
         /**
          * \brief The position of the light probe.
@@ -206,11 +197,11 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API PointCloudSample {
-        //Input
+        // Input
         glm::vec3 m_direction;
         glm::vec3 m_start;
 
-        //Output
+        // Output
         uint64_t m_handle;
         bool m_hit = false;
         glm::vec3 m_end;
@@ -263,6 +254,7 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API MeshInstance {
+        uint64_t m_entityHandle = 0;
         size_t m_version;
         uint64_t m_handle = 0;
         RayTracerMesh m_mesh;
@@ -277,6 +269,7 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API SkinnedMeshInstance {
+        uint64_t m_entityHandle = 0;
         size_t m_version;
         uint64_t m_handle = 0;
         RayTracerSkinnedMesh m_skinnedMesh;
@@ -326,7 +319,8 @@ namespace RayTracerFacility {
         // internal helper functions
         // ------------------------------------------------------------------
         [[nodiscard]] bool
-        RenderToCamera(const EnvironmentProperties &environmentProperties, CameraProperties &cameraProperties,
+        RenderToCamera(const EnvironmentProperties &environmentProperties,
+                       CameraProperties &cameraProperties,
                        const RayProperties &rayProperties);
 
         void EstimateIllumination(const size_t &size,
@@ -335,7 +329,8 @@ namespace RayTracerFacility {
                                   CudaBuffer &lightProbes, unsigned seed,
                                   float pushNormalDistance);
 
-        void ScanPointCloud(const size_t &size, const EnvironmentProperties &environmentProperties,
+        void ScanPointCloud(const size_t &size,
+                            const EnvironmentProperties &environmentProperties,
                             CudaBuffer &samples);
 
         RayTracer();
@@ -345,18 +340,21 @@ namespace RayTracerFacility {
 
         /*! constructs the shader binding table */
         void BuildShaderBindingTable(
-                std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
+                std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>>
+                &boundTextures,
                 std::vector<cudaGraphicsResource_t> &boundResources);
-
 
         void LoadBtfMaterials(const std::vector<std::string> &folderPathes);
 
     protected:
-        void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t &textureObject);
+        void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource,
+                         cudaTextureObject_t &textureObject);
 
-        void UpdateDefaultMaterial(DefaultMaterial &material, RayTracerMaterial &rayTracerMaterial,
-                                   std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
-                                   std::vector<cudaGraphicsResource_t> &boundResources);
+        void UpdateDefaultMaterial(
+                DefaultMaterial &material, RayTracerMaterial &rayTracerMaterial,
+                std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>>
+                &boundTextures,
+                std::vector<cudaGraphicsResource_t> &boundResources);
 
 #pragma region MLVQ
         std::vector<MLVQMaterialStorage> m_MLVQMaterialStorage;

@@ -41,7 +41,7 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == meshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == meshRenderer->GetVersion()) {
+                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == meshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == meshRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -50,10 +50,11 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                 }
             }
+            rayTracerInstance->m_entityHandle = entity.GetHandle();
             rayTracerInstance->m_version = meshRenderer->GetVersion();
             rayTracerInstance->m_handle = meshRenderer->GetHandle();
 
-            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
@@ -107,7 +108,7 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == particles->GetHandle().GetValue() && currentRayTracerInstance.m_version == particles->GetVersion()) {
+                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == particles->GetHandle().GetValue() && currentRayTracerInstance.m_version == particles->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -116,10 +117,11 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                 }
             }
+            rayTracerInstance->m_entityHandle = entity.GetHandle();
             rayTracerInstance->m_version = particles->GetVersion();
             rayTracerInstance->m_handle = particles->GetHandle();
 
-            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
@@ -173,7 +175,7 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == mLVQRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == mLVQRenderer->GetVersion()) {
+                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == mLVQRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == mLVQRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -182,10 +184,11 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                 }
             }
+            rayTracerInstance->m_entityHandle = entity.GetHandle();
             rayTracerInstance->m_version = mLVQRenderer->GetVersion();
             rayTracerInstance->m_handle = mLVQRenderer->GetHandle();
 
-            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if (rayTracerInstance->m_material.m_MLVQMaterialIndex !=
                 mLVQRenderer->m_materialIndex) {
@@ -265,7 +268,7 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == skinnedMeshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == skinnedMeshRenderer->GetVersion()) {
+                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == skinnedMeshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == skinnedMeshRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -275,6 +278,7 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
 
                 }
             }
+            rayTracerInstance->m_entityHandle = entity.GetHandle();
             rayTracerInstance->m_version = skinnedMeshRenderer->GetVersion();
             rayTracerInstance->m_handle = skinnedMeshRenderer->GetHandle();
 
