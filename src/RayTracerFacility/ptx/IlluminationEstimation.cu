@@ -207,7 +207,7 @@ namespace RayTracerFacility {
         glm::vec3 rayDirection = glm::vec3(rayDir.x, rayDir.y, rayDir.z);
         glm::vec3 environmentalLightColor = CalculateEnvironmentalLight(
                 rayOrig, rayDirection,
-                illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment);
+                illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment, prd.m_hitCount);
         prd.m_energy = glm::length(environmentalLightColor);
     }
     extern "C" __global__ void __miss__IE_SS() {}

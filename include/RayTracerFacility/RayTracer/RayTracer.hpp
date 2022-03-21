@@ -89,7 +89,7 @@ namespace RayTracerFacility {
 
 #pragma region MyRegion
     enum class EnvironmentalLightingType {
-        Scene, Skydome
+        Scene, Skydome, SingleLightSource
     };
 
 
@@ -97,6 +97,7 @@ namespace RayTracerFacility {
         EnvironmentalLightingType m_environmentalLightingType =
                 EnvironmentalLightingType::Scene;
         float m_skylightIntensity = 1.0f;
+        float m_lightSize = 0.0f;
         float m_gamma = 1.0f;
         glm::vec3 m_sunDirection = glm::vec3(0, 1, 0);
         glm::vec3 m_color = glm::vec3(1, 1, 1);
@@ -117,6 +118,7 @@ namespace RayTracerFacility {
         Changed(const EnvironmentProperties &properties) const {
             return properties.m_environmentalLightingType !=
                    m_environmentalLightingType ||
+                   properties.m_lightSize != m_lightSize ||
                    properties.m_skylightIntensity != m_skylightIntensity ||
                    properties.m_gamma != m_gamma ||
                    properties.m_sunDirection != m_sunDirection ||
@@ -231,6 +233,7 @@ namespace RayTracerFacility {
 
     struct RAY_TRACER_FACILITY_API RayTracerMaterial {
         MaterialType m_materialType = MaterialType::Default;
+
         int m_MLVQMaterialIndex;
         MaterialProperties m_materialProperties;
 
@@ -238,34 +241,45 @@ namespace RayTracerFacility {
         RayTracerTexture m_normalTexture;
         RayTracerTexture m_metallicTexture;
         RayTracerTexture m_roughnessTexture;
+
+        size_t m_version;
+        uint64_t m_handle = 0;
+    };
+
+    struct RAY_TRACER_FACILITY_API RayTracerMesh {
+        std::vector<Vertex> *m_vertices;
+        std::vector<glm::uvec3> *m_triangles;
+
+        size_t m_version;
+        uint64_t m_handle = 0;
+    };
+
+    struct RAY_TRACER_FACILITY_API RayTracerSkinnedMesh {
+        std::vector<SkinnedVertex> *m_skinnedVertices;
+        std::vector<glm::uvec3> *m_triangles;
+        std::vector<glm::mat4> *m_boneMatrices;
+        size_t m_version;
+        uint64_t m_handle = 0;
     };
 
     struct RAY_TRACER_FACILITY_API MeshInstance {
-        bool m_instancing = false;
-        std::vector<Vertex> *m_vertices;
-        std::vector<glm::uvec3> *m_triangles;
-        std::vector<glm::mat4> *m_matrices;
         size_t m_version;
-        size_t m_matricesVersion;
         uint64_t m_handle = 0;
-
+        RayTracerMesh m_mesh;
         RayTracerMaterial m_material;
+
+        bool m_instancing = false;
+        size_t m_matricesVersion;
+        std::vector<glm::mat4> *m_matrices;
 
         bool m_removeTag = false;
         glm::mat4 m_globalTransform;
     };
 
     struct RAY_TRACER_FACILITY_API SkinnedMeshInstance {
-        MaterialType m_materialType = MaterialType::Default;
-        int m_MLVQMaterialIndex;
-
-        std::vector<SkinnedVertex> *m_skinnedVertices;
-        std::vector<glm::uvec3> *m_triangles;
-        std::vector<glm::mat4> *m_boneMatrices;
-
         size_t m_version;
         uint64_t m_handle = 0;
-
+        RayTracerSkinnedMesh m_skinnedMesh;
         RayTracerMaterial m_material;
 
         bool m_removeTag = false;

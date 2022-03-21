@@ -41,23 +41,23 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == meshRenderer->GetHandle().GetValue()) {
+                if (currentRayTracerInstance.m_handle == meshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == meshRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_version != mesh->GetVersion())
+                    if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
                         needVerticesUpdate = true;
                     if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
                 }
             }
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
             rayTracerInstance->m_version = mesh->GetVersion();
-            rayTracerInstance->m_vertices =
+            rayTracerInstance->m_mesh.m_vertices =
                 reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
-            rayTracerInstance->m_triangles = &mesh->UnsafeGetTriangles();
+            rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;
@@ -102,14 +102,14 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == particles->GetHandle().GetValue()) {
+                if (currentRayTracerInstance.m_handle == particles->GetHandle().GetValue() && currentRayTracerInstance.m_version == particles->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_version != mesh->GetVersion() ||
+                    if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion() ||
                         matrices->GetVersion() != rayTracerInstance->m_matricesVersion)
                         needVerticesUpdate = true;
                     if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
@@ -118,9 +118,9 @@ void RayTracerLayer::UpdateMeshesStorage(
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
             rayTracerInstance->m_version = mesh->GetVersion();
             rayTracerInstance->m_matricesVersion = matrices->GetVersion();
-            rayTracerInstance->m_vertices =
+            rayTracerInstance->m_mesh.m_vertices =
                 reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
-            rayTracerInstance->m_triangles = &mesh->UnsafeGetTriangles();
+            rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             rayTracerInstance->m_matrices = &matrices->m_value;
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
@@ -164,14 +164,14 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == mLVQRenderer->GetHandle().GetValue()) {
+                if (currentRayTracerInstance.m_handle == mLVQRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == mLVQRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_version != mesh->GetVersion())
+                    if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion())
                         needVerticesUpdate = true;
                     if (rayTracerInstance->m_material.m_MLVQMaterialIndex !=
                         mLVQRenderer->m_materialIndex) {
@@ -181,9 +181,9 @@ void RayTracerLayer::UpdateMeshesStorage(
             }
             rayTracerInstance->m_material.m_materialType = MaterialType::MLVQ;
             rayTracerInstance->m_version = mesh->GetVersion();
-            rayTracerInstance->m_vertices =
+            rayTracerInstance->m_mesh.m_vertices =
                 reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
-            rayTracerInstance->m_triangles = &mesh->UnsafeGetTriangles();
+            rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;
@@ -251,14 +251,14 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (currentRayTracerInstance.m_handle == skinnedMeshRenderer->GetHandle().GetValue()) {
+                if (currentRayTracerInstance.m_handle == skinnedMeshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == skinnedMeshRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
                     if (globalTransform != currentRayTracerInstance.m_globalTransform) {
                         needTransformUpdate = true;
                     }
-                    if (rayTracerInstance->m_version != mesh->GetVersion() ||
+                    if (rayTracerInstance->m_skinnedMesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion() ||
                         (skinnedMeshRenderer->RagDoll() &&
                          !skinnedMeshRenderer->m_ragDollFreeze) ||
                         skinnedMeshRenderer->m_animator.Get<Animator>()
@@ -268,13 +268,13 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
                 }
             }
             rayTracerInstance->m_version = mesh->GetVersion();
-            rayTracerInstance->m_skinnedVertices =
+            rayTracerInstance->m_skinnedMesh.m_skinnedVertices =
                 reinterpret_cast<std::vector<SkinnedVertex> *>(
                     &mesh->UnsafeGetSkinnedVertices());
-            rayTracerInstance->m_boneMatrices =
+            rayTracerInstance->m_skinnedMesh.m_boneMatrices =
                 reinterpret_cast<std::vector<glm::mat4> *>(
                     &skinnedMeshRenderer->m_finalResults.get()->m_value);
-            rayTracerInstance->m_triangles = &mesh->UnsafeGetTriangles();
+            rayTracerInstance->m_skinnedMesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
                 updateShaderBindingTable = true;

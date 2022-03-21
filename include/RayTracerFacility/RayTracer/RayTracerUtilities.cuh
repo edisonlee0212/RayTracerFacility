@@ -159,7 +159,8 @@ namespace RayTracerFacility {
 #pragma region Ray
 
     static __forceinline__ __device__ void
-    BRDF(float metallic, Random &random, const glm::vec3 &inDirection, const glm::vec3 &inNormal, float3 &outDirection) {
+    BRDF(float metallic, Random &random, const glm::vec3 &inDirection, const glm::vec3 &inNormal,
+         float3 &outDirection) {
         const glm::vec3 reflected = Reflect(inDirection, inNormal);
         const glm::vec3 newRayDirection =
                 RandomSampleHemisphere(random, reflected, metallic);
@@ -399,7 +400,7 @@ namespace RayTracerFacility {
 
     static __forceinline__ __device__ glm::vec3
     CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir,
-                                const EnvironmentProperties &environment) {
+                                const EnvironmentProperties &environment, const int hitCount) {
         glm::vec3 environmentalLightColor = glm::vec3(1.0f);
         switch (environment.m_environmentalLightingType) {
             case EnvironmentalLightingType::Scene:
@@ -408,16 +409,22 @@ namespace RayTracerFacility {
                             environment.m_environmentalMaps,
                             rayDir);
                     environmentalLightColor = glm::vec3(color.x, color.y, color.z);
-                }else {
+                } else {
                     environmentalLightColor = environment.m_color;
                 }
+                environmentalLightColor *= environment.m_skylightIntensity;
                 break;
             case EnvironmentalLightingType::Skydome:
                 environmentalLightColor = NishitaSkyIncidentLight(position, rayDir,
                                                                   environment);
+                environmentalLightColor *= environment.m_skylightIntensity;
+                break;
+            case EnvironmentalLightingType::SingleLightSource:
+                environmentalLightColor = glm::vec3(1.0f);
                 break;
         }
-        environmentalLightColor = pow(environmentalLightColor * environment.m_skylightIntensity, glm::vec3(1.0f / environment.m_gamma));
+        environmentalLightColor = pow(environmentalLightColor,
+                                      glm::vec3(1.0f / environment.m_gamma));
         return environmentalLightColor;
     }
 

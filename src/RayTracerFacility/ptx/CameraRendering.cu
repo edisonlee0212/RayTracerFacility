@@ -222,7 +222,7 @@ namespace RayTracerFacility {
 
         glm::vec3 environmentalLightColor = CalculateEnvironmentalLight(
                 rayOrig, rayDirection,
-                cameraRenderingLaunchParams.m_rayTracerProperties.m_environment);
+                cameraRenderingLaunchParams.m_rayTracerProperties.m_environment, perRayData.m_hitCount);
         perRayData.m_albedo = perRayData.m_energy = environmentalLightColor;
     }
     extern "C" __global__ void __miss__CR_SS() {
