@@ -174,8 +174,11 @@ void EnvironmentProperties::OnInspect() {
             m_atmosphere.m_numSamplesLight = 8;
         }
     }else if(m_environmentalLightingType == EnvironmentalLightingType::SingleLightSource){
-        if (ImGui::DragFloat("Light Size", &m_lightSize, 0.01f, 0.0f, 100.0f)) {
-            m_lightSize = glm::clamp(m_lightSize, 0.0f, 100.0f);
+        if (ImGui::DragFloat("Light Size", &m_lightSize, 0.001f, 0.0f, 1.0f)) {
+            m_lightSize = glm::clamp(m_lightSize, 0.0f, 1.0f);
+        }
+        if (ImGui::DragFloat("Ambient light intensity", &m_ambientLightIntensity, 0.001f, 0.0f, 1.0f)) {
+            m_ambientLightIntensity = glm::clamp(m_ambientLightIntensity, 0.0f, 1.0f);
         }
         static glm::vec3 angles = glm::vec3(90, 0, 0);
         if(ImGui::DragFloat3("Sun angle", &angles.x, 0.01f, -90.0f, 90.0f)){

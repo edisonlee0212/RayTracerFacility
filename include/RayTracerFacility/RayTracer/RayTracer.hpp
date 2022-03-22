@@ -19,7 +19,9 @@
 #include <filesystem>
 
 namespace RayTracerFacility {
-    enum class OutputType { Color, Normal, Albedo };
+    enum class OutputType {
+        Color, Normal, Albedo
+    };
 
     struct RAY_TRACER_FACILITY_API CameraProperties {
 #pragma region FrameBuffer
@@ -84,12 +86,15 @@ namespace RayTracerFacility {
     };
 
 #pragma region MyRegion
-    enum class EnvironmentalLightingType { Scene, Skydome, SingleLightSource };
+    enum class EnvironmentalLightingType {
+        Scene, Skydome, SingleLightSource
+    };
 
     struct RAY_TRACER_FACILITY_API EnvironmentProperties {
         EnvironmentalLightingType m_environmentalLightingType =
                 EnvironmentalLightingType::Scene;
         float m_skylightIntensity = 1.0f;
+        float m_ambientLightIntensity = 0.1f;
         float m_lightSize = 0.0f;
         float m_gamma = 1.0f;
         glm::vec3 m_sunDirection = glm::vec3(0, 1, 0);
@@ -114,6 +119,7 @@ namespace RayTracerFacility {
             return properties.m_environmentalLightingType !=
                    m_environmentalLightingType ||
                    properties.m_lightSize != m_lightSize ||
+                   properties.m_ambientLightIntensity != m_ambientLightIntensity ||
                    properties.m_skylightIntensity != m_skylightIntensity ||
                    properties.m_gamma != m_gamma ||
                    properties.m_sunDirection != m_sunDirection ||
@@ -158,7 +164,9 @@ namespace RayTracerFacility {
         void OnInspect();
     };
 
-    enum class RayType { Radiance, SpacialSampling, RayTypeCount };
+    enum class RayType {
+        Radiance, SpacialSampling, RayTypeCount
+    };
 
     struct CameraRenderingLaunchParams {
         CameraProperties m_cameraProperties;
@@ -166,7 +174,8 @@ namespace RayTracerFacility {
         OptixTraversableHandle m_traversable;
     };
 
-    template <typename T> struct RAY_TRACER_FACILITY_API IlluminationSampler {
+    template<typename T>
+    struct RAY_TRACER_FACILITY_API IlluminationSampler {
         glm::vec3 m_surfaceNormal;
         /**
          * \brief The position of the light probe.

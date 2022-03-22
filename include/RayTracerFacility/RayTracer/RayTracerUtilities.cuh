@@ -167,12 +167,16 @@ namespace RayTracerFacility {
         outDirection = make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z);
     }
 
+    struct SSHitRecord{
+        glm::vec3 m_outPosition;
+        glm::vec3 m_outNormal;
+    };
+
     struct SSPerRayData {
         unsigned long long m_handle;
         Random m_random;
-        bool m_hit;
-        glm::vec3 m_outPosition;
-        glm::vec3 m_outNormal;
+        int m_recordSize = 0;
+        SSHitRecord m_records[8];
     };
 
     static __forceinline__ __device__ bool
@@ -189,7 +193,7 @@ namespace RayTracerFacility {
         glm::vec3 sampleDirection = -diskNormal;
         SSPerRayData perRayData;
         perRayData.m_handle = handle;
-        perRayData.m_hit = false;
+        perRayData.m_recordSize = 0;
         perRayData.m_random = random;
         uint32_t u0, u1;
         PackRayDataPointer(&perRayData, u0, u1);
@@ -207,14 +211,17 @@ namespace RayTracerFacility {
                 static_cast<int>(
                         RayType::SpacialSampling), // missSBTIndex
                 u0, u1);
-        if (perRayData.m_hit && glm::distance(inPosition, perRayData.m_outPosition) <= radius) {
-            outNormal = perRayData.m_outNormal;
-            outPosition = make_float3(perRayData.m_outPosition.x,
-                                      perRayData.m_outPosition.y,
-                                      perRayData.m_outPosition.z);
-            //outDirection = make_float3(outNormal.x, outNormal.y, outNormal.z);
-            BRDF(metallic, random, inDirection, outNormal, outDirection);
-            return true;
+        if(perRayData.m_recordSize > 0) {
+            int index = perRayData.m_random() * perRayData.m_recordSize - 0.01f;
+            if (glm::distance(inPosition, perRayData.m_records[index].m_outPosition) <= radius) {
+                outNormal = perRayData.m_records[index].m_outNormal;
+                outPosition = make_float3(perRayData.m_records[index].m_outPosition.x,
+                                          perRayData.m_records[index].m_outPosition.y,
+                                          perRayData.m_records[index].m_outPosition.z);
+                //outDirection = make_float3(outNormal.x, outNormal.y, outNormal.z);
+                BRDF(metallic, random, -outNormal, outNormal, outDirection);
+                return true;
+            }
         }
         return false;
     }
@@ -226,14 +233,7 @@ namespace RayTracerFacility {
         if (perRayData.m_handle != sbtData.m_handle) {
             optixIgnoreIntersection();
         }
-        optixTerminateRay();
-    }
-
-    static __forceinline__ __device__ void SSHit() {
-        const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
-        SSPerRayData &perRayData =
-                *GetRayDataPointer<SSPerRayData>();
-
+        if(perRayData.m_recordSize >= 8) optixTerminateRay();
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
@@ -251,9 +251,15 @@ namespace RayTracerFacility {
         static_cast<DefaultMaterial *>(sbtData.m_material)
                 ->ApplyNormalTexture(normal, texCoord, tangent);
 
-        perRayData.m_hit = true;
-        perRayData.m_outNormal = normal;
-        perRayData.m_outPosition = hitPoint;
+        perRayData.m_records[perRayData.m_recordSize].m_outNormal = normal;
+        perRayData.m_records[perRayData.m_recordSize].m_outPosition = hitPoint;
+        perRayData.m_recordSize++;
+    }
+
+    static __forceinline__ __device__ void SSHit() {
+        const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
+        SSPerRayData &perRayData =
+                *GetRayDataPointer<SSPerRayData>();
     }
 
 #pragma endregion
@@ -400,7 +406,7 @@ namespace RayTracerFacility {
 
     static __forceinline__ __device__ glm::vec3
     CalculateEnvironmentalLight(const glm::vec3 &position, const glm::vec3 &rayDir,
-                                const EnvironmentProperties &environment, const int hitCount) {
+                                const EnvironmentProperties &environment) {
         glm::vec3 environmentalLightColor = glm::vec3(1.0f);
         switch (environment.m_environmentalLightingType) {
             case EnvironmentalLightingType::Scene:
@@ -420,7 +426,7 @@ namespace RayTracerFacility {
                 environmentalLightColor *= environment.m_skylightIntensity;
                 break;
             case EnvironmentalLightingType::SingleLightSource:
-                environmentalLightColor = glm::vec3(1.0f);
+                environmentalLightColor = glm::vec3(environment.m_color * environment.m_skylightIntensity);
                 break;
         }
         environmentalLightColor = pow(environmentalLightColor,

@@ -2,6 +2,7 @@
 #include <glm/glm.hpp>
 namespace RayTracerFacility {
     struct MaterialProperties{
+        float m_transparency = 0;
         glm::vec3 m_surfaceColor;
         glm::vec3 m_subsurfaceColor;
         float m_subsurfaceRadius;

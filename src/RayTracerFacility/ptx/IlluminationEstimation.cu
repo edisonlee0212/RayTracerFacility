@@ -53,11 +53,12 @@ namespace RayTracerFacility {
                 if (perRayData.m_hitCount <=
                         illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties
                             .m_bounces) {
+                    bool needSample = false;
                     if (hitCount <= 1 && material->m_materialProperties.m_subsurfaceFactor > 0.0f && material->m_materialProperties.m_subsurfaceRadius > 0.0f) {
                         float3 incidentRayOrigin;
                         float3 newRayDirectionInternal;
                         glm::vec3 outNormal;
-                        bool needSample = BSSRDF(metallic, perRayData.m_random,
+                        needSample = BSSRDF(metallic, perRayData.m_random,
                                                  material->m_materialProperties.m_subsurfaceRadius, sbtData.m_handle,
                                                  illuminationEstimationLaunchParams.m_traversable,
                                                  hitPoint, rayDirection, normal,
@@ -88,32 +89,35 @@ namespace RayTracerFacility {
                                       perRayData.m_energy;
                         }
                     }
-                    float3 newRayDirectionInternal;
-                    BRDF(metallic, perRayData.m_random, rayDirection, normal, newRayDirectionInternal);
-                    optixTrace(
-                            illuminationEstimationLaunchParams.m_traversable, make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
-                            newRayDirectionInternal,
-                            1e-3f, // tmin
-                            1e20f, // tmax
-                            0.0f,  // rayTime
-                            static_cast<OptixVisibilityMask>(255),
-                            OPTIX_RAY_FLAG_NONE,
-                            static_cast<int>(
-                                    RayType::Radiance), // SBT offset
-                            static_cast<int>(
-                                    RayType::RayTypeCount), // SBT stride
-                            static_cast<int>(
-                                    RayType::Radiance), // missSBTIndex
-                            u0, u1);
-                    energy += (1.0f - material->m_materialProperties.m_subsurfaceFactor) *
-                              glm::clamp(glm::abs(glm::dot(
-                                                 normal, glm::vec3(newRayDirectionInternal.x,
-                                                                   newRayDirectionInternal.y,
-                                                                   newRayDirectionInternal.z))) *
-                                         roughness +
-                                         (1.0f - roughness) * f,
-                                         0.0f, 1.0f) *
-                              perRayData.m_energy;
+                    if(!needSample) {
+                        float3 newRayDirectionInternal;
+                        BRDF(metallic, perRayData.m_random, rayDirection, normal, newRayDirectionInternal);
+                        optixTrace(
+                                illuminationEstimationLaunchParams.m_traversable,
+                                make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                                newRayDirectionInternal,
+                                1e-3f, // tmin
+                                1e20f, // tmax
+                                0.0f,  // rayTime
+                                static_cast<OptixVisibilityMask>(255),
+                                OPTIX_RAY_FLAG_NONE,
+                                static_cast<int>(
+                                        RayType::Radiance), // SBT offset
+                                static_cast<int>(
+                                        RayType::RayTypeCount), // SBT stride
+                                static_cast<int>(
+                                        RayType::Radiance), // missSBTIndex
+                                u0, u1);
+                        energy += (1.0f - material->m_materialProperties.m_subsurfaceFactor) *
+                                  glm::clamp(glm::abs(glm::dot(
+                                                     normal, glm::vec3(newRayDirectionInternal.x,
+                                                                       newRayDirectionInternal.y,
+                                                                       newRayDirectionInternal.z))) *
+                                             roughness +
+                                             (1.0f - roughness) * f,
+                                             0.0f, 1.0f) *
+                                  perRayData.m_energy;
+                    }
                 }
                 if (hitCount == 1) {
                     perRayData.m_normal = normal;
@@ -207,7 +211,7 @@ namespace RayTracerFacility {
         glm::vec3 rayDirection = glm::vec3(rayDir.x, rayDir.y, rayDir.z);
         glm::vec3 environmentalLightColor = CalculateEnvironmentalLight(
                 rayOrig, rayDirection,
-                illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment, prd.m_hitCount);
+                illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment);
         prd.m_energy = glm::length(environmentalLightColor);
     }
     extern "C" __global__ void __miss__IE_SS() {}
