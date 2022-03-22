@@ -1639,7 +1639,7 @@ void RayTracer::BuildShaderBindingTable(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<CameraRenderingRayGenRecord> raygenRecords;
-        for (int i = 0; i < m_cameraRenderingPipeline.m_rayGenProgramGroups.size();
+        for (i = 0; i < m_cameraRenderingPipeline.m_rayGenProgramGroups.size();
              i++) {
             CameraRenderingRayGenRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
@@ -1655,7 +1655,7 @@ void RayTracer::BuildShaderBindingTable(
         // build miss records
         // ------------------------------------------------------------------
         std::vector<CameraRenderingRayMissRecord> missRecords;
-        for (int i = 0; i < m_cameraRenderingPipeline.m_missProgramGroups.size();
+        for (i = 0; i < m_cameraRenderingPipeline.m_missProgramGroups.size();
              i++) {
             CameraRenderingRayMissRecord rec;
             OPTIX_CHECK(optixSbtRecordPackHeader(
@@ -1680,8 +1680,20 @@ void RayTracer::BuildShaderBindingTable(
         // (which the sanity checks in compilation would complain about)
 
         std::vector<CameraRenderingRayHitRecord> hitGroupRecords;
-        for (int i = 0; i < numObjects; i++) {
+        for (i = 0; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
+            for (int rayID = 0;
+                 rayID < static_cast<int>(RayType::RayTypeCount);
+                 rayID++) {
+                CameraRenderingRayHitRecord rec;
+                OPTIX_CHECK(optixSbtRecordPackHeader(
+                        m_cameraRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
+                rec.m_data = sBTs[i];
+                hitGroupRecords.push_back(rec);
+            }
+        }
+        for (; i < numObjects; i++) {
+            auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
                  rayID < static_cast<int>(RayType::RayTypeCount);
                  rayID++) {
@@ -1705,7 +1717,7 @@ void RayTracer::BuildShaderBindingTable(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<IlluminationEstimationRayGenRecord> raygenRecords;
-        for (int i = 0;
+        for (i = 0;
              i < m_illuminationEstimationPipeline.m_rayGenProgramGroups.size();
              i++) {
             IlluminationEstimationRayGenRecord rec;
@@ -1725,7 +1737,7 @@ void RayTracer::BuildShaderBindingTable(
         // build miss records
         // ------------------------------------------------------------------
         std::vector<IlluminationEstimationRayMissRecord> missRecords;
-        for (int i = 0;
+        for (i = 0;
              i < m_illuminationEstimationPipeline.m_missProgramGroups.size();
              i++) {
             IlluminationEstimationRayMissRecord rec;
@@ -1753,8 +1765,24 @@ void RayTracer::BuildShaderBindingTable(
         // create a dummy one so the SBT doesn't have any null pointers
         // (which the sanity checks in compilation would complain about)
         std::vector<IlluminationEstimationRayHitRecord> hitGroupRecords;
-        for (int i = 0; i < numObjects; i++) {
+        for (i = 0; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
+            for (int rayID = 0;
+                 rayID <
+                 static_cast<int>(RayType::RayTypeCount);
+                 rayID++) {
+                IlluminationEstimationRayHitRecord rec;
+                OPTIX_CHECK(
+                        optixSbtRecordPackHeader(
+                                m_illuminationEstimationPipeline
+                                        .m_hitGroupProgramGroups[rayID],
+                                &rec));
+                rec.m_data = sBTs[i];
+                hitGroupRecords.push_back(rec);
+            }
+        }
+        for (; i < numObjects; i++) {
+            auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
                  rayID <
                  static_cast<int>(RayType::RayTypeCount);
@@ -1833,8 +1861,23 @@ void RayTracer::BuildShaderBindingTable(
         // create a dummy one so the SBT doesn't have any null pointers
         // (which the sanity checks in compilation would complain about)
         std::vector<PointCloudScanningRayHitRecord> hitGroupRecords;
-        for (int i = 0; i < numObjects; i++) {
+        for (i = 0; i < m_instances.size(); i++) {
             auto &instance = m_instances[i];
+            for (int rayID = 0;
+                 rayID <
+                 static_cast<int>(RayType::RayTypeCount) - 1;
+                 rayID++) {
+                PointCloudScanningRayHitRecord rec;
+                OPTIX_CHECK(
+                        optixSbtRecordPackHeader(
+                                m_pointCloudScanningPipeline.m_hitGroupProgramGroups[rayID],
+                                &rec));
+                rec.m_data = sBTs[i];
+                hitGroupRecords.push_back(rec);
+            }
+        }
+        for (; i < numObjects; i++) {
+            auto &instance = m_skinnedInstances[i - m_instances.size()];
             for (int rayID = 0;
                  rayID <
                  static_cast<int>(RayType::RayTypeCount) - 1;
