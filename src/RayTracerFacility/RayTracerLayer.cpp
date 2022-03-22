@@ -282,7 +282,7 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
             rayTracerInstance->m_version = skinnedMeshRenderer->GetVersion();
             rayTracerInstance->m_handle = skinnedMeshRenderer->GetHandle();
 
-            if (rayTracerInstance->m_skinnedMesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_version != mesh->GetVersion() ||
+            if (rayTracerInstance->m_skinnedMesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_skinnedMesh.m_version != mesh->GetVersion() ||
                 (skinnedMeshRenderer->RagDoll() &&
                  !skinnedMeshRenderer->m_ragDollFreeze) ||
                 skinnedMeshRenderer->m_animator.Get<Animator>()

@@ -60,7 +60,7 @@ namespace RayTracerFacility {
                                                                        environment.m_sunDirection,
                                                                        1.0f -
                                                                        environment.m_lightSize);
-                    energy += glm::vec3(environment.m_color) * environment.m_ambientLightIntensity;
+                    energy += glm::vec3(environment.m_color) * environment.m_ambientLightIntensity * albedoColor;
                     const float NdotL = glm::dot(
                             normal, newRayDirection);
                     if (NdotL > 0.0f) {
