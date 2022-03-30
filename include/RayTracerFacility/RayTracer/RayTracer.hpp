@@ -70,6 +70,13 @@ namespace RayTracerFacility {
 
         bool m_modified = false;
 
+        float m_aperture = 0.01f;
+        float m_focalLength = 50.0f;
+
+        void SetAperture(float value);
+
+        void SetFocalLength(float value);
+
         void SetFov(float value);
 
         void SetGamma(float value);

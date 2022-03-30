@@ -307,16 +307,21 @@ namespace RayTracerFacility {
                                iy + cameraRayData.m_random()) /
                      glm::vec2(
                              cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size);
-            glm::vec3 rayDir = glm::normalize(
+            glm::vec3 primaryRayDir = glm::normalize(
                     cameraRenderingLaunchParams.m_cameraProperties.m_direction +
                     (screen.x - 0.5f) *
                     cameraRenderingLaunchParams.m_cameraProperties.m_horizontal +
                     (screen.y - 0.5f) *
                     cameraRenderingLaunchParams.m_cameraProperties.m_vertical);
+
+            glm::vec3 convergence = cameraRenderingLaunchParams.m_cameraProperties.m_from + primaryRayDir * cameraRenderingLaunchParams.m_cameraProperties.m_focalLength;
+            float angle = cameraRayData.m_random() * 3.1415927f * 2.0f;
+            glm::vec3 aperturePoint = cameraRenderingLaunchParams.m_cameraProperties.m_from + cameraRenderingLaunchParams.m_cameraProperties.m_aperture * (cameraRenderingLaunchParams.m_cameraProperties.m_horizontal * glm::sin(angle) + cameraRenderingLaunchParams.m_cameraProperties.m_vertical * glm::cos(angle));
+            glm::vec3 rayDir = glm::normalize(convergence - aperturePoint);
             float3 rayOrigin =
-                    make_float3(cameraRenderingLaunchParams.m_cameraProperties.m_from.x,
-                                cameraRenderingLaunchParams.m_cameraProperties.m_from.y,
-                                cameraRenderingLaunchParams.m_cameraProperties.m_from.z);
+                    make_float3(aperturePoint.x,
+                                aperturePoint.y,
+                                aperturePoint.z);
             float3 rayDirection = make_float3(rayDir.x, rayDir.y, rayDir.z);
 
             optixTrace(

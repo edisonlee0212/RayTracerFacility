@@ -106,6 +106,12 @@ void CameraProperties::OnInspect() {
         if (ImGui::DragFloat("FOV", &m_fov, 1.0f, 1, 359)) {
             SetFov(m_fov);
         }
+        if (ImGui::DragFloat("Aperture", &m_aperture, 0.0001f, 0.0f, 99999.0f, "%.4f")) {
+            SetAperture(m_aperture);
+        }
+        if (ImGui::DragFloat("Focal Length", &m_focalLength, 0.1f, 0.0f, 99999.0f)) {
+            SetFocalLength(m_focalLength);
+        }
         if (ImGui::DragFloat("Denoiser Strength", &m_denoiserStrength, 0.01f, 0.0f, 1.0f)) {
             SetDenoiserStrength(m_denoiserStrength);
         }
@@ -125,6 +131,16 @@ void CameraProperties::SetGamma(float value) {
 void CameraProperties::SetOutputType(OutputType value) {
     m_modified = true;
     m_outputType = value;
+}
+
+void CameraProperties::SetAperture(float value) {
+    m_modified = true;
+    m_aperture = value;
+}
+
+void CameraProperties::SetFocalLength(float value) {
+    m_modified = true;
+    m_focalLength = value;
 }
 
 const char *EnvironmentalLightingTypes[]{"Scene", "Skydome", "SingleLightSource"};
