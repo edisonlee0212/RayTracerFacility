@@ -87,6 +87,8 @@ void RayTracerCamera::Deserialize(const YAML::Node &in) {
     if (in["m_cameraProperties.m_gamma"]) m_cameraProperties.m_gamma = in["m_cameraProperties.m_gamma"].as<float>();
     if (in["m_cameraProperties.m_accumulate"]) m_cameraProperties.m_accumulate = in["m_cameraProperties.m_accumulate"].as<bool>();
     if (in["m_cameraProperties.m_denoiserStrength"]) m_cameraProperties.m_denoiserStrength = in["m_cameraProperties.m_denoiserStrength"].as<float>();
+    if (in["m_cameraProperties.m_focalLength"]) m_cameraProperties.m_focalLength = in["m_cameraProperties.m_focalLength"].as<float>();
+    if (in["m_cameraProperties.m_aperture"]) m_cameraProperties.m_aperture = in["m_cameraProperties.m_aperture"].as<float>();
 }
 
 void RayTracerCamera::Serialize(YAML::Emitter &out) {
@@ -103,6 +105,8 @@ void RayTracerCamera::Serialize(YAML::Emitter &out) {
     out << YAML::Key << "m_cameraProperties.m_gamma" << YAML::Value << m_cameraProperties.m_gamma;
     out << YAML::Key << "m_cameraProperties.m_accumulate" << YAML::Value << m_cameraProperties.m_accumulate;
     out << YAML::Key << "m_cameraProperties.m_denoiserStrength" << YAML::Value << m_cameraProperties.m_denoiserStrength;
+    out << YAML::Key << "m_cameraProperties.m_focalLength" << YAML::Value << m_cameraProperties.m_focalLength;
+    out << YAML::Key << "m_cameraProperties.m_aperture" << YAML::Value << m_cameraProperties.m_aperture;
 }
 
 RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
@@ -117,6 +121,8 @@ RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
     m_cameraProperties.m_outputType = source.m_cameraProperties.m_outputType;
     m_cameraProperties.m_gamma = source.m_cameraProperties.m_gamma;
     m_cameraProperties.m_denoiserStrength = source.m_cameraProperties.m_denoiserStrength;
+    m_cameraProperties.m_aperture = source.m_cameraProperties.m_aperture;
+    m_cameraProperties.m_focalLength = source.m_cameraProperties.m_focalLength;
     m_cameraProperties.m_modified = true;
 
     m_cameraProperties.m_frame.m_size = glm::vec2(0, 0);
@@ -166,7 +172,12 @@ void RayTracerCamera::Render(const RayProperties &rayProperties, const Environme
 void RayTracerCamera::SetFov(float value) {
     m_cameraProperties.SetFov(value);
 }
-
+void RayTracerCamera::SetAperture(float value) {
+    m_cameraProperties.SetAperture(value);
+}
+void RayTracerCamera::SetFocalLength(float value) {
+    m_cameraProperties.SetFocalLength(value);
+}
 void RayTracerCamera::SetDenoiserStrength(float value) {
     m_cameraProperties.SetDenoiserStrength(value);
 }

@@ -109,7 +109,7 @@ void CameraProperties::OnInspect() {
         if (ImGui::DragFloat("Aperture", &m_aperture, 0.0001f, 0.0f, 99999.0f, "%.4f")) {
             SetAperture(m_aperture);
         }
-        if (ImGui::DragFloat("Focal Length", &m_focalLength, 0.1f, 0.0f, 99999.0f)) {
+        if (ImGui::DragFloat("Focal Length", &m_focalLength, 0.0001f, 0.0f, 99999.0f, "%.4f")) {
             SetFocalLength(m_focalLength);
         }
         if (ImGui::DragFloat("Denoiser Strength", &m_denoiserStrength, 0.01f, 0.0f, 1.0f)) {
