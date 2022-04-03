@@ -35,9 +35,9 @@ void RayTracerCamera::OnInspect() {
                 ImVec2(1, 0));
         ImGui::TreePop();
     }
-    FileUtils::SaveFile("Screenshot", "Texture2D", {".png", ".jpg"}, [this](const std::filesystem::path &filePath) {
+    FileUtils::SaveFile("Export Screenshot", "Texture2D", {".png", ".jpg"}, [this](const std::filesystem::path &filePath) {
         m_colorTexture->Export(filePath);
-    });
+    }, false);
     ImGui::Checkbox("Allow auto resize", &m_allowAutoResize);
     if (!m_allowAutoResize) {
         ImGui::DragInt2("Resolution", &m_frameSize.x);

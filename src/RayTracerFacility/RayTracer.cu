@@ -197,7 +197,7 @@ void EnvironmentProperties::OnInspect() {
             m_ambientLightIntensity = glm::clamp(m_ambientLightIntensity, 0.0f, 1.0f);
         }
         static glm::vec3 angles = glm::vec3(90, 0, 0);
-        if(ImGui::DragFloat3("Sun angle", &angles.x, 0.01f, -90.0f, 90.0f)){
+        if(ImGui::DragFloat3("Sun angle", &angles.x, 1.0f)){
             m_sunDirection = glm::quat(glm::radians(angles)) * glm::vec3(0, 0, -1);
         }
     }
