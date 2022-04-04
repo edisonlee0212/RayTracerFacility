@@ -196,3 +196,7 @@ void RayTracerCamera::SetAccumulate(bool value) {
 void RayTracerCamera::SetMainCamera(bool value) {
     if(GetOwner().IsValid()) m_mainCamera = value;
 }
+
+void RayTracerCamera::SetMaxDistance(float value) {
+    m_cameraProperties.SetMaxDistance(value);
+}

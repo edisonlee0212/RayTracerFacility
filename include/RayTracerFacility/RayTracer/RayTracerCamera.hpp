@@ -24,6 +24,7 @@ namespace RayTracerFacility {
         void SetFov(float value);
         void SetAperture(float value);
         void SetFocalLength(float value);
+        void SetMaxDistance(float value);
         void SetOutputType(OutputType value);
         void SetAccumulate(bool value);
         void SetGamma(float value);
