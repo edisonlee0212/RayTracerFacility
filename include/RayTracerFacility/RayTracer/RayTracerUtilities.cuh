@@ -30,6 +30,7 @@ namespace RayTracerFacility {
         T m_energy;
         glm::vec3 m_normal;
         glm::vec3 m_albedo;
+        glm::vec3 m_position;
     };
 
 

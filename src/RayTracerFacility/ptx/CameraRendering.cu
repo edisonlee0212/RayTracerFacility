@@ -38,8 +38,9 @@ namespace RayTracerFacility {
         auto &environment = cameraRenderingLaunchParams.m_rayTracerProperties.m_environment;
         switch (sbtData.m_materialType) {
             case MaterialType::VertexColor: {
-                perRayData.m_energy =
+                perRayData.m_energy = perRayData.m_albedo =
                         sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
+                perRayData.m_position = hitPoint;
             }
                 break;
             case MaterialType::Default: {
@@ -162,6 +163,7 @@ namespace RayTracerFacility {
                 if (hitCount == 1) {
                     perRayData.m_normal = normal;
                     perRayData.m_albedo = albedoColor;
+                    perRayData.m_position = hitPoint;
                 }
                 perRayData.m_energy =
                         energy +
@@ -209,6 +211,7 @@ namespace RayTracerFacility {
                 if (hitCount == 1) {
                     perRayData.m_normal = normal;
                     perRayData.m_albedo = btfColor;
+                    perRayData.m_position = hitPoint;
                 }
                 perRayData.m_energy = energy;
             }
@@ -286,6 +289,7 @@ namespace RayTracerFacility {
         cameraRayData.m_energy = glm::vec3(0);
         cameraRayData.m_normal = glm::vec3(0);
         cameraRayData.m_albedo = glm::vec3(0);
+        cameraRayData.m_position = glm::vec3(999999.0f);
         // the values we store the PRD pointer in:
         uint32_t u0, u1;
         PackRayDataPointer(&cameraRayData, u0, u1);
@@ -295,7 +299,7 @@ namespace RayTracerFacility {
         auto pixelColor = glm::vec3(0.f);
         auto pixelNormal = glm::vec3(0.f);
         auto pixelAlbedo = glm::vec3(0.f);
-
+        auto pixelPosition = glm::vec3(0.0f);
         for (int sampleID = 0; sampleID < numPixelSamples; sampleID++) {
             // normalized screen plane position, in [0,1]^2
             // iw: note for de-noising that's not actually correct - if we
@@ -341,9 +345,11 @@ namespace RayTracerFacility {
             pixelColor += cameraRayData.m_energy / static_cast<float>(numPixelSamples);
             pixelNormal += cameraRayData.m_normal / static_cast<float>(numPixelSamples);
             pixelAlbedo += cameraRayData.m_albedo / static_cast<float>(numPixelSamples);
+            pixelPosition += cameraRayData.m_position / static_cast<float>(numPixelSamples);
             cameraRayData.m_energy = glm::vec3(0.0f);
             cameraRayData.m_normal = glm::vec3(0.0f);
             cameraRayData.m_albedo = glm::vec3(0.0f);
+            cameraRayData.m_position = glm::vec3(0.0f);
             cameraRayData.m_hitCount = 0;
         }
 
@@ -370,8 +376,14 @@ namespace RayTracerFacility {
         // and write to frame buffer ...
         cameraRenderingLaunchParams.m_cameraProperties.m_frame
                 .m_colorBuffer[fbIndex] = glm::vec4(gammaCorrectedColor, 1.0f);
-        cameraRenderingLaunchParams.m_cameraProperties.m_frame
-                .m_albedoBuffer[fbIndex] = glm::vec4(pixelAlbedo, 1.0f);
+        if(cameraRenderingLaunchParams.m_cameraProperties.m_outputType == OutputType::Depth){
+            float distance = glm::distance(cameraRenderingLaunchParams.m_cameraProperties.m_from, pixelPosition);
+            cameraRenderingLaunchParams.m_cameraProperties.m_frame
+                    .m_albedoBuffer[fbIndex] = glm::vec4(glm::vec3(glm::clamp(distance / cameraRenderingLaunchParams.m_cameraProperties.m_maxDistance, 0.0f, 1.0f)), 1.0f);
+        }else {
+            cameraRenderingLaunchParams.m_cameraProperties.m_frame
+                    .m_albedoBuffer[fbIndex] = glm::vec4(pixelAlbedo, 1.0f);
+        }
         cameraRenderingLaunchParams.m_cameraProperties.m_frame
                 .m_normalBuffer[fbIndex] = glm::vec4(pixelNormal, 1.0f);
     }

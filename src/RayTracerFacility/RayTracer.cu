@@ -91,7 +91,7 @@ void CameraProperties::SetFov(float value) {
     m_fov = value;
 }
 
-const char *OutputTypes[]{"Color", "Normal", "Albedo"};
+const char *OutputTypes[]{"Color", "Normal", "Albedo", "Depth"};
 
 void CameraProperties::OnInspect() {
     if (ImGui::TreeNode("Camera Properties")) {
@@ -103,6 +103,10 @@ void CameraProperties::OnInspect() {
                          IM_ARRAYSIZE(OutputTypes))) {
             m_outputType = static_cast<OutputType>(outputType);
         }
+        if (ImGui::DragFloat("Max Distance", &m_maxDistance, 0.1f, 0.1f, 10000.0f)) {
+            SetMaxDistance(m_maxDistance);
+        }
+
         if (ImGui::DragFloat("FOV", &m_fov, 1.0f, 1, 359)) {
             SetFov(m_fov);
         }
@@ -141,6 +145,11 @@ void CameraProperties::SetAperture(float value) {
 void CameraProperties::SetFocalLength(float value) {
     m_modified = true;
     m_focalLength = value;
+}
+
+void CameraProperties::SetMaxDistance(float value) {
+    m_maxDistance = value;
+    m_modified = true;
 }
 
 const char *EnvironmentalLightingTypes[]{"Scene", "Skydome", "SingleLightSource"};
@@ -546,6 +555,17 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
         }
             break;
         case OutputType::Albedo: {
+            CUDA_CHECK(MemcpyToArray(
+                    outputArray, 0, 0,
+                    (void *) m_cameraRenderingLaunchParams
+                            .m_cameraProperties.m_frame.m_albedoBuffer,
+                    sizeof(glm::vec4) *
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x *
+                    m_cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y,
+                    cudaMemcpyDeviceToDevice));
+        }
+            break;
+        case OutputType::Depth: {
             CUDA_CHECK(MemcpyToArray(
                     outputArray, 0, 0,
                     (void *) m_cameraRenderingLaunchParams

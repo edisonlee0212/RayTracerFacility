@@ -20,7 +20,7 @@
 
 namespace RayTracerFacility {
     enum class OutputType {
-        Color, Normal, Albedo
+        Color, Normal, Albedo, Depth
     };
 
     struct RAY_TRACER_FACILITY_API CameraProperties {
@@ -55,7 +55,7 @@ namespace RayTracerFacility {
         glm::vec3 m_vertical;
 
         float m_denoiserStrength = 1.0f;
-
+        float m_maxDistance = 50.0f;
         unsigned m_outputTextureId = 0;
         OutputType m_outputType = OutputType::Color;
         float m_gamma = 2.2f;
@@ -80,6 +80,7 @@ namespace RayTracerFacility {
         void SetFov(float value);
 
         void SetGamma(float value);
+        void SetMaxDistance(float value);
 
         void SetOutputType(OutputType value);
 

@@ -12,7 +12,7 @@ void RayTracerCamera::Ready(const glm::vec3 &position, const glm::quat &rotation
     if (m_cameraProperties.m_frame.m_size != m_frameSize) {
         m_frameSize = glm::max(glm::ivec2(1, 1), m_frameSize);
         m_cameraProperties.Resize(m_frameSize);
-        m_colorTexture->UnsafeGetGLTexture()->ReSize(0, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0, m_frameSize.x, m_frameSize.y);
+        m_colorTexture->UnsafeGetGLTexture()->ReSize(0, GL_RGB32F, GL_RGB, GL_FLOAT, 0, m_frameSize.x, m_frameSize.y);
     }
     m_cameraProperties.Set(position, rotation);
 
@@ -35,7 +35,7 @@ void RayTracerCamera::OnInspect() {
                 ImVec2(1, 0));
         ImGui::TreePop();
     }
-    FileUtils::SaveFile("Export Screenshot", "Texture2D", {".png", ".jpg"}, [this](const std::filesystem::path &filePath) {
+    FileUtils::SaveFile("Export Screenshot", "Texture2D", {".png", ".jpg", ".hdr"}, [this](const std::filesystem::path &filePath) {
         m_colorTexture->Export(filePath);
     }, false);
     ImGui::Checkbox("Allow auto resize", &m_allowAutoResize);
@@ -47,8 +47,8 @@ void RayTracerCamera::OnInspect() {
 void RayTracerCamera::OnCreate() {
     m_colorTexture = ProjectManager::CreateTemporaryAsset<Texture2D>();
     m_colorTexture->UnsafeGetGLTexture() =
-            std::make_shared<OpenGLUtils::GLTexture2D>(0, GL_RGBA32F, 1, 1, false);
-    m_colorTexture->UnsafeGetGLTexture()->SetData(0, GL_RGBA32F, GL_RGBA, GL_FLOAT, 0);
+            std::make_shared<OpenGLUtils::GLTexture2D>(0, GL_RGB32F, 1, 1, false);
+    m_colorTexture->UnsafeGetGLTexture()->SetData(0, GL_RGB32F, GL_RGB, GL_FLOAT, 0);
     m_colorTexture->UnsafeGetGLTexture()->SetInt(GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     m_colorTexture->UnsafeGetGLTexture()->SetInt(GL_TEXTURE_MAG_FILTER, GL_NEAREST);
     m_colorTexture->UnsafeGetGLTexture()->SetInt(GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
