@@ -2,6 +2,7 @@
 
 #include <UniEngine-pch.hpp>
 #include <Application.hpp>
+#include "Graphics.hpp"
 #include <CUDAModule.hpp>
 #include <ray_tracer_facility_export.h>
 

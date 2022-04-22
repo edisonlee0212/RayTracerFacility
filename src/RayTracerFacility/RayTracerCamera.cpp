@@ -19,7 +19,7 @@ void RayTracerCamera::Ready(const glm::vec3 &position, const glm::quat &rotation
 }
 
 void RayTracerCamera::OnInspect() {
-    if(GetOwner().IsValid()) ImGui::Checkbox("Main Camera", &m_mainCamera);
+    if(GetScene()->IsEntityValid(GetOwner())) ImGui::Checkbox("Main Camera", &m_mainCamera);
 
     m_cameraProperties.OnInspect();
     m_rayProperties.OnInspect();
@@ -135,7 +135,7 @@ RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
 void RayTracerCamera::Render() {
     if (!CudaModule::GetRayTracer()->m_instances.empty() ||
         !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
-        auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
+        auto globalTransform = GetScene()->GetDataComponent<GlobalTransform>(GetOwner()).m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
                 Application::GetLayer<RayTracerLayer>()->m_environmentProperties,
@@ -147,7 +147,7 @@ void RayTracerCamera::Render() {
 void RayTracerCamera::Render(const RayProperties &rayProperties) {
     if (!CudaModule::GetRayTracer()->m_instances.empty() ||
         !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
-        auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
+        auto globalTransform = GetScene()->GetDataComponent<GlobalTransform>(GetOwner()).m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
                 Application::GetLayer<RayTracerLayer>()->m_environmentProperties,
@@ -159,7 +159,7 @@ void RayTracerCamera::Render(const RayProperties &rayProperties) {
 void RayTracerCamera::Render(const RayProperties &rayProperties, const EnvironmentProperties &environmentProperties) {
     if (!CudaModule::GetRayTracer()->m_instances.empty() ||
         !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
-        auto globalTransform = GetOwner().GetDataComponent<GlobalTransform>().m_value;
+        auto globalTransform = GetScene()->GetDataComponent<GlobalTransform>(GetOwner()).m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
                 environmentProperties,
@@ -194,7 +194,7 @@ void RayTracerCamera::SetAccumulate(bool value) {
 }
 
 void RayTracerCamera::SetMainCamera(bool value) {
-    if(GetOwner().IsValid()) m_mainCamera = value;
+    if(GetScene()->IsEntityValid(GetOwner())) m_mainCamera = value;
 }
 
 void RayTracerCamera::SetMaxDistance(float value) {

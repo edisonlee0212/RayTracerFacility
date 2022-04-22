@@ -7,6 +7,7 @@
 #include "RayTracerCamera.hpp"
 #include "TriangleIlluminationEstimator.hpp"
 #include "PointCloudScanner.hpp"
+#include "ClassRegistry.hpp"
 
 using namespace RayTracerFacility;
 
@@ -18,22 +19,22 @@ void RayTracerLayer::UpdateMeshesStorage(
     for (auto &i: meshesStorage) {
         i.m_removeTag = true;
     }
+    auto scene = GetScene();
     if (const auto *rayTracedEntities =
-                Entities::UnsafeGetPrivateComponentOwnersList<MeshRenderer>(
-                        Entities::GetCurrentScene());
+                scene->UnsafeGetPrivateComponentOwnersList<MeshRenderer>();
             rayTracedEntities && m_renderMeshRenderer) {
         for (auto entity: *rayTracedEntities) {
-            if (!entity.IsEnabled())
+            if (!scene->IsEntityEnabled(entity))
                 continue;
             auto meshRenderer =
-                    entity.GetOrSetPrivateComponent<MeshRenderer>().lock();
+                    scene->GetOrSetPrivateComponent<MeshRenderer>(entity).lock();
             if (!meshRenderer->IsEnabled())
                 continue;
             auto mesh = meshRenderer->m_mesh.Get<Mesh>();
             auto material = meshRenderer->m_material.Get<Material>();
             if (!material || !mesh || mesh->UnsafeGetVertices().empty())
                 continue;
-            auto globalTransform = entity.GetDataComponent<GlobalTransform>().m_value;
+            auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
             MeshInstance newRayTracerInstance;
             MeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
@@ -41,7 +42,9 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == meshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == meshRenderer->GetVersion()) {
+                if (scene->GetEntityHandle(entity) == currentRayTracerInstance.m_entityHandle &&
+                    currentRayTracerInstance.m_handle == meshRenderer->GetHandle().GetValue() &&
+                    currentRayTracerInstance.m_version == meshRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -50,13 +53,14 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                 }
             }
-            rayTracerInstance->m_entityHandle = entity.GetHandle();
+            rayTracerInstance->m_entityHandle = scene->GetEntityHandle(entity);
             rayTracerInstance->m_version = meshRenderer->GetVersion();
             rayTracerInstance->m_handle = meshRenderer->GetHandle();
 
-            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() ||
+                rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
-            if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
+            if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
 
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
@@ -85,14 +89,13 @@ void RayTracerLayer::UpdateMeshesStorage(
         }
     }
     if (const auto *rayTracedEntities =
-                Entities::UnsafeGetPrivateComponentOwnersList<Particles>(
-                        Entities::GetCurrentScene());
+                scene->UnsafeGetPrivateComponentOwnersList<Particles>();
             rayTracedEntities && m_renderParticles) {
         for (auto entity: *rayTracedEntities) {
-            if (!entity.IsEnabled())
+            if (!scene->IsEntityEnabled(entity))
                 continue;
             auto particles =
-                    entity.GetOrSetPrivateComponent<Particles>().lock();
+                    scene->GetOrSetPrivateComponent<Particles>(entity).lock();
             if (!particles->IsEnabled())
                 continue;
             auto mesh = particles->m_mesh.Get<Mesh>();
@@ -100,7 +103,7 @@ void RayTracerLayer::UpdateMeshesStorage(
             auto matrices = particles->m_matrices;
             if (!material || !mesh || mesh->UnsafeGetVertices().empty() || matrices->m_value.empty())
                 continue;
-            auto globalTransform = entity.GetDataComponent<GlobalTransform>().m_value;
+            auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
             MeshInstance newRayTracerInstance;
             MeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
@@ -108,7 +111,9 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == particles->GetHandle().GetValue() && currentRayTracerInstance.m_version == particles->GetVersion()) {
+                if (scene->GetEntityHandle(entity) == currentRayTracerInstance.m_entityHandle &&
+                    currentRayTracerInstance.m_handle == particles->GetHandle().GetValue() &&
+                    currentRayTracerInstance.m_version == particles->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -117,13 +122,14 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                 }
             }
-            rayTracerInstance->m_entityHandle = entity.GetHandle();
+            rayTracerInstance->m_entityHandle = scene->GetEntityHandle(entity);
             rayTracerInstance->m_version = particles->GetVersion();
             rayTracerInstance->m_handle = particles->GetHandle();
 
-            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() ||
+                rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
-            if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
+            if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
             rayTracerInstance->m_material.m_materialType = MaterialType::Default;
 
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
@@ -154,20 +160,19 @@ void RayTracerLayer::UpdateMeshesStorage(
         }
     }
     if (const auto *rayTracedEntities =
-                Entities::UnsafeGetPrivateComponentOwnersList<MLVQRenderer>(
-                        Entities::GetCurrentScene());
+                scene->UnsafeGetPrivateComponentOwnersList<MLVQRenderer>();
             rayTracedEntities && m_renderMLVQRenderer) {
         for (auto entity: *rayTracedEntities) {
-            if (!entity.IsEnabled())
+            if (!scene->IsEntityEnabled(entity))
                 continue;
             auto mLVQRenderer =
-                    entity.GetOrSetPrivateComponent<MLVQRenderer>().lock();
+                    scene->GetOrSetPrivateComponent<MLVQRenderer>(entity).lock();
             if (!mLVQRenderer->IsEnabled())
                 continue;
             auto mesh = mLVQRenderer->m_mesh.Get<Mesh>();
             if (!mesh || mesh->UnsafeGetVertices().empty())
                 continue;
-            auto globalTransform = entity.GetDataComponent<GlobalTransform>().m_value;
+            auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
             MeshInstance newRayTracerInstance;
             MeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
@@ -175,7 +180,9 @@ void RayTracerLayer::UpdateMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == mLVQRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == mLVQRenderer->GetVersion()) {
+                if (scene->GetEntityHandle(entity) == currentRayTracerInstance.m_entityHandle &&
+                    currentRayTracerInstance.m_handle == mLVQRenderer->GetHandle().GetValue() &&
+                    currentRayTracerInstance.m_version == mLVQRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -184,11 +191,12 @@ void RayTracerLayer::UpdateMeshesStorage(
                     }
                 }
             }
-            rayTracerInstance->m_entityHandle = entity.GetHandle();
+            rayTracerInstance->m_entityHandle = scene->GetEntityHandle(entity);
             rayTracerInstance->m_version = mLVQRenderer->GetVersion();
             rayTracerInstance->m_handle = mLVQRenderer->GetHandle();
 
-            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
+            if (rayTracerInstance->m_mesh.m_handle != mesh->GetHandle() ||
+                rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if (rayTracerInstance->m_material.m_MLVQMaterialIndex !=
                 mLVQRenderer->m_materialIndex) {
@@ -241,15 +249,16 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
     for (auto &i: meshesStorage) {
         i.m_removeTag = true;
     }
+    auto scene = GetScene();
     if (const auto *rayTracedEntities =
-                Entities::UnsafeGetPrivateComponentOwnersList<
-                        SkinnedMeshRenderer>(Entities::GetCurrentScene());
+                scene->UnsafeGetPrivateComponentOwnersList<
+                        SkinnedMeshRenderer>();
             rayTracedEntities && m_renderSkinnedMeshRenderer) {
         for (auto entity: *rayTracedEntities) {
-            if (!entity.IsEnabled())
+            if (!scene->IsEntityEnabled(entity))
                 continue;
             auto skinnedMeshRenderer =
-                    entity.GetOrSetPrivateComponent<SkinnedMeshRenderer>().lock();
+                    scene->GetOrSetPrivateComponent<SkinnedMeshRenderer>(entity).lock();
             if (!skinnedMeshRenderer->IsEnabled())
                 continue;
             auto mesh = skinnedMeshRenderer->m_skinnedMesh.Get<SkinnedMesh>();
@@ -260,7 +269,7 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
             auto globalTransform =
                     skinnedMeshRenderer->RagDoll()
                     ? glm::mat4(1.0f)
-                    : entity.GetDataComponent<GlobalTransform>().m_value;
+                    : scene->GetDataComponent<GlobalTransform>(entity).m_value;
             SkinnedMeshInstance newRayTracerInstance;
             SkinnedMeshInstance *rayTracerInstance = &newRayTracerInstance;
             bool needVerticesUpdate = false;
@@ -268,7 +277,9 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
             bool fromNew = true;
             bool needMaterialUpdate = false;
             for (auto &currentRayTracerInstance: meshesStorage) {
-                if (entity.GetHandle() == currentRayTracerInstance.m_entityHandle && currentRayTracerInstance.m_handle == skinnedMeshRenderer->GetHandle().GetValue() && currentRayTracerInstance.m_version == skinnedMeshRenderer->GetVersion()) {
+                if (scene->GetEntityHandle(entity) == currentRayTracerInstance.m_entityHandle &&
+                    currentRayTracerInstance.m_handle == skinnedMeshRenderer->GetHandle().GetValue() &&
+                    currentRayTracerInstance.m_version == skinnedMeshRenderer->GetVersion()) {
                     fromNew = false;
                     rayTracerInstance = &currentRayTracerInstance;
                     currentRayTracerInstance.m_removeTag = false;
@@ -278,17 +289,18 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
 
                 }
             }
-            rayTracerInstance->m_entityHandle = entity.GetHandle();
+            rayTracerInstance->m_entityHandle = scene->GetEntityHandle(entity);
             rayTracerInstance->m_version = skinnedMeshRenderer->GetVersion();
             rayTracerInstance->m_handle = skinnedMeshRenderer->GetHandle();
 
-            if (rayTracerInstance->m_skinnedMesh.m_handle != mesh->GetHandle() || rayTracerInstance->m_skinnedMesh.m_version != mesh->GetVersion() ||
+            if (rayTracerInstance->m_skinnedMesh.m_handle != mesh->GetHandle() ||
+                rayTracerInstance->m_skinnedMesh.m_version != mesh->GetVersion() ||
                 (skinnedMeshRenderer->RagDoll() &&
                  !skinnedMeshRenderer->m_ragDollFreeze) ||
                 skinnedMeshRenderer->m_animator.Get<Animator>()
                         ->AnimatedCurrentFrame())
                 needVerticesUpdate = true;
-            if(CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
+            if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
 
             rayTracerInstance->m_skinnedMesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_skinnedMesh.m_handle = mesh->GetHandle();
@@ -337,26 +349,26 @@ void RayTracerLayer::UpdateScene() {
     UpdateSkinnedMeshesStorage(skinnedMeshesStorage, rebuildAccelerationStructure,
                                updateShaderBindingTable);
     unsigned int envMapId = 0;
-    auto& envSettings = Entities::GetCurrentScene()->m_environmentSettings;
-    if(envSettings.m_environmentType == UniEngine::EnvironmentType::EnvironmentalMap) {
+    auto &envSettings = GetScene()->m_environmentSettings;
+    if (envSettings.m_environmentType == UniEngine::EnvironmentType::EnvironmentalMap) {
         auto environmentalMap = envSettings.m_environmentalMap.Get<EnvironmentalMap>();
         if (environmentalMap) {
             auto cubeMap = environmentalMap->GetCubemap().Get<Cubemap>();
             if (cubeMap) envMapId = cubeMap->Texture()->Id();
         }
-    }else if(envSettings.m_backgroundColor != m_environmentProperties.m_color){
+    } else if (envSettings.m_backgroundColor != m_environmentProperties.m_color) {
         m_environmentProperties.m_color = envSettings.m_backgroundColor;
         updateShaderBindingTable = true;
     }
-    if(m_environmentProperties.m_skylightIntensity != envSettings.m_ambientLightIntensity){
+    if (m_environmentProperties.m_skylightIntensity != envSettings.m_ambientLightIntensity) {
         m_environmentProperties.m_skylightIntensity = envSettings.m_ambientLightIntensity;
         updateShaderBindingTable = true;
     }
-    if(m_environmentProperties.m_gamma != envSettings.m_environmentGamma){
+    if (m_environmentProperties.m_gamma != envSettings.m_environmentGamma) {
         m_environmentProperties.m_gamma = envSettings.m_environmentGamma;
         updateShaderBindingTable = true;
     }
-    if(m_environmentProperties.m_environmentalMapId != envMapId){
+    if (m_environmentProperties.m_environmentalMapId != envMapId) {
         m_environmentProperties.m_environmentalMapId = envMapId;
         updateShaderBindingTable = true;
     }
@@ -403,16 +415,16 @@ void RayTracerLayer::LateUpdate() {
                                                                                    m_sceneCamera->m_cameraProperties,
                                                                                    m_sceneCamera->m_rayProperties);
         }
-        auto *entities = Entities::UnsafeGetPrivateComponentOwnersList<RayTracerCamera>(
-                Entities::GetCurrentScene());
+        auto scene = GetScene();
+        auto *entities = scene->UnsafeGetPrivateComponentOwnersList<RayTracerCamera>();
         m_rayTracerCamera.reset();
         if (entities) {
             bool check = false;
             for (const auto &entity: *entities) {
-                if (!entity.IsEnabled()) continue;
-                auto rayTracerCamera = entity.GetOrSetPrivateComponent<RayTracerCamera>().lock();
+                if (!scene->IsEntityEnabled(entity)) continue;
+                auto rayTracerCamera = scene->GetOrSetPrivateComponent<RayTracerCamera>(entity).lock();
                 if (!rayTracerCamera->IsEnabled()) continue;
-                auto globalTransform = rayTracerCamera->GetOwner().GetDataComponent<GlobalTransform>().m_value;
+                auto globalTransform = scene->GetDataComponent<GlobalTransform>(rayTracerCamera->GetOwner()).m_value;
                 rayTracerCamera->Ready(globalTransform[3], glm::quat_cast(globalTransform));
                 rayTracerCamera->m_rendered = CudaModule::GetRayTracer()->RenderToCamera(m_environmentProperties,
                                                                                          rayTracerCamera->m_cameraProperties,
@@ -647,33 +659,34 @@ void RayTracerLayer::Update() {
 }
 
 bool
-RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::shared_ptr<Material> &material) const {
+RayTracerLayer::CheckMaterial(RayTracerMaterial &rayTracerMaterial, const std::shared_ptr<Material> &material) const {
     bool changed = false;
-    if (rayTracerMaterial.m_materialProperties.m_surfaceColor != material->m_albedoColor){
+    if (rayTracerMaterial.m_materialProperties.m_surfaceColor != material->m_albedoColor) {
         changed = true;
         rayTracerMaterial.m_materialProperties.m_surfaceColor = material->m_albedoColor;
     }
-    if (rayTracerMaterial.m_materialProperties.m_subsurfaceColor != material->m_subsurfaceColor){
+    if (rayTracerMaterial.m_materialProperties.m_subsurfaceColor != material->m_subsurfaceColor) {
         changed = true;
         rayTracerMaterial.m_materialProperties.m_subsurfaceColor = material->m_subsurfaceColor;
     }
-    if (rayTracerMaterial.m_materialProperties.m_subsurfaceRadius != material->m_subsurfaceRadius){
+    if (rayTracerMaterial.m_materialProperties.m_subsurfaceRadius != material->m_subsurfaceRadius) {
         changed = true;
         rayTracerMaterial.m_materialProperties.m_subsurfaceRadius = material->m_subsurfaceRadius;
     }
-    if (rayTracerMaterial.m_materialProperties.m_subsurfaceFactor != material->m_subsurfaceFactor){
+    if (rayTracerMaterial.m_materialProperties.m_subsurfaceFactor != material->m_subsurfaceFactor) {
         changed = true;
-        rayTracerMaterial.m_materialProperties.m_subsurfaceFactor = glm::clamp(material->m_subsurfaceFactor, 0.0f, 1.0f);
+        rayTracerMaterial.m_materialProperties.m_subsurfaceFactor = glm::clamp(material->m_subsurfaceFactor, 0.0f,
+                                                                               1.0f);
     }
-    if (rayTracerMaterial.m_materialProperties.m_roughness != material->m_roughness){
+    if (rayTracerMaterial.m_materialProperties.m_roughness != material->m_roughness) {
         changed = true;
         rayTracerMaterial.m_materialProperties.m_roughness = material->m_roughness;
     }
-    if (rayTracerMaterial.m_materialProperties.m_emission != material->m_emission){
+    if (rayTracerMaterial.m_materialProperties.m_emission != material->m_emission) {
         changed = true;
         rayTracerMaterial.m_materialProperties.m_emission = material->m_emission;
     }
-    if (rayTracerMaterial.m_materialProperties.m_metallic != material->m_metallic){
+    if (rayTracerMaterial.m_materialProperties.m_metallic != material->m_metallic) {
         changed = true;
         rayTracerMaterial.m_materialProperties.m_metallic = material->m_metallic;
     }
@@ -688,7 +701,7 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
                     albedoTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
-            rayTracerMaterial.m_albedoTexture.m_channel = (int)albedoTexture->m_textureColorType;
+            rayTracerMaterial.m_albedoTexture.m_channel = (int) albedoTexture->m_textureColorType;
         }
     } else if (rayTracerMaterial.m_albedoTexture.m_textureId != 0) {
         changed = true;
@@ -705,7 +718,7 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
                     normalTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
-            rayTracerMaterial.m_normalTexture.m_channel = (int)normalTexture->m_textureColorType;
+            rayTracerMaterial.m_normalTexture.m_channel = (int) normalTexture->m_textureColorType;
         }
     } else if (rayTracerMaterial.m_normalTexture.m_textureId != 0) {
         changed = true;
@@ -722,7 +735,7 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
                     normalTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
-            rayTracerMaterial.m_roughnessTexture.m_channel = (int)roughnessTexture->m_textureColorType;
+            rayTracerMaterial.m_roughnessTexture.m_channel = (int) roughnessTexture->m_textureColorType;
         }
     } else if (rayTracerMaterial.m_roughnessTexture.m_textureId != 0) {
         changed = true;
@@ -739,14 +752,14 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial& rayTracerMaterial, const std::s
                     metallicTexture
                             ->UnsafeGetGLTexture()
                             ->Id();
-            rayTracerMaterial.m_metallicTexture.m_channel = (int)metallicTexture->m_textureColorType;
+            rayTracerMaterial.m_metallicTexture.m_channel = (int) metallicTexture->m_textureColorType;
         }
     } else if (rayTracerMaterial.m_metallicTexture.m_textureId != 0) {
         changed = true;
         rayTracerMaterial.m_metallicTexture.m_textureId = 0;
     }
 
-    if(rayTracerMaterial.m_handle != material->GetHandle()){
+    if (rayTracerMaterial.m_handle != material->GetHandle()) {
         changed = true;
         rayTracerMaterial.m_handle = material->GetHandle();
     }

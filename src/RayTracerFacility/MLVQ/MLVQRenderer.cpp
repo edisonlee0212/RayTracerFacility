@@ -25,8 +25,9 @@ void MLVQRenderer::OnInspect() {
 
 void MLVQRenderer::Sync() {
     Entity owner = GetOwner();
-    if (owner.HasPrivateComponent<MeshRenderer>()) {
-        auto mmr = owner.GetOrSetPrivateComponent<MeshRenderer>().lock();
+    auto scene = GetScene();
+    if (scene->HasPrivateComponent<MeshRenderer>(owner)) {
+        auto mmr = scene->GetOrSetPrivateComponent<MeshRenderer>(owner).lock();
         m_mesh = mmr->m_mesh;
     }
 }

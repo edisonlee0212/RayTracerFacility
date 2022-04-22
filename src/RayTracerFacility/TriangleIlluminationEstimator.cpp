@@ -1,6 +1,7 @@
 
 #include <TriangleIlluminationEstimator.hpp>
 #include "RayTracerLayer.hpp"
+#include "Graphics.hpp"
 using namespace RayTracerFacility;
 
 void TriangleIlluminationEstimator::OnInspect() {
@@ -48,12 +49,13 @@ void TriangleIlluminationEstimator::CalculateIllumination(const RayProperties& r
 void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const RayProperties& rayProperties, int seed, float pushNormalDistance) {
     m_totalArea = 0.0f;
     m_lightSensorsGroup.m_lightProbes.clear();
-    auto entities = GetOwner().GetDescendants();
+    auto scene = GetScene();
+    auto entities = scene->GetDescendants(GetOwner());
     entities.push_back(GetOwner());
     for (const auto &entity: entities) {
-        if (entity.HasPrivateComponent<MeshRenderer>()) {
-            auto globalTransform = entity.GetDataComponent<GlobalTransform>();
-            auto meshRenderer = entity.GetOrSetPrivateComponent<MeshRenderer>().lock();
+        if (scene->HasPrivateComponent<MeshRenderer>(entity)) {
+            auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity);
+            auto meshRenderer = scene->GetOrSetPrivateComponent<MeshRenderer>(entity).lock();
             auto mesh = meshRenderer->m_mesh.Get<Mesh>();
             auto material = meshRenderer->m_material.Get<Material>();
             for (const auto &triangle: mesh->UnsafeGetTriangles()) {
@@ -79,9 +81,9 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
                 lightProbe.m_position = globalTransform.m_value * glm::vec4(position, 1.0f);
                 m_lightSensorsGroup.m_lightProbes.push_back(lightProbe);
             }
-        }else if (entity.HasPrivateComponent<SkinnedMeshRenderer>()) {
-            auto globalTransform = entity.GetDataComponent<GlobalTransform>();
-            auto skinnedMeshRenderer = entity.GetOrSetPrivateComponent<SkinnedMeshRenderer>().lock();
+        }else if (scene->HasPrivateComponent<SkinnedMeshRenderer>(entity)) {
+            auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity);
+            auto skinnedMeshRenderer = scene->GetOrSetPrivateComponent<SkinnedMeshRenderer>(entity).lock();
             auto skinnedMesh = skinnedMeshRenderer->m_skinnedMesh.Get<SkinnedMesh>();
             auto material = skinnedMeshRenderer->m_material.Get<Material>();
             for (const auto &triangle: skinnedMesh->UnsafeGetTriangles()) {
@@ -112,8 +114,8 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
     CalculateIllumination(rayProperties, seed, pushNormalDistance);
     size_t i = 0;
     for (const auto &entity: entities) {
-        if (entity.HasPrivateComponent<MeshRenderer>()) {
-            auto meshRenderer = entity.GetOrSetPrivateComponent<MeshRenderer>().lock();
+        if (scene->HasPrivateComponent<MeshRenderer>(entity)) {
+            auto meshRenderer = scene->GetOrSetPrivateComponent<MeshRenderer>(entity).lock();
             auto mesh = meshRenderer->m_mesh.Get<Mesh>();
             std::vector<std::pair<size_t, glm::vec4>> colors;
             colors.resize(mesh->GetVerticesAmount());
@@ -138,8 +140,8 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
                 vertices.m_color = colors[ti].second / static_cast<float>(colors[ti].first);
                 ti++;
             }
-        }else if (entity.HasPrivateComponent<SkinnedMeshRenderer>()) {
-            auto skinnedMeshRenderer = entity.GetOrSetPrivateComponent<SkinnedMeshRenderer>().lock();
+        }else if (scene->HasPrivateComponent<SkinnedMeshRenderer>(entity)) {
+            auto skinnedMeshRenderer = scene->GetOrSetPrivateComponent<SkinnedMeshRenderer>(entity).lock();
             auto skinnedMesh = skinnedMeshRenderer->m_skinnedMesh.Get<SkinnedMesh>();
             std::vector<std::pair<size_t, glm::vec4>> colors;
             colors.resize(skinnedMesh->GetSkinnedVerticesAmount());

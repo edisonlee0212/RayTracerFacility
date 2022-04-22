@@ -4,19 +4,19 @@
 
 #include "PointCloudScanner.hpp"
 #include "RayTracerLayer.hpp"
-
+#include "Graphics.hpp"
 using namespace RayTracerFacility;
 
 void PointCloudScanner::OnInspect() {
     ImGui::DragFloat("Angle", &m_rotateAngle, 0.1f, -90.0f, 90.0f);
     ImGui::DragFloat2("Size", &m_size.x, 0.1f);
     ImGui::DragFloat2("Distance", &m_distance.x, 0.001f, 1.0f, 0.001f);
-
+    auto scene = GetScene();
     static glm::vec4 color = glm::vec4(0, 1, 0, 0.5);
     ImGui::ColorEdit4("Color", &color.x);
     static bool renderPlane = true;
     ImGui::Checkbox("Render plane", &renderPlane);
-    auto gt = GetOwner().GetDataComponent<GlobalTransform>();
+    auto gt = scene->GetDataComponent<GlobalTransform>(GetOwner());
     glm::vec3 front = glm::normalize(gt.GetRotation() * glm::vec3(0, 0, -1));
     glm::vec3 up = glm::normalize(gt.GetRotation() * glm::vec3(0, 1, 0));
     glm::vec3 left = glm::normalize(gt.GetRotation() * glm::vec3(1, 0, 0));
@@ -73,7 +73,7 @@ void PointCloudScanner::Scan() {
     const auto row = unsigned(m_size.y / m_distance.y);
     const int rowStart = -(row / 2);
     const auto size = column * row;
-    auto gt = GetOwner().GetDataComponent<GlobalTransform>();
+    auto gt = GetScene()->GetDataComponent<GlobalTransform>(GetOwner());
     glm::vec3 center = gt.GetPosition();
     glm::vec3 front = gt.GetRotation() * glm::vec3(0, 0, -1);
     glm::vec3 up = gt.GetRotation() * glm::vec3(0, 1, 0);
