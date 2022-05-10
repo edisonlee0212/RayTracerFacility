@@ -36,169 +36,46 @@ namespace RayTracerFacility {
         perRayData.m_hitCount = hitCount;
         perRayData.m_energy = glm::vec3(0.0f);
         auto &environment = cameraRenderingLaunchParams.m_rayTracerProperties.m_environment;
-        switch (sbtData.m_materialType) {
-            case MaterialType::VertexColor: {
-                perRayData.m_energy = perRayData.m_albedo =
-                        sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
-                perRayData.m_position = hitPoint;
-            }
-                break;
-            case MaterialType::Default: {
-                auto *material = static_cast<DefaultMaterial *>(sbtData.m_material);
-                material->ApplyNormalTexture(normal, texCoord, tangent);
-                float metallic =
-                        material->GetMetallic(texCoord);
-                float roughness =
-                        material->GetRoughness(texCoord);
-                glm::vec3 albedoColor =
-                        material->GetAlbedo(texCoord);
-                energy = glm::vec3(0.0f);
-                float f = 1.0f;
-                if (metallic >= 0.0f)
-                    f = (metallic + 2) / (metallic + 1);
-                if (environment.m_environmentalLightingType == EnvironmentalLightingType::SingleLightSource) {
-                    glm::vec3 newRayDirection = RandomSampleHemisphere(perRayData.m_random,
-                                                                       environment.m_sunDirection,
-                                                                       1.0f -
-                                                                       environment.m_lightSize);
-                    energy += glm::vec3(environment.m_color) * environment.m_ambientLightIntensity * albedoColor;
-                    const float NdotL = glm::dot(
-                            normal, newRayDirection);
-                    if (NdotL > 0.0f) {
-                        uint32_t u0, u1;
-                        PackRayDataPointer(&perRayData, u0, u1);
-                        perRayData.m_energy = glm::vec3(0.0f);
-                        optixTrace(
-                                cameraRenderingLaunchParams.m_traversable,
-                                make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
-                                make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z),
-                                1e-3f, // tmin
-                                1e20f, // tmax
-                                0.0f,  // rayTime
-                                static_cast<OptixVisibilityMask>(255),
-                                OPTIX_RAY_FLAG_DISABLE_ANYHIT
-                                | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT
-                                | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT,
-                                static_cast<int>(
-                                        RayType::Radiance), // SBT offset
-                                static_cast<int>(
-                                        RayType::RayTypeCount), // SBT stride
-                                static_cast<int>(
-                                        RayType::Radiance), // missSBTIndex
-                                u0, u1);
-                        energy += perRayData.m_energy * NdotL * albedoColor;
-                    }
-                } else {
-                    if (perRayData.m_hitCount <=
-                        cameraRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
-                                .m_bounces) {
-                        bool needSample = false;
-                        if (hitCount <= 1 && material->m_materialProperties.m_subsurfaceFactor > 0.0f &&
-                            material->m_materialProperties.m_subsurfaceRadius > 0.0f) {
-                            float3 incidentRayOrigin;
-                            float3 newRayDirectionInternal;
-                            glm::vec3 outNormal;
-                            needSample = BSSRDF(metallic, perRayData.m_random,
-                                                material->m_materialProperties.m_subsurfaceRadius, sbtData.m_handle,
-                                                cameraRenderingLaunchParams.m_traversable,
-                                                hitPoint, rayDirection, normal,
-                                                incidentRayOrigin, newRayDirectionInternal, outNormal);
-                            if (needSample) {
-                                optixTrace(
-                                        cameraRenderingLaunchParams.m_traversable, incidentRayOrigin,
-                                        newRayDirectionInternal,
-                                        1e-3f, // tmin
-                                        1e20f, // tmax
-                                        0.0f,  // rayTime
-                                        static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_NONE,
-                                        static_cast<int>(
-                                                RayType::Radiance), // SBT offset
-                                        static_cast<int>(
-                                                RayType::RayTypeCount), // SBT stride
-                                        static_cast<int>(
-                                                RayType::Radiance), // missSBTIndex
-                                        u0, u1);
-                                energy += material->m_materialProperties.m_subsurfaceFactor *
-                                          material->m_materialProperties.m_subsurfaceColor *
-                                          glm::clamp(
-                                                  glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
-                                                                                         newRayDirectionInternal.y,
-                                                                                         newRayDirectionInternal.z))) *
-                                                  roughness +
-                                                  (1.0f - roughness) * f,
-                                                  0.0f, 1.0f) *
-                                          perRayData.m_energy;
-                            }
-                        }
-                        float3 newRayDirectionInternal;
-                        BRDF(metallic, perRayData.m_random, rayDirection, normal, newRayDirectionInternal);
-                        optixTrace(
-                                cameraRenderingLaunchParams.m_traversable,
-                                make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
-                                newRayDirectionInternal,
-                                1e-3f, // tmin
-                                1e20f, // tmax
-                                0.0f,  // rayTime
-                                static_cast<OptixVisibilityMask>(255),
-                                OPTIX_RAY_FLAG_NONE,
-                                static_cast<int>(
-                                        RayType::Radiance), // SBT offset
-                                static_cast<int>(
-                                        RayType::RayTypeCount), // SBT stride
-                                static_cast<int>(
-                                        RayType::Radiance), // missSBTIndex
-                                u0, u1);
-                        energy += (1.0f - material->m_materialProperties.m_subsurfaceFactor) *
-                                  albedoColor *
-                                  glm::clamp(glm::abs(glm::dot(
-                                                     normal, glm::vec3(newRayDirectionInternal.x,
-                                                                       newRayDirectionInternal.y,
-                                                                       newRayDirectionInternal.z))) *
-                                             roughness +
-                                             (1.0f - roughness) * f,
-                                             0.0f, 1.0f) *
-                                  perRayData.m_energy;
-                    }
-                }
-                if (hitCount == 1) {
-                    perRayData.m_normal = normal;
-                    perRayData.m_albedo = albedoColor;
-                    perRayData.m_position = hitPoint;
-                }
-                perRayData.m_energy =
-                        energy +
-                        static_cast<DefaultMaterial *>(sbtData.m_material)->m_materialProperties.m_emission *
-                        albedoColor;
+        if (sbtData.m_materialType != MaterialType::MLVQ) {
 
+            auto *material = static_cast<DefaultMaterial *>(sbtData.m_material);
+            material->ApplyNormalTexture(normal, texCoord, tangent);
+            float metallic =
+                    material->GetMetallic(texCoord);
+            float roughness =
+                    material->GetRoughness(texCoord);
+            glm::vec3 albedoColor;
+            if (sbtData.m_materialType == MaterialType::Default) { albedoColor = material->GetAlbedo(texCoord); }
+            else {
+                albedoColor = sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
             }
-                break;
-            case MaterialType::MLVQ: {
-                glm::vec3 btfColor;
-                if (perRayData.m_hitCount <=
-                    cameraRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
-                            .m_bounces) {
-                    energy = glm::vec3(0.0f);
-                    float f = 1.0f;
-                    glm::vec3 reflected = Reflect(rayDirection, normal);
-                    glm::vec3 newRayDirection =
-                            RandomSampleHemisphere(perRayData.m_random, reflected, 1.0f);
-                    static_cast<MLVQMaterial *>(sbtData.m_material)
-                            ->GetValue(texCoord, rayDirection, newRayDirection, normal, tangent,
-                                       btfColor,
-                                       false /*(perRayData.m_printInfo && sampleID == 0)*/);
-                    auto origin = hitPoint;
-                    origin += normal * 1e-3f;
-                    float3 incidentRayOrigin = make_float3(origin.x, origin.y, origin.z);
-                    float3 newRayDirectionInternal =
-                            make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z);
+            energy = glm::vec3(0.0f);
+            float f = 1.0f;
+            if (metallic >= 0.0f)
+                f = (metallic + 2) / (metallic + 1);
+            if (environment.m_environmentalLightingType == EnvironmentalLightingType::SingleLightSource) {
+                glm::vec3 newRayDirection = RandomSampleHemisphere(perRayData.m_random,
+                                                                   environment.m_sunDirection,
+                                                                   1.0f -
+                                                                   environment.m_lightSize);
+                energy += glm::vec3(environment.m_color) * environment.m_ambientLightIntensity * albedoColor;
+                const float NdotL = glm::dot(
+                        normal, newRayDirection);
+                if (NdotL > 0.0f) {
+                    uint32_t u0, u1;
+                    PackRayDataPointer(&perRayData, u0, u1);
+                    perRayData.m_energy = glm::vec3(0.0f);
                     optixTrace(
-                            cameraRenderingLaunchParams.m_traversable, incidentRayOrigin,
-                            newRayDirectionInternal,
+                            cameraRenderingLaunchParams.m_traversable,
+                            make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                            make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z),
                             1e-3f, // tmin
                             1e20f, // tmax
                             0.0f,  // rayTime
                             static_cast<OptixVisibilityMask>(255),
-                            OPTIX_RAY_FLAG_DISABLE_ANYHIT, // OPTIX_RAY_FLAG_NONE,
+                            OPTIX_RAY_FLAG_DISABLE_ANYHIT
+                            | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT
+                            | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT,
                             static_cast<int>(
                                     RayType::Radiance), // SBT offset
                             static_cast<int>(
@@ -206,18 +83,135 @@ namespace RayTracerFacility {
                             static_cast<int>(
                                     RayType::Radiance), // missSBTIndex
                             u0, u1);
-                    energy += btfColor * perRayData.m_energy;
+                    energy += perRayData.m_energy * NdotL * albedoColor;
                 }
-                if (hitCount == 1) {
-                    perRayData.m_normal = normal;
-                    perRayData.m_albedo = btfColor;
-                    perRayData.m_position = hitPoint;
+            } else {
+                if (perRayData.m_hitCount <=
+                    cameraRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
+                            .m_bounces) {
+                    bool needSample = false;
+                    if (hitCount <= 1 && material->m_materialProperties.m_subsurfaceFactor > 0.0f &&
+                        material->m_materialProperties.m_subsurfaceRadius > 0.0f) {
+                        float3 incidentRayOrigin;
+                        float3 newRayDirectionInternal;
+                        glm::vec3 outNormal;
+                        needSample = BSSRDF(metallic, perRayData.m_random,
+                                            material->m_materialProperties.m_subsurfaceRadius, sbtData.m_handle,
+                                            cameraRenderingLaunchParams.m_traversable,
+                                            hitPoint, rayDirection, normal,
+                                            incidentRayOrigin, newRayDirectionInternal, outNormal);
+                        if (needSample) {
+                            optixTrace(
+                                    cameraRenderingLaunchParams.m_traversable, incidentRayOrigin,
+                                    newRayDirectionInternal,
+                                    1e-3f, // tmin
+                                    1e20f, // tmax
+                                    0.0f,  // rayTime
+                                    static_cast<OptixVisibilityMask>(255), OPTIX_RAY_FLAG_NONE,
+                                    static_cast<int>(
+                                            RayType::Radiance), // SBT offset
+                                    static_cast<int>(
+                                            RayType::RayTypeCount), // SBT stride
+                                    static_cast<int>(
+                                            RayType::Radiance), // missSBTIndex
+                                    u0, u1);
+                            energy += material->m_materialProperties.m_subsurfaceFactor *
+                                      material->m_materialProperties.m_subsurfaceColor *
+                                      glm::clamp(
+                                              glm::abs(glm::dot(outNormal, glm::vec3(newRayDirectionInternal.x,
+                                                                                     newRayDirectionInternal.y,
+                                                                                     newRayDirectionInternal.z))) *
+                                              roughness +
+                                              (1.0f - roughness) * f,
+                                              0.0f, 1.0f) *
+                                      perRayData.m_energy;
+                        }
+                    }
+                    float3 newRayDirectionInternal;
+                    BRDF(metallic, perRayData.m_random, rayDirection, normal, newRayDirectionInternal);
+                    optixTrace(
+                            cameraRenderingLaunchParams.m_traversable,
+                            make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                            newRayDirectionInternal,
+                            1e-3f, // tmin
+                            1e20f, // tmax
+                            0.0f,  // rayTime
+                            static_cast<OptixVisibilityMask>(255),
+                            OPTIX_RAY_FLAG_NONE,
+                            static_cast<int>(
+                                    RayType::Radiance), // SBT offset
+                            static_cast<int>(
+                                    RayType::RayTypeCount), // SBT stride
+                            static_cast<int>(
+                                    RayType::Radiance), // missSBTIndex
+                            u0, u1);
+                    energy += (1.0f - material->m_materialProperties.m_subsurfaceFactor) *
+                              albedoColor *
+                              glm::clamp(glm::abs(glm::dot(
+                                                 normal, glm::vec3(newRayDirectionInternal.x,
+                                                                   newRayDirectionInternal.y,
+                                                                   newRayDirectionInternal.z))) *
+                                         roughness +
+                                         (1.0f - roughness) * f,
+                                         0.0f, 1.0f) *
+                              perRayData.m_energy;
                 }
-                perRayData.m_energy = energy;
             }
-                break;
+            if (hitCount == 1) {
+                perRayData.m_normal = normal;
+                perRayData.m_albedo = albedoColor;
+                perRayData.m_position = hitPoint;
+            }
+            perRayData.m_energy =
+                    energy +
+                    static_cast<DefaultMaterial *>(sbtData.m_material)->m_materialProperties.m_emission *
+                    albedoColor;
+
+        } else {
+            glm::vec3 btfColor;
+            if (perRayData.m_hitCount <=
+                cameraRenderingLaunchParams.m_rayTracerProperties.m_rayProperties
+                        .m_bounces) {
+                energy = glm::vec3(0.0f);
+                float f = 1.0f;
+                glm::vec3 reflected = Reflect(rayDirection, normal);
+                glm::vec3 newRayDirection =
+                        RandomSampleHemisphere(perRayData.m_random, reflected, 1.0f);
+                static_cast<MLVQMaterial *>(sbtData.m_material)
+                        ->GetValue(texCoord, rayDirection, newRayDirection, normal, tangent,
+                                   btfColor,
+                                   false /*(perRayData.m_printInfo && sampleID == 0)*/);
+                auto origin = hitPoint;
+                origin += normal * 1e-3f;
+                float3 incidentRayOrigin = make_float3(origin.x, origin.y, origin.z);
+                float3 newRayDirectionInternal =
+                        make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z);
+                optixTrace(
+                        cameraRenderingLaunchParams.m_traversable, incidentRayOrigin,
+                        newRayDirectionInternal,
+                        1e-3f, // tmin
+                        1e20f, // tmax
+                        0.0f,  // rayTime
+                        static_cast<OptixVisibilityMask>(255),
+                        OPTIX_RAY_FLAG_DISABLE_ANYHIT, // OPTIX_RAY_FLAG_NONE,
+                        static_cast<int>(
+                                RayType::Radiance), // SBT offset
+                        static_cast<int>(
+                                RayType::RayTypeCount), // SBT stride
+                        static_cast<int>(
+                                RayType::Radiance), // missSBTIndex
+                        u0, u1);
+                energy += btfColor * perRayData.m_energy;
+            }
+            if (hitCount == 1) {
+                perRayData.m_normal = normal;
+                perRayData.m_albedo = btfColor;
+                perRayData.m_position = hitPoint;
+            }
+            perRayData.m_energy = energy;
         }
     }
+
     extern "C" __global__ void __closesthit__CR_SS() {
         SSHit();
     }
@@ -318,9 +312,13 @@ namespace RayTracerFacility {
                     (screen.y - 0.5f) *
                     cameraRenderingLaunchParams.m_cameraProperties.m_vertical);
 
-            glm::vec3 convergence = cameraRenderingLaunchParams.m_cameraProperties.m_from + primaryRayDir * cameraRenderingLaunchParams.m_cameraProperties.m_focalLength;
+            glm::vec3 convergence = cameraRenderingLaunchParams.m_cameraProperties.m_from +
+                                    primaryRayDir * cameraRenderingLaunchParams.m_cameraProperties.m_focalLength;
             float angle = cameraRayData.m_random() * 3.1415927f * 2.0f;
-            glm::vec3 aperturePoint = cameraRenderingLaunchParams.m_cameraProperties.m_from + cameraRenderingLaunchParams.m_cameraProperties.m_aperture * (cameraRenderingLaunchParams.m_cameraProperties.m_horizontal * glm::sin(angle) + cameraRenderingLaunchParams.m_cameraProperties.m_vertical * glm::cos(angle));
+            glm::vec3 aperturePoint = cameraRenderingLaunchParams.m_cameraProperties.m_from +
+                                      cameraRenderingLaunchParams.m_cameraProperties.m_aperture *
+                                      (cameraRenderingLaunchParams.m_cameraProperties.m_horizontal * glm::sin(angle) +
+                                       cameraRenderingLaunchParams.m_cameraProperties.m_vertical * glm::cos(angle));
             glm::vec3 rayDir = glm::normalize(convergence - aperturePoint);
             float3 rayOrigin =
                     make_float3(aperturePoint.x,
@@ -376,11 +374,13 @@ namespace RayTracerFacility {
         // and write to frame buffer ...
         cameraRenderingLaunchParams.m_cameraProperties.m_frame
                 .m_colorBuffer[fbIndex] = glm::vec4(gammaCorrectedColor, 1.0f);
-        if(cameraRenderingLaunchParams.m_cameraProperties.m_outputType == OutputType::Depth){
+        if (cameraRenderingLaunchParams.m_cameraProperties.m_outputType == OutputType::Depth) {
             float distance = glm::distance(cameraRenderingLaunchParams.m_cameraProperties.m_from, pixelPosition);
             cameraRenderingLaunchParams.m_cameraProperties.m_frame
-                    .m_albedoBuffer[fbIndex] = glm::vec4(glm::vec3(glm::clamp(distance / cameraRenderingLaunchParams.m_cameraProperties.m_maxDistance, 0.0f, 1.0f)), 1.0f);
-        }else {
+                    .m_albedoBuffer[fbIndex] = glm::vec4(glm::vec3(
+                                                                 glm::clamp(distance / cameraRenderingLaunchParams.m_cameraProperties.m_maxDistance, 0.0f, 1.0f)),
+                                                         1.0f);
+        } else {
             cameraRenderingLaunchParams.m_cameraProperties.m_frame
                     .m_albedoBuffer[fbIndex] = glm::vec4(pixelAlbedo, 1.0f);
         }
