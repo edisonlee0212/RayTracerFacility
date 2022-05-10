@@ -61,7 +61,8 @@ void RayTracerLayer::UpdateMeshesStorage(
                 rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
-            rayTracerInstance->m_material.m_materialType = MaterialType::Default;
+            if(material->m_vertexColorOnly) rayTracerInstance->m_material.m_materialType = MaterialType::VertexColor;
+            else rayTracerInstance->m_material.m_materialType = MaterialType::Default;
 
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
@@ -130,7 +131,8 @@ void RayTracerLayer::UpdateMeshesStorage(
                 rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
-            rayTracerInstance->m_material.m_materialType = MaterialType::Default;
+            if(material->m_vertexColorOnly) rayTracerInstance->m_material.m_materialType = MaterialType::VertexColor;
+            else rayTracerInstance->m_material.m_materialType = MaterialType::Default;
 
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
@@ -289,6 +291,10 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
 
                 }
             }
+
+            if(material->m_vertexColorOnly) rayTracerInstance->m_material.m_materialType = MaterialType::VertexColor;
+            else rayTracerInstance->m_material.m_materialType = MaterialType::Default;
+
             rayTracerInstance->m_entityHandle = scene->GetEntityHandle(entity);
             rayTracerInstance->m_version = skinnedMeshRenderer->GetVersion();
             rayTracerInstance->m_handle = skinnedMeshRenderer->GetHandle();
