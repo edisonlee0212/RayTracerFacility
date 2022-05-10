@@ -37,7 +37,6 @@ namespace RayTracerFacility {
         perRayData.m_energy = glm::vec3(0.0f);
         auto &environment = cameraRenderingLaunchParams.m_rayTracerProperties.m_environment;
         if (sbtData.m_materialType != MaterialType::MLVQ) {
-
             auto *material = static_cast<DefaultMaterial *>(sbtData.m_material);
             material->ApplyNormalTexture(normal, texCoord, tangent);
             float metallic =

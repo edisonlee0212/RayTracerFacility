@@ -1586,6 +1586,9 @@ void RayTracer::BuildShaderBindingTable(
             }
             case MaterialType::VertexColor: {
                 m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
+                DefaultMaterial material;
+                UpdateDefaultMaterial(material, instance.m_material, boundTextures, boundResources);
+                m_surfaceMaterials[i].m_buffer.Upload(&material, 1);
                 break;
             }
             case MaterialType::Default:
@@ -1612,6 +1615,9 @@ void RayTracer::BuildShaderBindingTable(
             }
             case MaterialType::VertexColor: {
                 m_surfaceMaterials[i].m_type = MaterialType::VertexColor;
+                DefaultMaterial material;
+                UpdateDefaultMaterial(material, instance.m_material, boundTextures, boundResources);
+                m_surfaceMaterials[i].m_buffer.Upload(&material, 1);
                 break;
             }
             case MaterialType::Default:
