@@ -61,9 +61,6 @@ void RayTracerLayer::UpdateMeshesStorage(
                 rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
-            if(material->m_vertexColorOnly) rayTracerInstance->m_material.m_materialType = MaterialType::VertexColor;
-            else rayTracerInstance->m_material.m_materialType = MaterialType::Default;
-
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_mesh.m_vertices =
@@ -131,9 +128,6 @@ void RayTracerLayer::UpdateMeshesStorage(
                 rayTracerInstance->m_mesh.m_version != mesh->GetVersion())
                 needVerticesUpdate = true;
             if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
-            if(material->m_vertexColorOnly) rayTracerInstance->m_material.m_materialType = MaterialType::VertexColor;
-            else rayTracerInstance->m_material.m_materialType = MaterialType::Default;
-
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_matricesVersion = matrices->GetVersion();
@@ -291,9 +285,6 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
 
                 }
             }
-
-            if(material->m_vertexColorOnly) rayTracerInstance->m_material.m_materialType = MaterialType::VertexColor;
-            else rayTracerInstance->m_material.m_materialType = MaterialType::Default;
 
             rayTracerInstance->m_entityHandle = scene->GetEntityHandle(entity);
             rayTracerInstance->m_version = skinnedMeshRenderer->GetVersion();
@@ -696,6 +687,14 @@ RayTracerLayer::CheckMaterial(RayTracerMaterial &rayTracerMaterial, const std::s
         changed = true;
         rayTracerMaterial.m_materialProperties.m_metallic = material->m_metallic;
     }
+    if (rayTracerMaterial.m_materialType == MaterialType::Default && material->m_vertexColorOnly) {
+        changed = true;
+        rayTracerMaterial.m_materialType = MaterialType::VertexColor;
+    } else if (rayTracerMaterial.m_materialType == MaterialType::VertexColor && !material->m_vertexColorOnly) {
+        changed = true;
+        rayTracerMaterial.m_materialType = MaterialType::Default;
+    }
+
     auto albedoTexture = material->m_albedoTexture.Get<Texture2D>();
     if (albedoTexture &&
         albedoTexture->UnsafeGetGLTexture()) {
