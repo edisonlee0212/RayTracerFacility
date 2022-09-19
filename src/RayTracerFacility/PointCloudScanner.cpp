@@ -22,11 +22,11 @@ void PointCloudScanner::OnInspect() {
     glm::vec3 left = glm::normalize(gt.GetRotation() * glm::vec3(1, 0, 0));
     glm::vec3 actualVector = glm::rotate(front, glm::radians(m_rotateAngle), up);
     if (renderPlane) {
-        Graphics::DrawGizmoMesh(DefaultResources::Primitives::Cone, glm::vec4(1, 0, 0, 0.5),
+        Gizmos::DrawGizmoMesh(DefaultResources::Primitives::Cone, glm::vec4(1, 0, 0, 0.5),
                                      glm::translate(gt.GetPosition() + front * 0.5f) *
                                      glm::mat4_cast(glm::quatLookAt(up, glm::normalize(actualVector))) *
                                      glm::scale(glm::vec3(0.1, 0.5, 0.1f)), 1.0f);
-        Graphics::DrawGizmoMesh(DefaultResources::Primitives::Quad, color,
+        Gizmos::DrawGizmoMesh(DefaultResources::Primitives::Quad, color,
                                      glm::translate(gt.GetPosition()) * glm::mat4_cast(glm::quatLookAt(up, front)) *
                                      glm::scale(glm::vec3(m_size.x / 2.0f, 1.0, m_size.y / 2.0f)), 1.0f);
     }

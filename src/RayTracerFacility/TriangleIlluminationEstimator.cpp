@@ -21,7 +21,7 @@ void TriangleIlluminationEstimator::OnInspect() {
     ImGui::Checkbox("Render Probes", &renderProbes);
     if(renderProbes) {
         ImGui::DragFloat("Render Size", &probeSize, 0.0001f, 0.0001f, 0.2f, "%.5f");
-        Graphics::DrawGizmoMeshInstancedColored(
+        Gizmos::DrawGizmoMeshInstancedColored(
                 DefaultResources::Primitives::Cube, m_probeColors, m_probeTransforms,
                 glm::mat4(1.0f), probeSize);
     }
@@ -71,11 +71,11 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
                 IlluminationSampler<float> lightProbe;
                 lightProbe.m_direction = glm::vec3(0.0f);
                 lightProbe.m_energy = 0.0f;
-                lightProbe.m_doubleFace = material->m_cullingMode == MaterialCullingMode::Off;
+                lightProbe.m_doubleFace = material->m_drawSettings.m_cullFace == false;
                 lightProbe.m_surfaceNormal = glm::normalize(glm::cross(
                         vertices[triangle.x].m_position - vertices[triangle.y].m_position,
                         vertices[triangle.y].m_position - vertices[triangle.z].m_position));
-                if(material->m_cullingMode == MaterialCullingMode::Front){
+                if(material->m_drawSettings.m_cullFaceMode == OpenGLCullFace::Front){
                     lightProbe.m_surfaceNormal = -lightProbe.m_surfaceNormal;
                 }
                 lightProbe.m_position = globalTransform.m_value * glm::vec4(position, 1.0f);
@@ -99,11 +99,11 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
                 RayTracerFacility::IlluminationSampler<float> lightProbe;
                 lightProbe.m_direction = glm::vec3(0.0f);
                 lightProbe.m_energy = 0.0f;
-                lightProbe.m_doubleFace = material->m_cullingMode == MaterialCullingMode::Off;
+                lightProbe.m_doubleFace = material->m_drawSettings.m_cullFace == false;
                 lightProbe.m_surfaceNormal = glm::normalize(glm::cross(
                         vertices[triangle.x].m_position - vertices[triangle.y].m_position,
                         vertices[triangle.y].m_position - vertices[triangle.z].m_position));
-                if(material->m_cullingMode == MaterialCullingMode::Front){
+                if(material->m_drawSettings.m_cullFaceMode == OpenGLCullFace::Front){
                     lightProbe.m_surfaceNormal = -lightProbe.m_surfaceNormal;
                 }
                 lightProbe.m_position = globalTransform.m_value * glm::vec4(position, 1.0f);
