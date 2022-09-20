@@ -255,7 +255,7 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API RayTracerMesh {
-        std::vector<Vertex> *m_vertices;
+        std::vector<UniEngine::Vertex> *m_vertices;
         std::vector<glm::uvec3> *m_triangles;
 
         size_t m_version;
@@ -263,7 +263,7 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API RayTracerSkinnedMesh {
-        std::vector<SkinnedVertex> *m_skinnedVertices;
+        std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
         std::vector<glm::uvec3> *m_triangles;
         std::vector<glm::mat4> *m_boneMatrices;
         size_t m_version;

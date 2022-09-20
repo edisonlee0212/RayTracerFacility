@@ -63,8 +63,7 @@ void RayTracerLayer::UpdateMeshesStorage(
             if (CheckMaterial(rayTracerInstance->m_material, material)) needMaterialUpdate = true;
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
-            rayTracerInstance->m_mesh.m_vertices =
-                    reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
+            rayTracerInstance->m_mesh.m_vertices = &mesh->UnsafeGetVertices();
             rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
@@ -131,8 +130,7 @@ void RayTracerLayer::UpdateMeshesStorage(
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_matricesVersion = matrices->GetVersion();
-            rayTracerInstance->m_mesh.m_vertices =
-                    reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
+            rayTracerInstance->m_mesh.m_vertices = &mesh->UnsafeGetVertices();
             rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             rayTracerInstance->m_matrices = &matrices->m_value;
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
@@ -202,8 +200,7 @@ void RayTracerLayer::UpdateMeshesStorage(
 
             rayTracerInstance->m_mesh.m_handle = mesh->GetHandle();
             rayTracerInstance->m_mesh.m_version = mesh->GetVersion();
-            rayTracerInstance->m_mesh.m_vertices =
-                    reinterpret_cast<std::vector<Vertex> *>(&mesh->UnsafeGetVertices());
+            rayTracerInstance->m_mesh.m_vertices = &mesh->UnsafeGetVertices();
             rayTracerInstance->m_mesh.m_triangles = &mesh->UnsafeGetTriangles();
             if (fromNew || needVerticesUpdate || needTransformUpdate ||
                 needMaterialUpdate) {
@@ -301,9 +298,7 @@ void RayTracerLayer::UpdateSkinnedMeshesStorage(
 
             rayTracerInstance->m_skinnedMesh.m_version = mesh->GetVersion();
             rayTracerInstance->m_skinnedMesh.m_handle = mesh->GetHandle();
-            rayTracerInstance->m_skinnedMesh.m_skinnedVertices =
-                    reinterpret_cast<std::vector<SkinnedVertex> *>(
-                            &mesh->UnsafeGetSkinnedVertices());
+            rayTracerInstance->m_skinnedMesh.m_skinnedVertices = &mesh->UnsafeGetSkinnedVertices();
             rayTracerInstance->m_skinnedMesh.m_boneMatrices =
                     reinterpret_cast<std::vector<glm::mat4> *>(
                             &skinnedMeshRenderer->m_finalResults.get()->m_value);
