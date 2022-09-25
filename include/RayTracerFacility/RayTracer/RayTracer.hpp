@@ -10,13 +10,15 @@
 
 #include <cuda.h>
 
-#include <string>
+#include "string"
 
-#include <vector>
+#include "vector"
+
+#include "map"
 
 #include "MaterialProperties.hpp"
 
-#include <filesystem>
+#include "filesystem"
 
 namespace RayTracerFacility {
     enum class OutputType {
@@ -254,46 +256,48 @@ namespace RayTracerFacility {
         uint64_t m_handle = 0;
     };
 
-    struct RAY_TRACER_FACILITY_API RayTracerMesh {
-        std::vector<UniEngine::Vertex> *m_vertices;
+    enum class RayTracerMeshType{
+        Default,
+        Skinned
+    };
+    struct RAY_TRACER_FACILITY_API RayTracedGeometry {
+        RayTracerMeshType m_meshType = RayTracerMeshType::Default;
+        union {
+            std::vector<UniEngine::Vertex> *m_vertices;
+            std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
+        };
         std::vector<glm::uvec3> *m_triangles;
 
-        size_t m_version;
+        OptixTraversableHandle m_traversableHandle = 0;
+        CudaBuffer m_positionBuffer;
+        CudaBuffer m_normalBuffer;
+        CudaBuffer m_tangentBuffer;
+        CudaBuffer m_colorBuffer;
+        CudaBuffer m_texCoordBuffer;
+        CudaBuffer m_triangleBuffer;
+        CudaBuffer m_acceleratedStructureBuffer;
+        size_t m_version = 0;
         uint64_t m_handle = 0;
+        bool m_updateFlag = false;
+        bool m_removeFlag = true;
+        void BuildGAS(const OptixDeviceContext& context);
     };
 
-    struct RAY_TRACER_FACILITY_API RayTracerSkinnedMesh {
-        std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
-        std::vector<glm::uvec3> *m_triangles;
-        std::vector<glm::mat4> *m_boneMatrices;
-        size_t m_version;
-        uint64_t m_handle = 0;
+    struct SurfaceMaterial {
+        MaterialType m_type;
+        CudaBuffer m_buffer;
     };
+    struct DefaultMaterial;
 
-    struct RAY_TRACER_FACILITY_API MeshInstance {
+    struct RAY_TRACER_FACILITY_API RayTracedInstance {
         uint64_t m_entityHandle = 0;
-        size_t m_version;
-        uint64_t m_handle = 0;
-        RayTracerMesh m_mesh;
+        size_t m_version = 0;
+        uint64_t m_privateComponentHandle = 0;
+
+        uint64_t m_meshHandle = 0;
         RayTracerMaterial m_material;
-
-        bool m_instancing = false;
-        size_t m_matricesVersion;
-        std::vector<glm::mat4> *m_matrices;
-
-        bool m_removeTag = false;
         glm::mat4 m_globalTransform;
-    };
-
-    struct RAY_TRACER_FACILITY_API SkinnedMeshInstance {
-        uint64_t m_entityHandle = 0;
-        size_t m_version;
-        uint64_t m_handle = 0;
-        RayTracerSkinnedMesh m_skinnedMesh;
-        RayTracerMaterial m_material;
-
-        bool m_removeTag = false;
-        glm::mat4 m_globalTransform;
+        bool m_removeFlag = true;
     };
 
     struct RayTracerPipeline {
@@ -320,17 +324,13 @@ namespace RayTracerFacility {
         CudaBuffer m_buffer;
     };
 
-    struct SurfaceMaterial {
-        MaterialType m_type;
-        CudaBuffer m_buffer;
-    };
-    struct DefaultMaterial;
 
     class RayTracer {
     public:
         bool m_requireUpdate = false;
-        std::vector<MeshInstance> m_instances;
-        std::vector<SkinnedMeshInstance> m_skinnedInstances;
+        std::map<uint64_t, SurfaceMaterial> m_materials;
+        std::map<uint64_t, RayTracedGeometry> m_geometries;
+        std::map<uint64_t, RayTracedInstance> m_instances;
 
         // ------------------------------------------------------------------
         // internal helper functions
@@ -353,7 +353,7 @@ namespace RayTracerFacility {
         RayTracer();
 
         /*! build an acceleration structure for the given triangle mesh */
-        void BuildAccelerationStructure();
+        void BuildIAS();
 
         /*! constructs the shader binding table */
         void BuildShaderBindingTable(
@@ -434,22 +434,8 @@ namespace RayTracerFacility {
 #pragma region Accleration structure
         /*! check if we have build the acceleration structure. */
         bool m_hasAccelerationStructure = false;
-
-        /*! one buffer per input mesh */
-        std::vector<CudaBuffer> m_transformedPositionsBuffer;
-        std::vector<CudaBuffer> m_transformedNormalsBuffer;
-        std::vector<CudaBuffer> m_transformedTangentBuffer;
-        std::vector<CudaBuffer> m_vertexColorBuffer;
-        std::vector<CudaBuffer> m_texCoordBuffer;
-
-        std::vector<CudaBuffer> m_boneMatricesBuffer;
-
-        std::vector<SurfaceMaterial> m_surfaceMaterials;
-
-        /*! one buffer per input mesh */
-        std::vector<CudaBuffer> m_trianglesBuffer;
         //! buffer that keeps the (final, compacted) acceleration structure
-        CudaBuffer m_acceleratedStructuresBuffer;
+        CudaBuffer m_iASBuffer;
 #pragma endregion
 
         friend class RayTracerCamera;

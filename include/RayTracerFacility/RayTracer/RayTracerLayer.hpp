@@ -17,13 +17,8 @@ using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API RayTracerLayer : public ILayer {
     protected:
-        void UpdateMeshesStorage(std::vector<MeshInstance> &meshesStorage, bool &rebuildAccelerationStructure,
+        void UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &geometryStorage, std::map<uint64_t, RayTracedInstance> &instanceStorage, bool &rebuildInstances,
                                  bool &updateShaderBindingTable) const;
-
-        void
-        UpdateSkinnedMeshesStorage(std::vector<SkinnedMeshInstance> &meshesStorage,
-                                   bool &rebuildAccelerationStructure,
-                                   bool &updateShaderBindingTable) const;
 
         void SceneCameraWindow();
 

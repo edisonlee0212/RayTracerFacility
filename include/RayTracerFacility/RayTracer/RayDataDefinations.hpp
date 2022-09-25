@@ -15,7 +15,7 @@ namespace RayTracerFacility {
         glm::vec2 *m_texCoords;
 
         glm::uvec3 *m_triangles;
-        glm::mat4 m_transform;
+        glm::mat4 m_globalTransform;
 
         __device__ glm::uvec3 GetIndices(const int &primitiveId) const {
             return m_triangles[primitiveId];
@@ -31,10 +31,11 @@ namespace RayTracerFacility {
 
         __device__ glm::vec3 GetPosition(const float2 &triangleBarycentrics,
                                          const glm::uvec3 &triangleIndices) const {
-            return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+
+            return m_globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                    m_positions[triangleIndices.x] +
                    triangleBarycentrics.x * m_positions[triangleIndices.y] +
-                   triangleBarycentrics.y * m_positions[triangleIndices.z];
+                   triangleBarycentrics.y * m_positions[triangleIndices.z], 1.0f);
         }
 
         __device__ glm::vec4 GetColor(const float2 &triangleBarycentrics,
@@ -50,18 +51,18 @@ namespace RayTracerFacility {
 
         __device__ glm::vec3 GetNormal(const float2 &triangleBarycentrics,
                                        const glm::uvec3 &triangleIndices) const {
-            return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            return m_globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                    m_normals[triangleIndices.x] +
                    triangleBarycentrics.x * m_normals[triangleIndices.y] +
-                   triangleBarycentrics.y * m_normals[triangleIndices.z];
+                   triangleBarycentrics.y * m_normals[triangleIndices.z], 0.0f);
         }
 
         __device__ glm::vec3 GetTangent(const float2 &triangleBarycentrics,
                                         const glm::uvec3 &triangleIndices) const {
-            return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            return m_globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                    m_tangents[triangleIndices.x] +
                    triangleBarycentrics.x * m_tangents[triangleIndices.y] +
-                   triangleBarycentrics.y * m_tangents[triangleIndices.z];
+                   triangleBarycentrics.y * m_tangents[triangleIndices.z], 0.0f);
         }
     };
 

@@ -133,8 +133,7 @@ RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
 }
 
 void RayTracerCamera::Render() {
-    if (!CudaModule::GetRayTracer()->m_instances.empty() ||
-        !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
+    if (!CudaModule::GetRayTracer()->m_instances.empty()) {
         auto globalTransform = GetScene()->GetDataComponent<GlobalTransform>(GetOwner()).m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
@@ -145,8 +144,7 @@ void RayTracerCamera::Render() {
 }
 
 void RayTracerCamera::Render(const RayProperties &rayProperties) {
-    if (!CudaModule::GetRayTracer()->m_instances.empty() ||
-        !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
+    if (!CudaModule::GetRayTracer()->m_instances.empty()) {
         auto globalTransform = GetScene()->GetDataComponent<GlobalTransform>(GetOwner()).m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
@@ -157,8 +155,7 @@ void RayTracerCamera::Render(const RayProperties &rayProperties) {
 }
 
 void RayTracerCamera::Render(const RayProperties &rayProperties, const EnvironmentProperties &environmentProperties) {
-    if (!CudaModule::GetRayTracer()->m_instances.empty() ||
-        !CudaModule::GetRayTracer()->m_skinnedInstances.empty()) {
+    if (!CudaModule::GetRayTracer()->m_instances.empty()) {
         auto globalTransform = GetScene()->GetDataComponent<GlobalTransform>(GetOwner()).m_value;
         Ready(globalTransform[3], glm::quat_cast(globalTransform));
         m_rendered = CudaModule::GetRayTracer()->RenderToCamera(
