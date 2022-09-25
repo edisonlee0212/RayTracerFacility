@@ -82,6 +82,7 @@ namespace RayTracerFacility {
         void SetFov(float value);
 
         void SetGamma(float value);
+
         void SetMaxDistance(float value);
 
         void SetOutputType(OutputType value);
@@ -256,16 +257,20 @@ namespace RayTracerFacility {
         uint64_t m_handle = 0;
     };
 
-    enum class RayTracerMeshType{
+    enum class RayTracerMeshType {
         Default,
+        Instanced,
         Skinned
     };
+
     struct RAY_TRACER_FACILITY_API RayTracedGeometry {
         RayTracerMeshType m_meshType = RayTracerMeshType::Default;
         union {
             std::vector<UniEngine::Vertex> *m_vertices;
             std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
         };
+        std::vector<glm::mat4> *m_boneMatrices = nullptr;
+        std::vector<glm::mat4> *m_instanceMatrices = nullptr;
         std::vector<glm::uvec3> *m_triangles;
 
         OptixTraversableHandle m_traversableHandle = 0;
@@ -280,7 +285,8 @@ namespace RayTracerFacility {
         uint64_t m_handle = 0;
         bool m_updateFlag = false;
         bool m_removeFlag = true;
-        void BuildGAS(const OptixDeviceContext& context);
+
+        void BuildGAS(const OptixDeviceContext &context);
     };
 
     struct SurfaceMaterial {
@@ -294,7 +300,7 @@ namespace RayTracerFacility {
         size_t m_version = 0;
         uint64_t m_privateComponentHandle = 0;
 
-        uint64_t m_meshHandle = 0;
+        uint64_t m_geometryHandle = 0;
         RayTracerMaterial m_material;
         glm::mat4 m_globalTransform;
         bool m_removeFlag = true;

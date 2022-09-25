@@ -1041,18 +1041,18 @@ void RayTracer::CreateHitGroupPrograms() {
 }
 
 __global__ void
-ApplyTransformKernelInstanced(int matricesSize, int verticesSize, glm::mat4 globalTransform, glm::mat4 *matrices,
+CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matrices,
                               UniEngine::Vertex *vertices,
                               glm::vec3 *targetPositions, glm::vec3 *targetNormals, glm::vec3 *targetColors,
                               glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < verticesSize * matricesSize) {
         targetPositions[idx] =
-                globalTransform * matrices[idx / verticesSize] *
+                matrices[idx / verticesSize] *
                 glm::vec4(vertices[idx % verticesSize].m_position, 1.0f);
-        glm::vec3 N = glm::normalize(globalTransform * matrices[idx / verticesSize] *
+        glm::vec3 N = glm::normalize(matrices[idx / verticesSize] *
                                      glm::vec4(vertices[idx % verticesSize].m_normal, 0.0f));
-        glm::vec3 T = glm::normalize(globalTransform * matrices[idx / verticesSize] *
+        glm::vec3 T = glm::normalize(matrices[idx / verticesSize] *
                                      glm::vec4(vertices[idx % verticesSize].m_tangent, 0.0f));
         T = glm::normalize(T - dot(T, N) * N);
         targetNormals[idx] = N;
@@ -1075,28 +1075,7 @@ CopyVerticesKernel(int size, UniEngine::Vertex *vertices,
         targetColors[idx] = vertices[idx].m_color;
     }
 }
-
-__global__ void
-ApplyTransformKernel(int size, glm::mat4 globalTransform, UniEngine::Vertex *vertices,
-                     glm::vec3 *targetPositions, glm::vec3 *targetNormals, glm::vec3 *targetColors,
-                     glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
-    const int idx = threadIdx.x + blockIdx.x * blockDim.x;
-    if (idx < size) {
-        targetPositions[idx] =
-                globalTransform * glm::vec4(vertices[idx].m_position, 1.0f);
-        glm::vec3 N = glm::normalize(globalTransform *
-                                     glm::vec4(vertices[idx].m_normal, 0.0f));
-        glm::vec3 T = glm::normalize(globalTransform *
-                                     glm::vec4(vertices[idx].m_tangent, 0.0f));
-        T = glm::normalize(T - dot(T, N) * N);
-        targetNormals[idx] = N;
-        targetTangents[idx] = T;
-        targetTexCoords[idx] = vertices[idx].m_texCoords;
-        targetColors[idx] = vertices[idx].m_color;
-    }
-}
-
-__global__ void ApplySkinnedTransformKernel(int size, glm::mat4 globalTransform,
+__global__ void CopySkinnedVerticesKernel(int size,
                                             UniEngine::SkinnedVertex *vertices,
                                             glm::mat4 *boneMatrices,
                                             glm::vec3 *targetPositions,
@@ -1135,12 +1114,11 @@ __global__ void ApplySkinnedTransformKernel(int size, glm::mat4 globalTransform,
             boneTransform +=
                     boneMatrices[vertices[idx].m_bondId2[3]] * vertices[idx].m_weight2[3];
         }
-        auto finalTransform = globalTransform * boneTransform;
         targetPositions[idx] =
-                finalTransform * glm::vec4(vertices[idx].m_position, 1.0f);
-        glm::vec3 N = glm::normalize(finalTransform *
+                boneTransform * glm::vec4(vertices[idx].m_position, 1.0f);
+        glm::vec3 N = glm::normalize(boneTransform *
                                      glm::vec4(vertices[idx].m_normal, 0.0f));
-        glm::vec3 T = glm::normalize(finalTransform *
+        glm::vec3 T = glm::normalize(boneTransform *
                                      glm::vec4(vertices[idx].m_tangent, 0.0f));
         T = glm::normalize(T - dot(T, N) * N);
         targetNormals[idx] = N;
@@ -1149,7 +1127,6 @@ __global__ void ApplySkinnedTransformKernel(int size, glm::mat4 globalTransform,
         targetColors[idx] = vertices[idx].m_color;
     }
 }
-
 void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 #pragma region Clean previous buffer
     m_positionBuffer.Free();
@@ -1168,9 +1145,10 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
     CUdeviceptr deviceVertexPositions;
     CUdeviceptr deviceVertexTriangles;
     uint32_t triangleInputFlags;
-    CudaBuffer verticesBuffer;
+
     switch (m_meshType) {
         case RayTracerMeshType::Default: {
+            CudaBuffer verticesBuffer;
             verticesBuffer.Upload(*m_vertices);
             m_positionBuffer.Resize(
                     m_vertices->size() * sizeof(glm::vec3));
@@ -1188,7 +1166,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             int gridSize = 0;    // The actual grid size needed, based on input size
             int size = m_vertices->size();
             cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
-                                               ApplyTransformKernel, 0, size);
+                                               CopyVerticesKernel, 0, size);
             gridSize = (size + blockSize - 1) / blockSize;
             CopyVerticesKernel<<<gridSize, blockSize>>>(
                     size,
@@ -1240,10 +1218,144 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             triangleInput.triangleArray.sbtIndexOffsetBuffer = 0;
             triangleInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
             triangleInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
+            verticesBuffer.Free();
         }
             break;
+        case RayTracerMeshType::Skinned:{
+            CudaBuffer skinnedVerticesBuffer;
+            CudaBuffer boneMatricesBuffer;
+            skinnedVerticesBuffer.Upload(*m_skinnedVertices);
+            boneMatricesBuffer.Upload(*m_boneMatrices);
+            m_positionBuffer.Resize(
+                    m_skinnedVertices->size() * sizeof(glm::vec3));
+            m_normalBuffer.Resize(
+                    m_skinnedVertices->size() * sizeof(glm::vec3));
+            m_tangentBuffer.Resize(
+                    m_skinnedVertices->size() * sizeof(glm::vec3));
+            m_texCoordBuffer.Resize(m_skinnedVertices->size() *
+                                    sizeof(glm::vec2));
+            m_colorBuffer.Resize(m_skinnedVertices->size() * sizeof(glm::vec4));
+            int blockSize = 0;   // The launch configurator returned block size
+            int minGridSize = 0; // The minimum grid size needed to achieve the
+            // maximum occupancy for a full device launch
+            int gridSize = 0;    // The actual grid size needed, based on input size
+            int size = m_skinnedVertices->size();
+            cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
+                                               CopySkinnedVerticesKernel, 0, size);
+            gridSize = (size + blockSize - 1) / blockSize;
+            CopySkinnedVerticesKernel<<<gridSize, blockSize>>>(
+                    size,
+                    static_cast<UniEngine::SkinnedVertex *>(skinnedVerticesBuffer.m_dPtr),
+                    static_cast<glm::mat4 *>(boneMatricesBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_normalBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_colorBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_tangentBuffer.m_dPtr),
+                    static_cast<glm::vec2 *>(m_texCoordBuffer.m_dPtr));
+            CUDA_SYNC_CHECK();
+            m_triangleBuffer.Upload(*m_triangles);
+            triangleInput = {};
+            triangleInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+            // create local variables, because we need a *pointer* to the
+            // device pointers
+            deviceVertexPositions =
+                    m_positionBuffer.DevicePointer();
+            deviceVertexTriangles = m_triangleBuffer.DevicePointer();
+            triangleInput.triangleArray.vertexFormat =
+                    OPTIX_VERTEX_FORMAT_FLOAT3;
+            triangleInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
+            triangleInput.triangleArray.numVertices =
+                    static_cast<int>(m_positionBuffer.m_sizeInBytes / sizeof(glm::vec3));
+            triangleInput.triangleArray.vertexBuffers =
+                    &deviceVertexPositions;
+            triangleInput.triangleArray.indexFormat =
+                    OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
+            triangleInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
+            triangleInput.triangleArray.numIndexTriplets =
+                    static_cast<int>(m_triangleBuffer.m_sizeInBytes / sizeof(glm::uvec3));
+            triangleInput.triangleArray.indexBuffer =
+                    deviceVertexTriangles;
+            triangleInputFlags = 0;
+            // in this example we have one SBT entry, and no per-primitive
+            // materials:
+            triangleInput.triangleArray.flags = &triangleInputFlags;
+            triangleInput.triangleArray.numSbtRecords = 1;
+            triangleInput.triangleArray.sbtIndexOffsetBuffer = 0;
+            triangleInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
+            triangleInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
+            skinnedVerticesBuffer.Free();
+            boneMatricesBuffer.Free();
+        }
+            break;
+        case RayTracerMeshType::Instanced:{
+            CudaBuffer verticesBuffer;
+            CudaBuffer instanceMatricesBuffer;
+            verticesBuffer.Upload(*m_vertices);
+            instanceMatricesBuffer.Upload(*m_instanceMatrices);
+            m_positionBuffer.Resize(
+                    m_vertices->size() * sizeof(glm::vec3));
+            m_normalBuffer.Resize(
+                    m_vertices->size() * sizeof(glm::vec3));
+            m_tangentBuffer.Resize(
+                    m_vertices->size() * sizeof(glm::vec3));
+            m_texCoordBuffer.Resize(m_vertices->size() *
+                                    sizeof(glm::vec2));
+            m_colorBuffer.Resize(m_vertices->size() * sizeof(glm::vec4));
+            int blockSize = 0;   // The launch configurator returned block size
+            int minGridSize = 0; // The minimum grid size needed to achieve the
+            // maximum occupancy for a full device launch
+            int gridSize = 0;    // The actual grid size needed, based on input size
+            int size = m_vertices->size();
+            int matricesSize = m_instanceMatrices->size();
+            cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
+                                               CopyVerticesInstancedKernel, 0, size * matricesSize);
+            gridSize = (size + blockSize - 1) / blockSize;
+            CopyVerticesInstancedKernel<<<gridSize, blockSize>>>(matricesSize,
+                    size,
+                    static_cast<glm::mat4 *>(instanceMatricesBuffer.m_dPtr),
+                    static_cast<UniEngine::Vertex *>(verticesBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_normalBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_colorBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_tangentBuffer.m_dPtr),
+                    static_cast<glm::vec2 *>(m_texCoordBuffer.m_dPtr));
+            CUDA_SYNC_CHECK();
+            m_triangleBuffer.Upload(*m_triangles);
+            triangleInput = {};
+            triangleInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+            // create local variables, because we need a *pointer* to the
+            // device pointers
+            deviceVertexPositions =
+                    m_positionBuffer.DevicePointer();
+            deviceVertexTriangles = m_triangleBuffer.DevicePointer();
+            triangleInput.triangleArray.vertexFormat =
+                    OPTIX_VERTEX_FORMAT_FLOAT3;
+            triangleInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
+            triangleInput.triangleArray.numVertices =
+                    static_cast<int>(m_positionBuffer.m_sizeInBytes / sizeof(glm::vec3));
+            triangleInput.triangleArray.vertexBuffers =
+                    &deviceVertexPositions;
+            triangleInput.triangleArray.indexFormat =
+                    OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
+            triangleInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
+            triangleInput.triangleArray.numIndexTriplets =
+                    static_cast<int>(m_triangleBuffer.m_sizeInBytes / sizeof(glm::uvec3));
+            triangleInput.triangleArray.indexBuffer =
+                    deviceVertexTriangles;
+            triangleInputFlags = 0;
+            // in this example we have one SBT entry, and no per-primitive
+            // materials:
+            triangleInput.triangleArray.flags = &triangleInputFlags;
+            triangleInput.triangleArray.numSbtRecords = 1;
+            triangleInput.triangleArray.sbtIndexOffsetBuffer = 0;
+            triangleInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
+            triangleInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
+            verticesBuffer.Free();
+            instanceMatricesBuffer.Free();
+        }
+        break;
     }
-    verticesBuffer.Free();
+
 #pragma endregion
 #pragma region BLAS setup
     // ==================================================================
@@ -1369,7 +1481,7 @@ void RayTracer::BuildIAS() {
         glm::mat3x4 transform = glm::transpose(instance.second.m_globalTransform);
         memcpy(optixInstance.transform, &transform, sizeof(glm::mat3x4));
         //optixInstance.sbtOffset = sbtOffset;
-        optixInstance.traversableHandle = m_geometries.at(instance.second.m_meshHandle).m_traversableHandle;
+        optixInstance.traversableHandle = m_geometries.at(instance.second.m_geometryHandle).m_traversableHandle;
         sbtOffset += (int) RayType::RayTypeCount;
         optixInstances.push_back(optixInstance);
     }
@@ -1561,7 +1673,7 @@ void RayTracer::BuildShaderBindingTable(
     std::map<uint64_t, SBT> sBTs;
     for (auto &instancePair: m_instances) {
         auto &instance = instancePair.second;
-        auto &geometry = m_geometries.at(instance.m_meshHandle);
+        auto &geometry = m_geometries.at(instance.m_geometryHandle);
         auto &sBT = sBTs[instancePair.first];
         sBT.m_handle = instance.m_privateComponentHandle;
         sBT.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(

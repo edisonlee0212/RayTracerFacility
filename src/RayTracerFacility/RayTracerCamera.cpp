@@ -19,7 +19,7 @@ void RayTracerCamera::Ready(const glm::vec3 &position, const glm::quat &rotation
 }
 
 void RayTracerCamera::OnInspect() {
-    if(GetScene()->IsEntityValid(GetOwner())) ImGui::Checkbox("Main Camera", &m_mainCamera);
+    if (GetScene()->IsEntityValid(GetOwner())) ImGui::Checkbox("Main Camera", &m_mainCamera);
 
     m_cameraProperties.OnInspect();
     m_rayProperties.OnInspect();
@@ -35,9 +35,10 @@ void RayTracerCamera::OnInspect() {
                 ImVec2(1, 0));
         ImGui::TreePop();
     }
-    FileUtils::SaveFile("Export Screenshot", "Texture2D", {".png", ".jpg", ".hdr"}, [this](const std::filesystem::path &filePath) {
-        m_colorTexture->Export(filePath);
-    }, false);
+    FileUtils::SaveFile("Export Screenshot", "Texture2D", {".png", ".jpg", ".hdr"},
+                        [this](const std::filesystem::path &filePath) {
+                            m_colorTexture->Export(filePath);
+                        }, false);
     ImGui::Checkbox("Allow auto resize", &m_allowAutoResize);
     if (!m_allowAutoResize) {
         ImGui::DragInt2("Resolution", &m_frameSize.x);
@@ -168,12 +169,15 @@ void RayTracerCamera::Render(const RayProperties &rayProperties, const Environme
 void RayTracerCamera::SetFov(float value) {
     m_cameraProperties.SetFov(value);
 }
+
 void RayTracerCamera::SetAperture(float value) {
     m_cameraProperties.SetAperture(value);
 }
+
 void RayTracerCamera::SetFocalLength(float value) {
     m_cameraProperties.SetFocalLength(value);
 }
+
 void RayTracerCamera::SetDenoiserStrength(float value) {
     m_cameraProperties.SetDenoiserStrength(value);
 }
@@ -191,7 +195,7 @@ void RayTracerCamera::SetAccumulate(bool value) {
 }
 
 void RayTracerCamera::SetMainCamera(bool value) {
-    if(GetScene()->IsEntityValid(GetOwner())) m_mainCamera = value;
+    if (GetScene()->IsEntityValid(GetOwner())) m_mainCamera = value;
 }
 
 void RayTracerCamera::SetMaxDistance(float value) {
