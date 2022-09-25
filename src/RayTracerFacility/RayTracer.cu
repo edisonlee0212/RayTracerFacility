@@ -602,6 +602,9 @@ void RayTracer::EstimateIllumination(const size_t &size,
     std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> boundTextures;
     std::vector<cudaGraphicsResource_t> boundResources;
     BuildShaderBindingTable(boundTextures, boundResources);
+
+    m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
+    m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
 #pragma region Bind environmental map as cudaTexture
     struct cudaResourceDesc cudaResourceDesc;
     cudaArray_t environmentalMapPosXArray;
@@ -751,8 +754,6 @@ void RayTracer::ScanPointCloud(const size_t &size, const EnvironmentProperties &
     BuildShaderBindingTable(boundTextures, boundResources);
 #pragma region Upload parameters
     m_pointCloudScanningLaunchParams.m_size = size;
-    m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
-    m_pointCloudScanningLaunchParams.m_rayTracerProperties.m_rayProperties = RayProperties();
     m_pointCloudScanningLaunchParams.m_samples =
             reinterpret_cast<PointCloudSample *>(samples.DevicePointer());
     m_pointCloudScanningPipeline.m_launchParamsBuffer.Upload(
@@ -843,7 +844,7 @@ void RayTracer::CreateRayGenPrograms() {
     CreateRayGenProgram(m_illuminationEstimationPipeline,
                         "__raygen__IE");
     CreateRayGenProgram(m_pointCloudScanningPipeline,
-                        "__raygen__pointCloudScanning");
+                        "__raygen__PCS");
 }
 
 void RayTracer::CreateMissPrograms() {
@@ -916,7 +917,7 @@ void RayTracer::CreateMissPrograms() {
     }
     {
         m_pointCloudScanningPipeline.m_missProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount) - 1);
+                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -928,12 +929,22 @@ void RayTracer::CreateMissPrograms() {
         // ------------------------------------------------------------------
         // radiance rays
         // ------------------------------------------------------------------
-        pgDesc.miss.entryFunctionName = "__miss__pointCloudScanning";
+        pgDesc.miss.entryFunctionName = "__miss__PCS_R";
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_pointCloudScanningPipeline.m_missProgramGroups[static_cast<int>(
                         RayType::Radiance)]));
+        if (sizeofLog > 1)
+            std::cout << log << std::endl;
+        // ------------------------------------------------------------------
+        // BSSRDF Spatial sampler rays
+        // ------------------------------------------------------------------
+        pgDesc.miss.entryFunctionName = "__miss__PCS_SS";
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_pointCloudScanningPipeline.m_missProgramGroups[static_cast<int>(
+                        RayType::SpacialSampling)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -1015,7 +1026,7 @@ void RayTracer::CreateHitGroupPrograms() {
     }
     {
         m_pointCloudScanningPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount) - 1);
+                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -1028,13 +1039,25 @@ void RayTracer::CreateHitGroupPrograms() {
         // radiance rays
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH =
-                "__closesthit__pointCloudScanning";
-        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__pointCloudScanning";
+                "__closesthit__PCS_R";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__PCS_R";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_pointCloudScanningPipeline
                         .m_hitGroupProgramGroups[static_cast<int>(
                         RayType::Radiance)]));
+        if (sizeofLog > 1)
+            std::cout << log << std::endl;
+        // -------------------------------------------------------
+        // BSSRDF Sampler ray
+        // -------------------------------------------------------
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__PCS_SS";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__PCS_SS";
+
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups[static_cast<int>(
+                        RayType::SpacialSampling)]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -1680,7 +1703,7 @@ void RayTracer::BuildShaderBindingTable(
 
         auto &geometry = m_geometries.at(instance.m_geometryMapKey);
         auto &sBT = sBTs[instancePair.first];
-        sBT.m_handle = instance.m_geometryMapKey;
+        sBT.m_handle = instance.m_privateComponentHandle;
         sBT.m_mesh.m_positions = reinterpret_cast<glm::vec3 *>(
                 geometry.m_positionBuffer.DevicePointer());
         sBT.m_mesh.m_normals = reinterpret_cast<glm::vec3 *>(
@@ -1899,7 +1922,7 @@ void RayTracer::BuildShaderBindingTable(
         for (auto &instancePair: m_instances) {
             for (int rayID = 0;
                  rayID <
-                 static_cast<int>(RayType::RayTypeCount) - 1;
+                 static_cast<int>(RayType::RayTypeCount);
                  rayID++) {
                 PointCloudScanningRayHitRecord rec;
                 OPTIX_CHECK(

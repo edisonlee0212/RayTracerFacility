@@ -230,7 +230,6 @@ namespace RayTracerFacility {
 
     struct PointCloudScanningLaunchParams {
         size_t m_size;
-        RayTracerProperties m_rayTracerProperties;
         PointCloudSample *m_samples;
         OptixTraversableHandle m_traversable;
     };

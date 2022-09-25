@@ -58,6 +58,7 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
             auto meshRenderer = scene->GetOrSetPrivateComponent<MeshRenderer>(entity).lock();
             auto mesh = meshRenderer->m_mesh.Get<Mesh>();
             auto material = meshRenderer->m_material.Get<Material>();
+            if(!mesh || !material) continue;
             for (const auto &triangle: mesh->UnsafeGetTriangles()) {
                 auto &vertices = mesh->UnsafeGetVertices();
                 const auto position = (vertices[triangle.x].m_position + vertices[triangle.y].m_position +
@@ -117,6 +118,8 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
         if (scene->HasPrivateComponent<MeshRenderer>(entity)) {
             auto meshRenderer = scene->GetOrSetPrivateComponent<MeshRenderer>(entity).lock();
             auto mesh = meshRenderer->m_mesh.Get<Mesh>();
+            auto material = meshRenderer->m_material.Get<Material>();
+            if(!mesh || !material) continue;
             std::vector<std::pair<size_t, glm::vec4>> colors;
             colors.resize(mesh->GetVerticesAmount());
             for (auto &color: colors) {
@@ -143,6 +146,8 @@ void TriangleIlluminationEstimator::CalculateIlluminationForDescendents(const Ra
         }else if (scene->HasPrivateComponent<SkinnedMeshRenderer>(entity)) {
             auto skinnedMeshRenderer = scene->GetOrSetPrivateComponent<SkinnedMeshRenderer>(entity).lock();
             auto skinnedMesh = skinnedMeshRenderer->m_skinnedMesh.Get<SkinnedMesh>();
+            auto material = skinnedMeshRenderer->m_material.Get<Material>();
+            if(!skinnedMesh || !material) continue;
             std::vector<std::pair<size_t, glm::vec4>> colors;
             colors.resize(skinnedMesh->GetSkinnedVerticesAmount());
             for (auto &i: colors) {

@@ -4,7 +4,7 @@ namespace RayTracerFacility {
     extern "C" __constant__ PointCloudScanningLaunchParams
             pointCloudScanningLaunchParams;
 #pragma region Closest hit functions
-    extern "C" __global__ void __closesthit__pointCloudScanning() {
+    extern "C" __global__ void __closesthit__PCS_R() {
         const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
         const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
         const int primitiveId = optixGetPrimitiveIndex();
@@ -46,19 +46,22 @@ namespace RayTracerFacility {
         prd.m_albedo = sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
         prd.m_normal = hitPoint;
     }
+    extern "C" __global__ void __closesthit__PCS_SS() {}
 #pragma endregion
 #pragma region Any hit functions
-    extern "C" __global__ void __anyhit__pointCloudScanning() {}
+    extern "C" __global__ void __anyhit__PCS_R() {}
+    extern "C" __global__ void __anyhit__PCS_SS() {}
 #pragma endregion
 #pragma region Miss functions
-    extern "C" __global__ void __miss__pointCloudScanning() {
+    extern "C" __global__ void __miss__PCS_R() {
         PerRayData <uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
         prd.m_hitCount = 0;
         prd.m_energy = 0;
     }
+    extern "C" __global__ void __miss__PCS_SS() {}
 #pragma endregion
 #pragma region Main ray generation
-    extern "C" __global__ void __raygen__pointCloudScanning() {
+    extern "C" __global__ void __raygen__PCS() {
         unsigned ix = optixGetLaunchIndex().x;
         auto &samples = pointCloudScanningLaunchParams.m_samples[ix];
         auto start = samples.m_start;
@@ -84,7 +87,7 @@ namespace RayTracerFacility {
                 static_cast<int>(
                         RayType::Radiance), // SBT offset
                 static_cast<int>(
-                        RayType::RayTypeCount) - 1, // SBT stride
+                        RayType::RayTypeCount), // SBT stride
                 static_cast<int>(
                         RayType::Radiance), // missSBTIndex
                 u0, u1);
