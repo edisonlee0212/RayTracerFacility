@@ -300,7 +300,7 @@ namespace RayTracerFacility {
         size_t m_version = 0;
         uint64_t m_privateComponentHandle = 0;
 
-        uint64_t m_geometryHandle = 0;
+        uint64_t m_geometryMapKey = 0;
         RayTracerMaterial m_material;
         glm::mat4 m_globalTransform;
         bool m_removeFlag = true;

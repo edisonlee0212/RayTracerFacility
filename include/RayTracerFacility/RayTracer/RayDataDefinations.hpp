@@ -11,7 +11,7 @@ namespace RayTracerFacility {
         glm::vec3 *m_positions;
         glm::vec3 *m_normals;
         glm::vec3 *m_tangents;
-        glm::vec4 *m_colors;
+        glm::vec3 *m_colors;
         glm::vec2 *m_texCoords;
 
         glm::uvec3 *m_triangles;
@@ -38,7 +38,7 @@ namespace RayTracerFacility {
                    triangleBarycentrics.y * m_positions[triangleIndices.z], 1.0f);
         }
 
-        __device__ glm::vec4 GetColor(const float2 &triangleBarycentrics,
+        __device__ glm::vec3 GetColor(const float2 &triangleBarycentrics,
                                       const glm::uvec3 &triangleIndices) const {
             auto z = 1.f - triangleBarycentrics.x - triangleBarycentrics.y;
             if (triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y) {

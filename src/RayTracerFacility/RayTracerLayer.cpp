@@ -46,7 +46,8 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
             }
             rayTracedInstance.m_removeFlag = false;
             //The geometry handle here uses mesh handle to ensure same mesh is shared between different renderers.
-            auto &rayTracedGeometry = geometryStorage[mesh->GetHandle()];
+            auto geometryHandle = mesh->GetHandle();
+            auto &rayTracedGeometry = geometryStorage[geometryHandle];
             rayTracedGeometry.m_removeFlag = false;
             if (rayTracedGeometry.m_handle == 0 || rayTracedGeometry.m_version != mesh->GetVersion()) {
                 rayTracedGeometry.m_updateFlag = true;
@@ -55,7 +56,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                 rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
                 rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();
                 rayTracedGeometry.m_version = mesh->GetVersion();
-                rayTracedGeometry.m_handle = mesh->GetHandle();
+                rayTracedGeometry.m_handle = geometryHandle;
             }
             if (CheckMaterial(rayTracedInstance.m_material, material)) needInstanceUpdate = true;
             if (needInstanceUpdate) {
@@ -63,7 +64,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                 rayTracedInstance.m_privateComponentHandle = meshRenderer->GetHandle().GetValue();
                 rayTracedInstance.m_version = meshRenderer->GetVersion();
                 rayTracedInstance.m_globalTransform = globalTransform;
-                rayTracedInstance.m_geometryHandle = mesh->GetHandle();
+                rayTracedInstance.m_geometryMapKey = geometryHandle;
             }
             updateShaderBindingTable = updateShaderBindingTable || needMaterialUpdate;
             rebuildInstances = rebuildInstances || needInstanceUpdate;
@@ -100,7 +101,8 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                 needInstanceUpdate = true;
             }
             rayTracedInstance.m_removeFlag = false;
-            auto &rayTracedGeometry = geometryStorage[skinnedMeshRenderer->GetHandle()];
+            auto geometryHandle = skinnedMeshRenderer->GetHandle();
+            auto &rayTracedGeometry = geometryStorage[geometryHandle];
             rayTracedGeometry.m_removeFlag = false;
             if (rayTracedGeometry.m_handle == 0
                 || rayTracedInstance.m_version != skinnedMeshRenderer->GetVersion()
@@ -116,7 +118,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                         reinterpret_cast<std::vector<glm::mat4> *>(
                                 &skinnedMeshRenderer->m_finalResults.get()->m_value);
                 rayTracedGeometry.m_version = mesh->GetVersion();
-                rayTracedGeometry.m_handle = skinnedMeshRenderer->GetHandle();
+                rayTracedGeometry.m_handle = geometryHandle;
             }
             if (CheckMaterial(rayTracedInstance.m_material, material)) needInstanceUpdate = true;
             if (needInstanceUpdate) {
@@ -124,7 +126,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                 rayTracedInstance.m_privateComponentHandle = skinnedMeshRenderer->GetHandle().GetValue();
                 rayTracedInstance.m_version = skinnedMeshRenderer->GetVersion();
                 rayTracedInstance.m_globalTransform = globalTransform;
-                rayTracedInstance.m_geometryHandle = skinnedMeshRenderer->GetHandle();
+                rayTracedInstance.m_geometryMapKey = geometryHandle;
             }
             updateShaderBindingTable = updateShaderBindingTable || needMaterialUpdate;
             rebuildInstances = rebuildInstances || needInstanceUpdate;
@@ -156,7 +158,8 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                 needInstanceUpdate = true;
             }
             rayTracedInstance.m_removeFlag = false;
-            auto &rayTracedGeometry = geometryStorage[particles->GetHandle()];
+            auto geometryHandle = particles->GetHandle();
+            auto &rayTracedGeometry = geometryStorage[geometryHandle];
             rayTracedGeometry.m_removeFlag = false;
             if (needInstanceUpdate || rayTracedGeometry.m_handle == 0
                 || rayTracedInstance.m_version != particles->GetVersion()
@@ -168,7 +171,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                 rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();
                 rayTracedGeometry.m_instanceMatrices = &matrices->m_value;
                 rayTracedGeometry.m_version = mesh->GetVersion();
-                rayTracedGeometry.m_handle = particles->GetHandle();
+                rayTracedGeometry.m_handle = geometryHandle;
             }
             if (CheckMaterial(rayTracedInstance.m_material, material)) needInstanceUpdate = true;
             if (needInstanceUpdate) {
@@ -176,7 +179,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &
                 rayTracedInstance.m_privateComponentHandle = particles->GetHandle().GetValue();
                 rayTracedInstance.m_version = particles->GetVersion();
                 rayTracedInstance.m_globalTransform = globalTransform;
-                rayTracedInstance.m_geometryHandle = particles->GetHandle();
+                rayTracedInstance.m_geometryMapKey = geometryHandle;
             }
             updateShaderBindingTable = updateShaderBindingTable || needMaterialUpdate;
             rebuildInstances = rebuildInstances || needInstanceUpdate;
