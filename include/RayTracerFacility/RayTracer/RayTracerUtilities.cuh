@@ -238,17 +238,13 @@ namespace RayTracerFacility {
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
+        glm::vec2 texCoord;
+        glm::vec3 hitPoint;
+        glm::vec3 normal;
+        glm::vec3 tangent;
+        glm::vec3 vertexColor;
+        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
 
-        const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
-        const int primitiveId = optixGetPrimitiveIndex();
-        auto indices = sbtData.m_mesh.GetIndices(primitiveId);
-        auto texCoord =
-                sbtData.m_mesh.GetTexCoord(triangleBarycentricsInternal, indices);
-        auto normal = sbtData.m_mesh.GetNormal(triangleBarycentricsInternal, indices);
-        auto tangent =
-                sbtData.m_mesh.GetTangent(triangleBarycentricsInternal, indices);
-        auto hitPoint =
-                sbtData.m_mesh.GetPosition(triangleBarycentricsInternal, indices);
         static_cast<DefaultMaterial *>(sbtData.m_material)
                 ->ApplyNormalTexture(normal, texCoord, tangent);
 

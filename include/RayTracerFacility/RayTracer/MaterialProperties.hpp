@@ -17,4 +17,11 @@ namespace RayTracerFacility {
         VertexColor,
         MLVQ
     };
+
+    enum class GeometryType {
+        Default,
+        Instanced,
+        Skinned,
+        Curve
+    };
 }

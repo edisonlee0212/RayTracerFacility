@@ -5,7 +5,7 @@
 #include <Vertex.hpp>
 
 #include "MaterialProperties.hpp"
-
+#include <optix_device.h>
 namespace RayTracerFacility {
     struct Mesh {
         glm::vec3 *m_positions;
@@ -15,7 +15,7 @@ namespace RayTracerFacility {
         glm::vec2 *m_texCoords;
 
         glm::uvec3 *m_triangles;
-        glm::mat4 m_globalTransform;
+
 
         __device__ glm::uvec3 GetIndices(const int &primitiveId) const {
             return m_triangles[primitiveId];
@@ -29,10 +29,10 @@ namespace RayTracerFacility {
                    triangleBarycentrics.y * m_texCoords[triangleIndices.z];
         }
 
-        __device__ glm::vec3 GetPosition(const float2 &triangleBarycentrics,
+        __device__ glm::vec3 GetPosition(const glm::mat4& globalTransform, const float2 &triangleBarycentrics,
                                          const glm::uvec3 &triangleIndices) const {
 
-            return m_globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                    m_positions[triangleIndices.x] +
                    triangleBarycentrics.x * m_positions[triangleIndices.y] +
                    triangleBarycentrics.y * m_positions[triangleIndices.z], 1.0f);
@@ -49,17 +49,17 @@ namespace RayTracerFacility {
             return m_colors[triangleIndices.z];
         }
 
-        __device__ glm::vec3 GetNormal(const float2 &triangleBarycentrics,
+        __device__ glm::vec3 GetNormal(const glm::mat4& globalTransform, const float2 &triangleBarycentrics,
                                        const glm::uvec3 &triangleIndices) const {
-            return m_globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                    m_normals[triangleIndices.x] +
                    triangleBarycentrics.x * m_normals[triangleIndices.y] +
                    triangleBarycentrics.y * m_normals[triangleIndices.z], 0.0f);
         }
 
-        __device__ glm::vec3 GetTangent(const float2 &triangleBarycentrics,
+        __device__ glm::vec3 GetTangent(const glm::mat4& globalTransform, const float2 &triangleBarycentrics,
                                         const glm::uvec3 &triangleIndices) const {
-            return m_globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                    m_tangents[triangleIndices.x] +
                    triangleBarycentrics.x * m_tangents[triangleIndices.y] +
                    triangleBarycentrics.y * m_tangents[triangleIndices.z], 0.0f);
@@ -189,9 +189,32 @@ namespace RayTracerFacility {
 
     struct SBT {
         unsigned long long m_handle;
-        Mesh m_mesh;
+        glm::mat4 m_globalTransform;
+        GeometryType m_geometryType;
+        void *m_geometry;
         MaterialType m_materialType;
         void *m_material;
+
+        __device__ void GetGeometricInfo(glm::vec3& rayDirection, glm::vec2& texCoord, glm::vec3& hitPoint, glm::vec3& normal, glm::vec3& tangent, glm::vec3& color) const{
+            if(m_geometryType != GeometryType::Curve) {
+                const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
+                const int primitiveId = optixGetPrimitiveIndex();
+                auto *mesh = (Mesh *) m_geometry;
+                auto indices = mesh->GetIndices(primitiveId);
+                texCoord =
+                        mesh->GetTexCoord(triangleBarycentricsInternal, indices);
+                normal = mesh->GetNormal(m_globalTransform, triangleBarycentricsInternal, indices);
+                if (glm::dot(rayDirection, normal) > 0.0f) {
+                    normal = -normal;
+                }
+                tangent =
+                        mesh->GetTangent(m_globalTransform, triangleBarycentricsInternal, indices);
+                hitPoint =
+                        mesh->GetPosition(m_globalTransform, triangleBarycentricsInternal, indices);
+                color =
+                        mesh->GetColor(triangleBarycentricsInternal, indices);
+            }
+        }
     };
 
 /*! SBT record for a raygen program */

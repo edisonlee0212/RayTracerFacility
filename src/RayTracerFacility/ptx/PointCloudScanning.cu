@@ -11,17 +11,13 @@ namespace RayTracerFacility {
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
-        auto indices = sbtData.m_mesh.GetIndices(primitiveId);
-        auto texCoord =
-                sbtData.m_mesh.GetTexCoord(triangleBarycentricsInternal, indices);
-        auto normal = sbtData.m_mesh.GetNormal(triangleBarycentricsInternal, indices);
-        if (glm::dot(rayDirection, normal) > 0.0f) {
-            normal = -normal;
-        }
-        auto tangent =
-                sbtData.m_mesh.GetTangent(triangleBarycentricsInternal, indices);
-        auto hitPoint =
-                sbtData.m_mesh.GetPosition(triangleBarycentricsInternal, indices);
+        glm::vec2 texCoord;
+        glm::vec3 hitPoint;
+        glm::vec3 normal;
+        glm::vec3 tangent;
+        glm::vec3 vertexColor;
+        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
+
         PerRayData <uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
         prd.m_hitCount = 1;
         prd.m_energy = sbtData.m_handle;
@@ -43,7 +39,7 @@ namespace RayTracerFacility {
             }
                 break;
         }*/
-        prd.m_albedo = sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
+        prd.m_albedo = vertexColor;
         prd.m_normal = hitPoint;
     }
     extern "C" __global__ void __closesthit__PCS_SS() {}

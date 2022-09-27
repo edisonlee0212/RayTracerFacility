@@ -10,20 +10,12 @@ namespace RayTracerFacility {
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
 #pragma region Retrive information
         const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
-        const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
-        const int primitiveId = optixGetPrimitiveIndex();
-
-        auto indices = sbtData.m_mesh.GetIndices(primitiveId);
-        auto texCoord =
-                sbtData.m_mesh.GetTexCoord(triangleBarycentricsInternal, indices);
-        auto normal = sbtData.m_mesh.GetNormal(triangleBarycentricsInternal, indices);
-        if (glm::dot(rayDirection, normal) > 0.0f) {
-            normal = -normal;
-        }
-        auto tangent =
-                sbtData.m_mesh.GetTangent(triangleBarycentricsInternal, indices);
-        auto hitPoint =
-                sbtData.m_mesh.GetPosition(triangleBarycentricsInternal, indices);
+        glm::vec2 texCoord;
+        glm::vec3 hitPoint;
+        glm::vec3 normal;
+        glm::vec3 tangent;
+        glm::vec3 vertexColor;
+        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
 #pragma endregion
         PerRayData <glm::vec3> &perRayData =
                 *GetRayDataPointer < PerRayData < glm::vec3 >> ();
@@ -46,7 +38,7 @@ namespace RayTracerFacility {
             glm::vec3 albedoColor;
             if (sbtData.m_materialType == MaterialType::Default) { albedoColor = material->GetAlbedo(texCoord); }
             else {
-                albedoColor = sbtData.m_mesh.GetColor(triangleBarycentricsInternal, indices);
+                albedoColor = vertexColor;
             }
             energy = glm::vec3(0.0f);
             float f = 1.0f;
@@ -222,13 +214,12 @@ namespace RayTracerFacility {
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
 #pragma region Retrive information
         const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
-        const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
-        const int primitiveId = optixGetPrimitiveIndex();
-
-        auto indices = sbtData.m_mesh.GetIndices(primitiveId);
-        auto texCoord =
-                sbtData.m_mesh.GetTexCoord(triangleBarycentricsInternal, indices);
-        auto normal = sbtData.m_mesh.GetNormal(triangleBarycentricsInternal, indices);
+        glm::vec2 texCoord;
+        glm::vec3 hitPoint;
+        glm::vec3 normal;
+        glm::vec3 tangent;
+        glm::vec3 vertexColor;
+        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
 #pragma endregion
         switch (sbtData.m_materialType) {
             case MaterialType::Default: {

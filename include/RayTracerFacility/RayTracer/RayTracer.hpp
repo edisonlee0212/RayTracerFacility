@@ -238,8 +238,9 @@ namespace RayTracerFacility {
 
     struct RAY_TRACER_FACILITY_API RayTracerTexture {
         unsigned m_textureId = 0;
-        int m_channel = 0;
     };
+
+    struct DefaultMaterial;
 
     struct RAY_TRACER_FACILITY_API RayTracerMaterial {
         MaterialType m_materialType = MaterialType::Default;
@@ -254,16 +255,19 @@ namespace RayTracerFacility {
 
         size_t m_version;
         uint64_t m_handle = 0;
-    };
 
-    enum class RayTracerMeshType {
-        Default,
-        Instanced,
-        Skinned
+        CudaBuffer m_materialBuffer;
+
+        bool m_removeFlag = true;
+
+        void UploadForSBT(std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
+                          std::vector<cudaGraphicsResource_t> &boundResources);
+
+        void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t &textureObject);
     };
 
     struct RAY_TRACER_FACILITY_API RayTracedGeometry {
-        RayTracerMeshType m_meshType = RayTracerMeshType::Default;
+        GeometryType m_geometryType = GeometryType::Default;
         union {
             std::vector<UniEngine::Vertex> *m_vertices;
             std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
@@ -286,13 +290,12 @@ namespace RayTracerFacility {
         bool m_removeFlag = true;
 
         void BuildGAS(const OptixDeviceContext &context);
+
+        void UploadForSBT();
+
+        CudaBuffer m_geometryBuffer;
     };
 
-    struct SurfaceMaterial {
-        MaterialType m_type;
-        CudaBuffer m_buffer;
-    };
-    struct DefaultMaterial;
 
     struct RAY_TRACER_FACILITY_API RayTracedInstance {
         uint64_t m_entityHandle = 0;
@@ -300,7 +303,7 @@ namespace RayTracerFacility {
         uint64_t m_privateComponentHandle = 0;
 
         uint64_t m_geometryMapKey = 0;
-        RayTracerMaterial m_material;
+        uint64_t m_materialMapKey = 0;
         glm::mat4 m_globalTransform;
         bool m_removeFlag = true;
     };
@@ -333,7 +336,7 @@ namespace RayTracerFacility {
     class RayTracer {
     public:
         bool m_requireUpdate = false;
-        std::map<uint64_t, SurfaceMaterial> m_materials;
+        std::map<uint64_t, RayTracerMaterial> m_materials;
         std::map<uint64_t, RayTracedGeometry> m_geometries;
         std::map<uint64_t, RayTracedInstance> m_instances;
 
@@ -361,7 +364,7 @@ namespace RayTracerFacility {
         void BuildIAS();
 
         /*! constructs the shader binding table */
-        void BuildShaderBindingTable(
+        void BuildSBT(
                 std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>>
                 &boundTextures,
                 std::vector<cudaGraphicsResource_t> &boundResources);
@@ -369,14 +372,6 @@ namespace RayTracerFacility {
         void LoadBtfMaterials(const std::vector<std::string> &folderPathes);
 
     protected:
-        void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource,
-                         cudaTextureObject_t &textureObject);
-
-        void UpdateDefaultMaterial(
-                DefaultMaterial &material, RayTracerMaterial &rayTracerMaterial,
-                std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>>
-                &boundTextures,
-                std::vector<cudaGraphicsResource_t> &boundResources);
 
 #pragma region MLVQ
         std::vector<MLVQMaterialStorage> m_MLVQMaterialStorage;

@@ -17,7 +17,8 @@ using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API RayTracerLayer : public ILayer {
     protected:
-        void UpdateMeshesStorage(std::map<uint64_t, RayTracedGeometry> &geometryStorage,
+        void UpdateMeshesStorage(std::map<uint64_t, RayTracerMaterial> &materialStorage,
+                                 std::map<uint64_t, RayTracedGeometry> &geometryStorage,
                                  std::map<uint64_t, RayTracedInstance> &instanceStorage, bool &rebuildInstances,
                                  bool &updateShaderBindingTable) const;
 
