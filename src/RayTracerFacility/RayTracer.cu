@@ -1163,6 +1163,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
     // triangle inputs
     // ==================================================================
     OptixBuildInput buildInput;
+    const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
     switch (m_geometryType) {
         case GeometryType::Curve: {
             CUdeviceptr devicePoints;
@@ -1205,7 +1206,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
         case GeometryType::Default: {
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
-            const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
             m_vertexDataBuffer.Upload(*m_vertices);
             devicePositionBuffer.Resize(
@@ -1262,7 +1262,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
         case GeometryType::Skinned: {
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
-            const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
             CudaBuffer skinnedVerticesBuffer;
             CudaBuffer boneMatricesBuffer;
@@ -1323,7 +1322,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
         case GeometryType::Instanced: {
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
-            const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
             CudaBuffer verticesBuffer;
             CudaBuffer instanceMatricesBuffer;
