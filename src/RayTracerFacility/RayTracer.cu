@@ -1066,36 +1066,32 @@ void RayTracer::CreateHitGroupPrograms() {
 __global__ void
 CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matrices,
                             UniEngine::Vertex *vertices,
-                            glm::vec3 *targetPositions, glm::vec3 *targetNormals, glm::vec3 *targetColors,
-                            glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
+                            glm::vec3 *targetPositions, UniEngine::Vertex *targetVertices) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < verticesSize * matricesSize) {
-        targetPositions[idx] =
-                matrices[idx / verticesSize] *
-                glm::vec4(vertices[idx % verticesSize].m_position, 1.0f);
+        const glm::vec3 position = matrices[idx / verticesSize] *
+                        glm::vec4(vertices[idx % verticesSize].m_position, 1.0f);
+        targetPositions[idx] = position;
         glm::vec3 N = glm::normalize(matrices[idx / verticesSize] *
                                      glm::vec4(vertices[idx % verticesSize].m_normal, 0.0f));
         glm::vec3 T = glm::normalize(matrices[idx / verticesSize] *
                                      glm::vec4(vertices[idx % verticesSize].m_tangent, 0.0f));
         T = glm::normalize(T - dot(T, N) * N);
-        targetNormals[idx] = N;
-        targetTangents[idx] = T;
-        targetTexCoords[idx] = vertices[idx % verticesSize].m_texCoords;
-        targetColors[idx] = vertices[idx % verticesSize].m_color;
+
+        targetVertices[idx].m_position = position;
+        targetVertices[idx].m_tangent = T;
+        targetVertices[idx].m_normal = N;
+        targetVertices[idx].m_texCoords = vertices[idx % verticesSize].m_texCoords;
+        targetVertices[idx].m_color = vertices[idx % verticesSize].m_color;
     }
 }
 
 __global__ void
 CopyVerticesKernel(int size, UniEngine::Vertex *vertices,
-                   glm::vec3 *targetPositions, glm::vec3 *targetNormals, glm::vec3 *targetColors,
-                   glm::vec3 *targetTangents, glm::vec2 *targetTexCoords) {
+                   glm::vec3 *targetPositions) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < size) {
         targetPositions[idx] = vertices[idx].m_position;
-        targetNormals[idx] = vertices[idx].m_normal;
-        targetTangents[idx] = vertices[idx].m_tangent;
-        targetTexCoords[idx] = vertices[idx].m_texCoords;
-        targetColors[idx] = vertices[idx].m_color;
     }
 }
 
@@ -1103,9 +1099,7 @@ __global__ void CopySkinnedVerticesKernel(int size,
                                           UniEngine::SkinnedVertex *vertices,
                                           glm::mat4 *boneMatrices,
                                           glm::vec3 *targetPositions,
-                                          glm::vec3 *targetNormals, glm::vec3 *targetColors,
-                                          glm::vec3 *targetTangents,
-                                          glm::vec2 *targetTexCoords) {
+                                          UniEngine::Vertex *targetVertices) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < size) {
         glm::mat4 boneTransform =
@@ -1138,28 +1132,25 @@ __global__ void CopySkinnedVerticesKernel(int size,
             boneTransform +=
                     boneMatrices[vertices[idx].m_bondId2[3]] * vertices[idx].m_weight2[3];
         }
-        targetPositions[idx] =
-                boneTransform * glm::vec4(vertices[idx].m_position, 1.0f);
+        const glm::vec3 position = boneTransform * glm::vec4(vertices[idx].m_position, 1.0f);
+        targetPositions[idx] = position;
         glm::vec3 N = glm::normalize(boneTransform *
                                      glm::vec4(vertices[idx].m_normal, 0.0f));
         glm::vec3 T = glm::normalize(boneTransform *
                                      glm::vec4(vertices[idx].m_tangent, 0.0f));
         T = glm::normalize(T - dot(T, N) * N);
-        targetNormals[idx] = N;
-        targetTangents[idx] = T;
-        targetTexCoords[idx] = vertices[idx].m_texCoords;
-        targetColors[idx] = vertices[idx].m_color;
+
+        targetVertices[idx].m_normal = N;
+        targetVertices[idx].m_tangent = T;
+        targetVertices[idx].m_texCoords = vertices[idx].m_texCoords;
+        targetVertices[idx].m_color = vertices[idx].m_color;
     }
 }
 
 void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 #pragma region Clean previous buffer
     m_positionBuffer.Free();
-    m_normalBuffer.Free();
-    m_tangentBuffer.Free();
-    m_colorBuffer.Free();
-    m_texCoordBuffer.Free();
-    m_triangleBuffer.Free();
+    m_vertexDataBuffer.Free();
     m_acceleratedStructureBuffer.Free();
 #pragma endregion
 #pragma region Triangle Inputs
@@ -1173,19 +1164,9 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
     switch (m_geometryType) {
         case GeometryType::Default: {
-            CudaBuffer verticesBuffer;
-            verticesBuffer.Upload(*m_vertices);
+            m_vertexDataBuffer.Upload(*m_vertices);
             m_positionBuffer.Resize(
                     m_vertices->size() * sizeof(glm::vec3));
-            m_normalBuffer.Resize(
-                    m_vertices->size() * sizeof(glm::vec3));
-            m_tangentBuffer.Resize(
-                    m_vertices->size() * sizeof(glm::vec3));
-            m_texCoordBuffer.Resize(
-                    m_vertices->size() * sizeof(glm::vec2));
-            m_colorBuffer.Resize(
-                    m_vertices->size() * sizeof(glm::vec3));
-
             int blockSize = 0;   // The launch configurator returned block size
             int minGridSize = 0; // The minimum grid size needed to achieve the
             // maximum occupancy for a full device launch
@@ -1196,12 +1177,8 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             gridSize = (size + blockSize - 1) / blockSize;
             CopyVerticesKernel<<<gridSize, blockSize>>>(
                     size,
-                    static_cast<UniEngine::Vertex *>(verticesBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_normalBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_colorBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_tangentBuffer.m_dPtr),
-                    static_cast<glm::vec2 *>(m_texCoordBuffer.m_dPtr));
+                    static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr));
             CUDA_SYNC_CHECK();
             m_triangleBuffer.Upload(*m_triangles);
 
@@ -1244,7 +1221,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             triangleInput.triangleArray.sbtIndexOffsetBuffer = 0;
             triangleInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
             triangleInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
-            verticesBuffer.Free();
         }
             break;
         case GeometryType::Skinned: {
@@ -1252,15 +1228,10 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             CudaBuffer boneMatricesBuffer;
             skinnedVerticesBuffer.Upload(*m_skinnedVertices);
             boneMatricesBuffer.Upload(*m_boneMatrices);
+            m_vertexDataBuffer.Resize(
+                    m_skinnedVertices->size() * sizeof(UniEngine::Vertex));
             m_positionBuffer.Resize(
                     m_skinnedVertices->size() * sizeof(glm::vec3));
-            m_normalBuffer.Resize(
-                    m_skinnedVertices->size() * sizeof(glm::vec3));
-            m_tangentBuffer.Resize(
-                    m_skinnedVertices->size() * sizeof(glm::vec3));
-            m_texCoordBuffer.Resize(m_skinnedVertices->size() *
-                                    sizeof(glm::vec2));
-            m_colorBuffer.Resize(m_skinnedVertices->size() * sizeof(glm::vec3));
             int blockSize = 0;   // The launch configurator returned block size
             int minGridSize = 0; // The minimum grid size needed to achieve the
             // maximum occupancy for a full device launch
@@ -1274,10 +1245,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                     static_cast<UniEngine::SkinnedVertex *>(skinnedVerticesBuffer.m_dPtr),
                     static_cast<glm::mat4 *>(boneMatricesBuffer.m_dPtr),
                     static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_normalBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_colorBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_tangentBuffer.m_dPtr),
-                    static_cast<glm::vec2 *>(m_texCoordBuffer.m_dPtr));
+                    static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr));
             CUDA_SYNC_CHECK();
             m_triangleBuffer.Upload(*m_triangles);
             triangleInput = {};
@@ -1318,16 +1286,11 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             CudaBuffer instanceMatricesBuffer;
             verticesBuffer.Upload(*m_vertices);
             instanceMatricesBuffer.Upload(*m_instanceMatrices);
+            m_vertexDataBuffer.Resize(m_instanceMatrices->size() *
+                                              m_vertices->size() * sizeof(UniEngine::Vertex));
+
             m_positionBuffer.Resize(m_instanceMatrices->size() *
                                     m_vertices->size() * sizeof(glm::vec3));
-            m_normalBuffer.Resize(m_instanceMatrices->size() *
-                                  m_vertices->size() * sizeof(glm::vec3));
-            m_tangentBuffer.Resize(m_instanceMatrices->size() *
-                                   m_vertices->size() * sizeof(glm::vec3));
-            m_texCoordBuffer.Resize(m_instanceMatrices->size() *
-                                    m_vertices->size() * sizeof(glm::vec2));
-            m_colorBuffer.Resize(m_instanceMatrices->size() *
-                                 m_vertices->size() * sizeof(glm::vec3));
             int blockSize = 0;   // The launch configurator returned block verticesSize
             int minGridSize = 0; // The minimum grid verticesSize needed to achieve the
             // maximum occupancy for a full device launch
@@ -1343,10 +1306,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                                                                  static_cast<glm::mat4 *>(instanceMatricesBuffer.m_dPtr),
                                                                  static_cast<UniEngine::Vertex *>(verticesBuffer.m_dPtr),
                                                                  static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr),
-                                                                 static_cast<glm::vec3 *>(m_normalBuffer.m_dPtr),
-                                                                 static_cast<glm::vec3 *>(m_colorBuffer.m_dPtr),
-                                                                 static_cast<glm::vec3 *>(m_tangentBuffer.m_dPtr),
-                                                                 static_cast<glm::vec2 *>(m_texCoordBuffer.m_dPtr));
+                                                                 static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr));
             CUDA_SYNC_CHECK();
             auto triangles = std::vector<glm::uvec3>();
             triangles.resize(m_triangles->size() * m_instanceMatrices->size());
@@ -1391,7 +1351,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             verticesBuffer.Free();
             instanceMatricesBuffer.Free();
         }
-            break;
+        break;
     }
 
 #pragma endregion
@@ -1474,11 +1434,7 @@ void RayTracedGeometry::UploadForSBT() {
 
     } else {
         RayTracerFacility::Mesh mesh;
-        mesh.m_positions = reinterpret_cast<glm::vec3 *>(m_positionBuffer.DevicePointer());
-        mesh.m_normals = reinterpret_cast<glm::vec3 *>(m_normalBuffer.DevicePointer());
-        mesh.m_tangents = reinterpret_cast<glm::vec3 *>(m_tangentBuffer.DevicePointer());
-        mesh.m_texCoords = reinterpret_cast<glm::vec2 *>(m_texCoordBuffer.DevicePointer());
-        mesh.m_colors = reinterpret_cast<glm::vec3 *>(m_colorBuffer.DevicePointer());
+        mesh.m_vertices = reinterpret_cast<UniEngine::Vertex *>(m_vertexDataBuffer.DevicePointer());
         mesh.m_triangles = reinterpret_cast<glm::uvec3 *>(m_triangleBuffer.DevicePointer());
         m_geometryBuffer.Upload(&mesh, 1);
     }
@@ -1493,18 +1449,12 @@ void RayTracer::BuildIAS() {
     }
     for (auto &i: removeQueue) {
         auto &geometry = m_geometries.at(i);
-
-        geometry.m_geometryBuffer.Free();
         geometry.m_positionBuffer.Free();
-        geometry.m_normalBuffer.Free();
-        geometry.m_tangentBuffer.Free();
-        geometry.m_colorBuffer.Free();
-        geometry.m_texCoordBuffer.Free();
+        geometry.m_geometryBuffer.Free();
+        geometry.m_vertexDataBuffer.Free();
         geometry.m_triangleBuffer.Free();
         geometry.m_acceleratedStructureBuffer.Free();
-
         //TODO Clean Curve here.
-
         m_geometries.erase(i);
     }
     for (auto &i: m_geometries) {

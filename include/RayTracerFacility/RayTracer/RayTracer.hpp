@@ -278,10 +278,7 @@ namespace RayTracerFacility {
 
         OptixTraversableHandle m_traversableHandle = 0;
         CudaBuffer m_positionBuffer;
-        CudaBuffer m_normalBuffer;
-        CudaBuffer m_tangentBuffer;
-        CudaBuffer m_colorBuffer;
-        CudaBuffer m_texCoordBuffer;
+        CudaBuffer m_vertexDataBuffer;
         CudaBuffer m_triangleBuffer;
         CudaBuffer m_acceleratedStructureBuffer;
         size_t m_version = 0;

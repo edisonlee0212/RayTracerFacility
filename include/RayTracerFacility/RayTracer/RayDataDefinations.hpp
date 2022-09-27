@@ -6,16 +6,43 @@
 
 #include "MaterialProperties.hpp"
 #include <optix_device.h>
+
 namespace RayTracerFacility {
     struct Mesh {
-        glm::vec3 *m_positions;
-        glm::vec3 *m_normals;
-        glm::vec3 *m_tangents;
-        glm::vec3 *m_colors;
-        glm::vec2 *m_texCoords;
-
+        UniEngine::Vertex *m_vertices;
         glm::uvec3 *m_triangles;
 
+        __device__ void GetVertex(UniEngine::Vertex &target, const float2 &triangleBarycentrics,
+                                  const glm::uvec3 &triangleIndices) const {
+            const auto &vx = m_vertices[triangleIndices.x];
+            const auto &vy = m_vertices[triangleIndices.y];
+            const auto &vz = m_vertices[triangleIndices.z];
+            target.m_texCoords = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                                 vx.m_texCoords +
+                                 triangleBarycentrics.x * vy.m_texCoords +
+                                 triangleBarycentrics.y * vz.m_texCoords;
+            target.m_position = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                                vx.m_position +
+                                triangleBarycentrics.x * vy.m_position +
+                                triangleBarycentrics.y * vz.m_position;
+            target.m_normal = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                              vx.m_normal +
+                              triangleBarycentrics.x * vy.m_normal +
+                              triangleBarycentrics.y * vz.m_normal;
+            target.m_tangent = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                               vx.m_tangent +
+                               triangleBarycentrics.x * vy.m_tangent +
+                               triangleBarycentrics.y * vz.m_tangent;
+
+            auto z = 1.f - triangleBarycentrics.x - triangleBarycentrics.y;
+            if (triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y) {
+                target.m_color = vx.m_color;
+            } else if (triangleBarycentrics.y > z) {
+                target.m_color = vy.m_color;
+            } else {
+                target.m_color = vz.m_color;
+            }
+        }
 
         __device__ glm::uvec3 GetIndices(const int &primitiveId) const {
             return m_triangles[primitiveId];
@@ -24,45 +51,70 @@ namespace RayTracerFacility {
         __device__ glm::vec2 GetTexCoord(const float2 &triangleBarycentrics,
                                          const glm::uvec3 &triangleIndices) const {
             return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                   m_texCoords[triangleIndices.x] +
-                   triangleBarycentrics.x * m_texCoords[triangleIndices.y] +
-                   triangleBarycentrics.y * m_texCoords[triangleIndices.z];
+                   m_vertices[triangleIndices.x].m_texCoords +
+                   triangleBarycentrics.x * m_vertices[triangleIndices.y].m_texCoords +
+                   triangleBarycentrics.y * m_vertices[triangleIndices.z].m_texCoords;
         }
 
-        __device__ glm::vec3 GetPosition(const glm::mat4& globalTransform, const float2 &triangleBarycentrics,
-                                         const glm::uvec3 &triangleIndices) const {
+        __device__ glm::vec3
+        GetTransformedPosition(const glm::mat4 &globalTransform, const float2 &triangleBarycentrics,
+                               const glm::uvec3 &triangleIndices) const {
 
             return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                   m_positions[triangleIndices.x] +
-                   triangleBarycentrics.x * m_positions[triangleIndices.y] +
-                   triangleBarycentrics.y * m_positions[triangleIndices.z], 1.0f);
+                                               m_vertices[triangleIndices.x].m_position +
+                                               triangleBarycentrics.x * m_vertices[triangleIndices.y].m_position +
+                                               triangleBarycentrics.y * m_vertices[triangleIndices.z].m_position, 1.0f);
+        }
+
+        __device__ glm::vec3 GetPosition(const float2 &triangleBarycentrics,
+                                         const glm::uvec3 &triangleIndices) const {
+            return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                   m_vertices[triangleIndices.x].m_position +
+                   triangleBarycentrics.x * m_vertices[triangleIndices.y].m_position +
+                   triangleBarycentrics.y * m_vertices[triangleIndices.z].m_position;
         }
 
         __device__ glm::vec3 GetColor(const float2 &triangleBarycentrics,
                                       const glm::uvec3 &triangleIndices) const {
             auto z = 1.f - triangleBarycentrics.x - triangleBarycentrics.y;
             if (triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y) {
-                return m_colors[triangleIndices.x];
+                return m_vertices[triangleIndices.x].m_color;
             } else if (triangleBarycentrics.y > z) {
-                return m_colors[triangleIndices.y];
+                return m_vertices[triangleIndices.y].m_color;
             }
-            return m_colors[triangleIndices.z];
+            return m_vertices[triangleIndices.z].m_color;
         }
 
-        __device__ glm::vec3 GetNormal(const glm::mat4& globalTransform, const float2 &triangleBarycentrics,
+        __device__ glm::vec3 GetTransformedNormal(const glm::mat4 &globalTransform, const float2 &triangleBarycentrics,
+                                                  const glm::uvec3 &triangleIndices) const {
+            return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                                               m_vertices[triangleIndices.x].m_normal +
+                                               triangleBarycentrics.x * m_vertices[triangleIndices.y].m_normal +
+                                               triangleBarycentrics.y * m_vertices[triangleIndices.z].m_normal, 0.0f);
+        }
+
+        __device__ glm::vec3 GetTransformedTangent(const glm::mat4 &globalTransform, const float2 &triangleBarycentrics,
+                                                   const glm::uvec3 &triangleIndices) const {
+            return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                                               m_vertices[triangleIndices.x].m_tangent +
+                                               triangleBarycentrics.x * m_vertices[triangleIndices.y].m_tangent +
+                                               triangleBarycentrics.y * m_vertices[triangleIndices.z].m_tangent, 0.0f);
+        }
+
+        __device__ glm::vec3 GetNormal(const float2 &triangleBarycentrics,
                                        const glm::uvec3 &triangleIndices) const {
-            return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                   m_normals[triangleIndices.x] +
-                   triangleBarycentrics.x * m_normals[triangleIndices.y] +
-                   triangleBarycentrics.y * m_normals[triangleIndices.z], 0.0f);
+            return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                   m_vertices[triangleIndices.x].m_normal +
+                   triangleBarycentrics.x * m_vertices[triangleIndices.y].m_normal +
+                   triangleBarycentrics.y * m_vertices[triangleIndices.z].m_normal;
         }
 
-        __device__ glm::vec3 GetTangent(const glm::mat4& globalTransform, const float2 &triangleBarycentrics,
+        __device__ glm::vec3 GetTangent(const float2 &triangleBarycentrics,
                                         const glm::uvec3 &triangleIndices) const {
-            return globalTransform * glm::vec4((1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                   m_tangents[triangleIndices.x] +
-                   triangleBarycentrics.x * m_tangents[triangleIndices.y] +
-                   triangleBarycentrics.y * m_tangents[triangleIndices.z], 0.0f);
+            return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                   m_vertices[triangleIndices.x].m_tangent +
+                   triangleBarycentrics.x * m_vertices[triangleIndices.y].m_tangent +
+                   triangleBarycentrics.y * m_vertices[triangleIndices.z].m_tangent;
         }
     };
 
@@ -195,24 +247,24 @@ namespace RayTracerFacility {
         MaterialType m_materialType;
         void *m_material;
 
-        __device__ void GetGeometricInfo(glm::vec3& rayDirection, glm::vec2& texCoord, glm::vec3& hitPoint, glm::vec3& normal, glm::vec3& tangent, glm::vec3& color) const{
-            if(m_geometryType != GeometryType::Curve) {
+        __device__ void
+        GetGeometricInfo(glm::vec3 &rayDirection, glm::vec2 &texCoord, glm::vec3 &hitPoint, glm::vec3 &normal,
+                         glm::vec3 &tangent, glm::vec3 &color) const {
+            if (m_geometryType != GeometryType::Curve) {
                 const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
                 const int primitiveId = optixGetPrimitiveIndex();
                 auto *mesh = (Mesh *) m_geometry;
                 auto indices = mesh->GetIndices(primitiveId);
-                texCoord =
-                        mesh->GetTexCoord(triangleBarycentricsInternal, indices);
-                normal = mesh->GetNormal(m_globalTransform, triangleBarycentricsInternal, indices);
+                UniEngine::Vertex weightedVertex;
+                mesh->GetVertex(weightedVertex, triangleBarycentricsInternal, indices);
+                texCoord = weightedVertex.m_texCoords;
+                normal = m_globalTransform * glm::vec4(weightedVertex.m_normal, 0.0f);
                 if (glm::dot(rayDirection, normal) > 0.0f) {
                     normal = -normal;
                 }
-                tangent =
-                        mesh->GetTangent(m_globalTransform, triangleBarycentricsInternal, indices);
-                hitPoint =
-                        mesh->GetPosition(m_globalTransform, triangleBarycentricsInternal, indices);
-                color =
-                        mesh->GetColor(triangleBarycentricsInternal, indices);
+                tangent = m_globalTransform * glm::vec4(weightedVertex.m_tangent, 0.0f);
+                hitPoint = m_globalTransform * glm::vec4(weightedVertex.m_position, 1.0f);
+                color = weightedVertex.m_color;
             }
         }
     };
