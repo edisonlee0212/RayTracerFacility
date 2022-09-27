@@ -1205,7 +1205,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
         case GeometryType::Default: {
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
-            uint32_t triangleInputFlags;
+            const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
             m_vertexDataBuffer.Upload(*m_vertices);
             devicePositionBuffer.Resize(
@@ -1250,11 +1250,9 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             buildInput.triangleArray.indexBuffer =
                     deviceVertexTriangles;
 
-            triangleInputFlags = 0;
-
             // in this example we have one SBT entry, and no per-primitive
             // materials:
-            buildInput.triangleArray.flags = &triangleInputFlags;
+            buildInput.triangleArray.flags = triangleInputFlags;
             buildInput.triangleArray.numSbtRecords = 1;
             buildInput.triangleArray.sbtIndexOffsetBuffer = 0;
             buildInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
@@ -1264,7 +1262,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
         case GeometryType::Skinned: {
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
-            uint32_t triangleInputFlags;
+            const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
             CudaBuffer skinnedVerticesBuffer;
             CudaBuffer boneMatricesBuffer;
@@ -1311,10 +1309,9 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                     static_cast<int>(m_triangleBuffer.m_sizeInBytes / sizeof(glm::uvec3));
             buildInput.triangleArray.indexBuffer =
                     deviceVertexTriangles;
-            triangleInputFlags = 0;
             // in this example we have one SBT entry, and no per-primitive
             // materials:
-            buildInput.triangleArray.flags = &triangleInputFlags;
+            buildInput.triangleArray.flags = triangleInputFlags;
             buildInput.triangleArray.numSbtRecords = 1;
             buildInput.triangleArray.sbtIndexOffsetBuffer = 0;
             buildInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
@@ -1326,7 +1323,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
         case GeometryType::Instanced: {
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
-            uint32_t triangleInputFlags;
+            const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
 
             CudaBuffer verticesBuffer;
             CudaBuffer instanceMatricesBuffer;
@@ -1386,10 +1383,9 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                     static_cast<int>(m_triangleBuffer.m_sizeInBytes / sizeof(glm::uvec3));
             buildInput.triangleArray.indexBuffer =
                     deviceVertexTriangles;
-            triangleInputFlags = 0;
             // in this example we have one SBT entry, and no per-primitive
             // materials:
-            buildInput.triangleArray.flags = &triangleInputFlags;
+            buildInput.triangleArray.flags = triangleInputFlags;
             buildInput.triangleArray.numSbtRecords = 1;
             buildInput.triangleArray.sbtIndexOffsetBuffer = 0;
             buildInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
@@ -1407,7 +1403,10 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
     OptixAccelBuildOptions accelerateOptions = {};
     accelerateOptions.buildFlags =
-            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION | OPTIX_BUILD_FLAG_ALLOW_RANDOM_VERTEX_ACCESS;
+            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
+    if(m_geometryType == GeometryType::Curve){
+        accelerateOptions.buildFlags = accelerateOptions.buildFlags | OPTIX_BUILD_FLAG_ALLOW_RANDOM_VERTEX_ACCESS;
+    }
     accelerateOptions.motionOptions.numKeys = 1;
     accelerateOptions.operation = OPTIX_BUILD_OPERATION_BUILD;
 
@@ -1473,7 +1472,8 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 #pragma endregion
 
     devicePositionBuffer.Free();
-
+    deviceStrandsBuffer.Free();
+    deviceWidthBuffer.Free();
     m_updateFlag = false;
 }
 
