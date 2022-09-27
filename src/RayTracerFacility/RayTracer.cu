@@ -1070,7 +1070,7 @@ CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matri
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < verticesSize * matricesSize) {
         const glm::vec3 position = matrices[idx / verticesSize] *
-                        glm::vec4(vertices[idx % verticesSize].m_position, 1.0f);
+                                   glm::vec4(vertices[idx % verticesSize].m_position, 1.0f);
         targetPositions[idx] = position;
         glm::vec3 N = glm::normalize(matrices[idx / verticesSize] *
                                      glm::vec4(vertices[idx % verticesSize].m_normal, 0.0f));
@@ -1149,23 +1149,66 @@ __global__ void CopySkinnedVerticesKernel(int size,
 
 void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 #pragma region Clean previous buffer
-    m_positionBuffer.Free();
     m_vertexDataBuffer.Free();
     m_acceleratedStructureBuffer.Free();
 #pragma endregion
+
+    CudaBuffer devicePositionBuffer;
+    CudaBuffer deviceWidthBuffer;
+    CudaBuffer deviceStrandsBuffer;
+
+
 #pragma region Triangle Inputs
     // ==================================================================
     // triangle inputs
     // ==================================================================
-    OptixBuildInput triangleInput;
-    CUdeviceptr deviceVertexPositions;
-    CUdeviceptr deviceVertexTriangles;
-    uint32_t triangleInputFlags;
-
+    OptixBuildInput buildInput;
     switch (m_geometryType) {
+        case GeometryType::Curve: {
+            CUdeviceptr devicePoints;
+            CUdeviceptr deviceWidths;
+            CUdeviceptr deviceStrands;
+
+            devicePositionBuffer.Upload(*m_curvePoints);
+            deviceWidthBuffer.Upload(*m_curveThickness);
+            deviceStrandsBuffer.Upload(*m_curveSegments);
+            buildInput.type = OPTIX_BUILD_INPUT_TYPE_CURVES;
+            switch(m_curveMode)
+            {
+                case CurveMode::Linear:
+                    buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR;
+                    break;
+                case CurveMode::Quadratic:
+                    buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE;
+                    break;
+                case CurveMode::Cubic:
+                    buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
+                    break;
+            }
+            devicePoints = devicePositionBuffer.DevicePointer();
+            deviceWidths = deviceWidthBuffer.DevicePointer();
+            deviceStrands = deviceStrandsBuffer.DevicePointer();
+            buildInput.curveArray.numPrimitives        = m_curveSegments->size();
+            buildInput.curveArray.vertexBuffers        = &devicePoints;
+            buildInput.curveArray.numVertices          = static_cast<unsigned int>(m_curvePoints->size());
+            buildInput.curveArray.vertexStrideInBytes  = sizeof(glm::vec3);
+            buildInput.curveArray.widthBuffers         = &deviceWidths;
+            buildInput.curveArray.widthStrideInBytes   = sizeof( float );
+            buildInput.curveArray.normalBuffers        = 0;
+            buildInput.curveArray.normalStrideInBytes  = 0;
+            buildInput.curveArray.indexBuffer          = deviceStrands;
+            buildInput.curveArray.indexStrideInBytes   = sizeof( int );
+            buildInput.curveArray.flag                 = OPTIX_GEOMETRY_FLAG_NONE;
+            buildInput.curveArray.primitiveIndexOffset = 0;
+        }
+            break;
         case GeometryType::Default: {
+            CUdeviceptr deviceVertexPositions;
+            CUdeviceptr deviceVertexTriangles;
+            uint32_t triangleInputFlags;
+
             m_vertexDataBuffer.Upload(*m_vertices);
-            m_positionBuffer.Resize(
+            devicePositionBuffer.Resize(
                     m_vertices->size() * sizeof(glm::vec3));
             int blockSize = 0;   // The launch configurator returned block size
             int minGridSize = 0; // The minimum grid size needed to achieve the
@@ -1178,59 +1221,58 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             CopyVerticesKernel<<<gridSize, blockSize>>>(
                     size,
                     static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr));
+                    static_cast<glm::vec3 *>(devicePositionBuffer.m_dPtr));
             CUDA_SYNC_CHECK();
             m_triangleBuffer.Upload(*m_triangles);
 
-            triangleInput = {};
-            triangleInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+            buildInput = {};
+            buildInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
 
             // create local variables, because we need a *pointer* to the
             // device pointers
             deviceVertexPositions =
-                    m_positionBuffer.DevicePointer();
+                    devicePositionBuffer.DevicePointer();
             deviceVertexTriangles = m_triangleBuffer.DevicePointer();
 
-            triangleInput.triangleArray.vertexFormat =
+            buildInput.triangleArray.vertexFormat =
                     OPTIX_VERTEX_FORMAT_FLOAT3;
-            triangleInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
-            triangleInput.triangleArray.numVertices =
-                    static_cast<int>(m_positionBuffer.m_sizeInBytes / sizeof(glm::vec3));
-            triangleInput.triangleArray.vertexBuffers =
+            buildInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
+            buildInput.triangleArray.numVertices =
+                    static_cast<int>(devicePositionBuffer.m_sizeInBytes / sizeof(glm::vec3));
+            buildInput.triangleArray.vertexBuffers =
                     &deviceVertexPositions;
 
-            // triangleInput[meshID].triangleArray.transformFormat =
-            // OPTIX_TRANSFORM_FORMAT_MATRIX_FLOAT12;
-            // triangleInput[meshID].triangleArray.preTransform =
-            // deviceTransforms[meshID];
-
-            triangleInput.triangleArray.indexFormat =
+            buildInput.triangleArray.indexFormat =
                     OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
-            triangleInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
-            triangleInput.triangleArray.numIndexTriplets =
+            buildInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
+            buildInput.triangleArray.numIndexTriplets =
                     static_cast<int>(m_triangleBuffer.m_sizeInBytes / sizeof(glm::uvec3));
-            triangleInput.triangleArray.indexBuffer =
+            buildInput.triangleArray.indexBuffer =
                     deviceVertexTriangles;
 
             triangleInputFlags = 0;
 
             // in this example we have one SBT entry, and no per-primitive
             // materials:
-            triangleInput.triangleArray.flags = &triangleInputFlags;
-            triangleInput.triangleArray.numSbtRecords = 1;
-            triangleInput.triangleArray.sbtIndexOffsetBuffer = 0;
-            triangleInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
-            triangleInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
+            buildInput.triangleArray.flags = &triangleInputFlags;
+            buildInput.triangleArray.numSbtRecords = 1;
+            buildInput.triangleArray.sbtIndexOffsetBuffer = 0;
+            buildInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
+            buildInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
         }
             break;
         case GeometryType::Skinned: {
+            CUdeviceptr deviceVertexPositions;
+            CUdeviceptr deviceVertexTriangles;
+            uint32_t triangleInputFlags;
+
             CudaBuffer skinnedVerticesBuffer;
             CudaBuffer boneMatricesBuffer;
             skinnedVerticesBuffer.Upload(*m_skinnedVertices);
             boneMatricesBuffer.Upload(*m_boneMatrices);
             m_vertexDataBuffer.Resize(
                     m_skinnedVertices->size() * sizeof(UniEngine::Vertex));
-            m_positionBuffer.Resize(
+            devicePositionBuffer.Resize(
                     m_skinnedVertices->size() * sizeof(glm::vec3));
             int blockSize = 0;   // The launch configurator returned block size
             int minGridSize = 0; // The minimum grid size needed to achieve the
@@ -1244,52 +1286,56 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                     size,
                     static_cast<UniEngine::SkinnedVertex *>(skinnedVerticesBuffer.m_dPtr),
                     static_cast<glm::mat4 *>(boneMatricesBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr),
+                    static_cast<glm::vec3 *>(devicePositionBuffer.m_dPtr),
                     static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr));
             CUDA_SYNC_CHECK();
             m_triangleBuffer.Upload(*m_triangles);
-            triangleInput = {};
-            triangleInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+            buildInput = {};
+            buildInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
             // create local variables, because we need a *pointer* to the
             // device pointers
             deviceVertexPositions =
-                    m_positionBuffer.DevicePointer();
+                    devicePositionBuffer.DevicePointer();
             deviceVertexTriangles = m_triangleBuffer.DevicePointer();
-            triangleInput.triangleArray.vertexFormat =
+            buildInput.triangleArray.vertexFormat =
                     OPTIX_VERTEX_FORMAT_FLOAT3;
-            triangleInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
-            triangleInput.triangleArray.numVertices =
-                    static_cast<int>(m_positionBuffer.m_sizeInBytes / sizeof(glm::vec3));
-            triangleInput.triangleArray.vertexBuffers =
+            buildInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
+            buildInput.triangleArray.numVertices =
+                    static_cast<int>(devicePositionBuffer.m_sizeInBytes / sizeof(glm::vec3));
+            buildInput.triangleArray.vertexBuffers =
                     &deviceVertexPositions;
-            triangleInput.triangleArray.indexFormat =
+            buildInput.triangleArray.indexFormat =
                     OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
-            triangleInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
-            triangleInput.triangleArray.numIndexTriplets =
+            buildInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
+            buildInput.triangleArray.numIndexTriplets =
                     static_cast<int>(m_triangleBuffer.m_sizeInBytes / sizeof(glm::uvec3));
-            triangleInput.triangleArray.indexBuffer =
+            buildInput.triangleArray.indexBuffer =
                     deviceVertexTriangles;
             triangleInputFlags = 0;
             // in this example we have one SBT entry, and no per-primitive
             // materials:
-            triangleInput.triangleArray.flags = &triangleInputFlags;
-            triangleInput.triangleArray.numSbtRecords = 1;
-            triangleInput.triangleArray.sbtIndexOffsetBuffer = 0;
-            triangleInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
-            triangleInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
+            buildInput.triangleArray.flags = &triangleInputFlags;
+            buildInput.triangleArray.numSbtRecords = 1;
+            buildInput.triangleArray.sbtIndexOffsetBuffer = 0;
+            buildInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
+            buildInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
             skinnedVerticesBuffer.Free();
             boneMatricesBuffer.Free();
         }
             break;
         case GeometryType::Instanced: {
+            CUdeviceptr deviceVertexPositions;
+            CUdeviceptr deviceVertexTriangles;
+            uint32_t triangleInputFlags;
+
             CudaBuffer verticesBuffer;
             CudaBuffer instanceMatricesBuffer;
             verticesBuffer.Upload(*m_vertices);
             instanceMatricesBuffer.Upload(*m_instanceMatrices);
             m_vertexDataBuffer.Resize(m_instanceMatrices->size() *
-                                              m_vertices->size() * sizeof(UniEngine::Vertex));
+                                      m_vertices->size() * sizeof(UniEngine::Vertex));
 
-            m_positionBuffer.Resize(m_instanceMatrices->size() *
+            devicePositionBuffer.Resize(m_instanceMatrices->size() *
                                     m_vertices->size() * sizeof(glm::vec3));
             int blockSize = 0;   // The launch configurator returned block verticesSize
             int minGridSize = 0; // The minimum grid verticesSize needed to achieve the
@@ -1305,7 +1351,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                                                                  verticesSize,
                                                                  static_cast<glm::mat4 *>(instanceMatricesBuffer.m_dPtr),
                                                                  static_cast<UniEngine::Vertex *>(verticesBuffer.m_dPtr),
-                                                                 static_cast<glm::vec3 *>(m_positionBuffer.m_dPtr),
+                                                                 static_cast<glm::vec3 *>(devicePositionBuffer.m_dPtr),
                                                                  static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr));
             CUDA_SYNC_CHECK();
             auto triangles = std::vector<glm::uvec3>();
@@ -1319,41 +1365,40 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                 offset += m_vertices->size();
             }
             m_triangleBuffer.Upload(triangles);
-            triangleInput = {};
-            triangleInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
+            buildInput = {};
+            buildInput.type = OPTIX_BUILD_INPUT_TYPE_TRIANGLES;
             // create local variables, because we need a *pointer* to the
             // device pointers
             deviceVertexPositions =
-                    m_positionBuffer.DevicePointer();
+                    devicePositionBuffer.DevicePointer();
             deviceVertexTriangles = m_triangleBuffer.DevicePointer();
-            triangleInput.triangleArray.vertexFormat =
+            buildInput.triangleArray.vertexFormat =
                     OPTIX_VERTEX_FORMAT_FLOAT3;
-            triangleInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
-            triangleInput.triangleArray.numVertices =
-                    static_cast<int>(m_positionBuffer.m_sizeInBytes / sizeof(glm::vec3));
-            triangleInput.triangleArray.vertexBuffers =
+            buildInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
+            buildInput.triangleArray.numVertices =
+                    static_cast<int>(devicePositionBuffer.m_sizeInBytes / sizeof(glm::vec3));
+            buildInput.triangleArray.vertexBuffers =
                     &deviceVertexPositions;
-            triangleInput.triangleArray.indexFormat =
+            buildInput.triangleArray.indexFormat =
                     OPTIX_INDICES_FORMAT_UNSIGNED_INT3;
-            triangleInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
-            triangleInput.triangleArray.numIndexTriplets =
+            buildInput.triangleArray.indexStrideInBytes = sizeof(glm::uvec3);
+            buildInput.triangleArray.numIndexTriplets =
                     static_cast<int>(m_triangleBuffer.m_sizeInBytes / sizeof(glm::uvec3));
-            triangleInput.triangleArray.indexBuffer =
+            buildInput.triangleArray.indexBuffer =
                     deviceVertexTriangles;
             triangleInputFlags = 0;
             // in this example we have one SBT entry, and no per-primitive
             // materials:
-            triangleInput.triangleArray.flags = &triangleInputFlags;
-            triangleInput.triangleArray.numSbtRecords = 1;
-            triangleInput.triangleArray.sbtIndexOffsetBuffer = 0;
-            triangleInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
-            triangleInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
+            buildInput.triangleArray.flags = &triangleInputFlags;
+            buildInput.triangleArray.numSbtRecords = 1;
+            buildInput.triangleArray.sbtIndexOffsetBuffer = 0;
+            buildInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
+            buildInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
             verticesBuffer.Free();
             instanceMatricesBuffer.Free();
         }
-        break;
+            break;
     }
-
 #pragma endregion
 #pragma region BLAS setup
     // ==================================================================
@@ -1362,13 +1407,13 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
     OptixAccelBuildOptions accelerateOptions = {};
     accelerateOptions.buildFlags =
-            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
+            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION | OPTIX_BUILD_FLAG_ALLOW_RANDOM_VERTEX_ACCESS;
     accelerateOptions.motionOptions.numKeys = 1;
     accelerateOptions.operation = OPTIX_BUILD_OPERATION_BUILD;
 
     OptixAccelBufferSizes blasBufferSizes;
     OPTIX_CHECK(optixAccelComputeMemoryUsage(
-            context, &accelerateOptions, &triangleInput,
+            context, &accelerateOptions, &buildInput,
             1, // num_build_inputs
             &blasBufferSizes));
 #pragma endregion
@@ -1397,7 +1442,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
     OPTIX_CHECK(
             optixAccelBuild(context,
                     /* stream */ nullptr, &accelerateOptions,
-                            &triangleInput, 1,
+                            &buildInput, 1,
                             tempBuffer.DevicePointer(), tempBuffer.m_sizeInBytes,
                             outputBuffer.DevicePointer(), outputBuffer.m_sizeInBytes,
                             &m_traversableHandle,
@@ -1426,6 +1471,9 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
     tempBuffer.Free();
     compactedSizeBuffer.Free();
 #pragma endregion
+
+    devicePositionBuffer.Free();
+
     m_updateFlag = false;
 }
 
@@ -1449,7 +1497,6 @@ void RayTracer::BuildIAS() {
     }
     for (auto &i: removeQueue) {
         auto &geometry = m_geometries.at(i);
-        geometry.m_positionBuffer.Free();
         geometry.m_geometryBuffer.Free();
         geometry.m_vertexDataBuffer.Free();
         geometry.m_triangleBuffer.Free();
@@ -1909,7 +1956,7 @@ void RayTracer::LoadBtfMaterials(const std::vector<std::string> &folderPathes) {
     }
 }
 
-void RayTracerMaterial::UploadForSBT(
+void RayTracedMaterial::UploadForSBT(
         std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
         std::vector<cudaGraphicsResource_t> &boundResources) {
     DefaultMaterial material;
@@ -2004,7 +2051,7 @@ void RayTracerMaterial::UploadForSBT(
 }
 
 void
-RayTracerMaterial::BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource,
+RayTracedMaterial::BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource,
                                cudaTextureObject_t &textureObject) {
     cudaArray_t textureArray;
     CUDA_CHECK(GraphicsGLRegisterImage(

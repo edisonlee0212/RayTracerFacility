@@ -187,16 +187,16 @@ namespace RayTracerFacility {
 
     template<typename T>
     struct RAY_TRACER_FACILITY_API IlluminationSampler {
-        glm::vec3 m_surfaceNormal;
+        glm::vec3 m_surfaceNormal{};
         /**
          * \brief The position of the light probe.
          */
-        glm::vec3 m_position;
+        glm::vec3 m_position{};
         /**
          * \brief The calculated overall direction where the point received most
          * light.
          */
-        glm::vec3 m_direction;
+        glm::vec3 m_direction{};
         /**
          * \brief The total energy received at this point.
          */
@@ -235,23 +235,22 @@ namespace RayTracerFacility {
     };
 
 #pragma endregion
-
-    struct RAY_TRACER_FACILITY_API RayTracerTexture {
+    struct RAY_TRACER_FACILITY_API RayTracedTexture {
         unsigned m_textureId = 0;
     };
 
     struct DefaultMaterial;
 
-    struct RAY_TRACER_FACILITY_API RayTracerMaterial {
+    struct RAY_TRACER_FACILITY_API RayTracedMaterial {
         MaterialType m_materialType = MaterialType::Default;
 
         int m_MLVQMaterialIndex;
         MaterialProperties m_materialProperties;
 
-        RayTracerTexture m_albedoTexture;
-        RayTracerTexture m_normalTexture;
-        RayTracerTexture m_metallicTexture;
-        RayTracerTexture m_roughnessTexture;
+        RayTracedTexture m_albedoTexture;
+        RayTracedTexture m_normalTexture;
+        RayTracedTexture m_metallicTexture;
+        RayTracedTexture m_roughnessTexture;
 
         size_t m_version;
         uint64_t m_handle = 0;
@@ -265,19 +264,28 @@ namespace RayTracerFacility {
 
         void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t &textureObject);
     };
-
+    enum class CurveMode {
+        Linear,
+        Quadratic,
+        Cubic
+    };
     struct RAY_TRACER_FACILITY_API RayTracedGeometry {
         GeometryType m_geometryType = GeometryType::Default;
         union {
-            std::vector<UniEngine::Vertex> *m_vertices;
+            std::vector<UniEngine::Vertex> *m_vertices = nullptr;
             std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
+            std::vector<glm::vec3>* m_curvePoints;
         };
         std::vector<glm::mat4> *m_boneMatrices = nullptr;
         std::vector<glm::mat4> *m_instanceMatrices = nullptr;
-        std::vector<glm::uvec3> *m_triangles;
+        std::vector<float>* m_curveThickness = nullptr;
+        union {
+            std::vector<glm::uvec3> *m_triangles = nullptr;
+            std::vector<int>* m_curveSegments;
+        };
+        CurveMode m_curveMode = CurveMode::Linear;
 
         OptixTraversableHandle m_traversableHandle = 0;
-        CudaBuffer m_positionBuffer;
         CudaBuffer m_vertexDataBuffer;
         CudaBuffer m_triangleBuffer;
         CudaBuffer m_acceleratedStructureBuffer;
@@ -333,7 +341,7 @@ namespace RayTracerFacility {
     class RayTracer {
     public:
         bool m_requireUpdate = false;
-        std::map<uint64_t, RayTracerMaterial> m_materials;
+        std::map<uint64_t, RayTracedMaterial> m_materials;
         std::map<uint64_t, RayTracedGeometry> m_geometries;
         std::map<uint64_t, RayTracedInstance> m_instances;
 

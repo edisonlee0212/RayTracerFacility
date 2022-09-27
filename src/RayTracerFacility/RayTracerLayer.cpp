@@ -8,18 +8,79 @@
 #include "TriangleIlluminationEstimator.hpp"
 #include "PointCloudScanner.hpp"
 #include "ClassRegistry.hpp"
-
+#include "StrandsRenderer.hpp"
 using namespace RayTracerFacility;
 
 std::shared_ptr<RayTracerCamera> RayTracerLayer::m_rayTracerCamera;
 
-void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracerMaterial> &materialStorage,
+void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &materialStorage,
                                          std::map<uint64_t, RayTracedGeometry> &geometryStorage,
                                          std::map<uint64_t, RayTracedInstance> &instanceStorage,
                                          bool &rebuildInstances, bool &updateShaderBindingTable) const {
     for (auto &i: instanceStorage) i.second.m_removeFlag = true;
     for (auto &i: geometryStorage) i.second.m_removeFlag = true;
+    for (auto &i: materialStorage) i.second.m_removeFlag = true;
     auto scene = GetScene();
+    if (const auto *rayTracedEntities =
+                scene->UnsafeGetPrivateComponentOwnersList<StrandsRenderer>();
+            rayTracedEntities && m_renderStrandsRenderer) {
+        for (auto entity: *rayTracedEntities) {
+            if (!scene->IsEntityEnabled(entity))
+                continue;
+            auto strandsRendererRenderer =
+                    scene->GetOrSetPrivateComponent<StrandsRenderer>(entity).lock();
+            if (!strandsRendererRenderer->IsEnabled())
+                continue;
+            auto strands = strandsRendererRenderer->m_strands.Get<Strands>();
+            auto material = strandsRendererRenderer->m_material.Get<Material>();
+            if (!material || !strands || strands->UnsafeGetPoints().empty() || strands->UnsafeGetSegments().empty() || strands->UnsafeGetThickness().empty())
+                continue;
+            auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
+            bool needInstanceUpdate = false;
+            bool needMaterialUpdate = false;
+
+            auto entityHandle = scene->GetEntityHandle(entity);
+            auto geometryHandle = strands->GetHandle();
+            auto materialHandle = material->GetHandle();
+            auto &rayTracedInstance = instanceStorage[entityHandle];
+            auto &rayTracedGeometry = geometryStorage[geometryHandle];
+            auto &rayTracedMaterial = materialStorage[materialHandle];
+            rayTracedInstance.m_removeFlag = false;
+            rayTracedMaterial.m_removeFlag = false;
+            rayTracedGeometry.m_removeFlag = false;
+
+            if (rayTracedInstance.m_entityHandle != entityHandle
+                || rayTracedInstance.m_privateComponentHandle != strandsRendererRenderer->GetHandle().GetValue()
+                || rayTracedInstance.m_version != strandsRendererRenderer->GetVersion()
+                || globalTransform != rayTracedInstance.m_globalTransform) {
+                needInstanceUpdate = true;
+            }
+            if (rayTracedGeometry.m_handle == 0 || rayTracedGeometry.m_version != strands->GetVersion()) {
+                rayTracedGeometry.m_updateFlag = true;
+                needInstanceUpdate = true;
+                rayTracedGeometry.m_geometryType = GeometryType::Curve;
+                rayTracedGeometry.m_curveThickness = &strands->UnsafeGetThickness();
+                rayTracedGeometry.m_curveSegments = &strands->UnsafeGetSegments();
+                rayTracedGeometry.m_curvePoints = &strands->UnsafeGetPoints();
+                rayTracedGeometry.m_version = strands->GetVersion();
+                rayTracedGeometry.m_curveMode = (CurveMode)strands->GetSplineMode();
+                rayTracedGeometry.m_handle = geometryHandle;
+            }
+            if (CheckMaterial(rayTracedMaterial, material)) needInstanceUpdate = true;
+            if (needInstanceUpdate) {
+                rayTracedInstance.m_entityHandle = entityHandle;
+                rayTracedInstance.m_privateComponentHandle = strandsRendererRenderer->GetHandle().GetValue();
+                rayTracedInstance.m_version = strandsRendererRenderer->GetVersion();
+                rayTracedInstance.m_globalTransform = globalTransform;
+                rayTracedInstance.m_geometryMapKey = geometryHandle;
+                rayTracedInstance.m_materialMapKey = materialHandle;
+            }
+            updateShaderBindingTable = updateShaderBindingTable || needMaterialUpdate;
+            rebuildInstances = rebuildInstances || needInstanceUpdate;
+        }
+    }
+
+
     if (const auto *rayTracedEntities =
                 scene->UnsafeGetPrivateComponentOwnersList<MeshRenderer>();
             rayTracedEntities && m_renderMeshRenderer) {
@@ -525,7 +586,7 @@ void RayTracerLayer::Update() {
 }
 
 bool
-RayTracerLayer::CheckMaterial(RayTracerMaterial &rayTracerMaterial, const std::shared_ptr<Material> &material) const {
+RayTracerLayer::CheckMaterial(RayTracedMaterial &rayTracerMaterial, const std::shared_ptr<Material> &material) const {
     bool changed = false;
     if (rayTracerMaterial.m_materialProperties.m_surfaceColor != material->m_albedoColor) {
         changed = true;

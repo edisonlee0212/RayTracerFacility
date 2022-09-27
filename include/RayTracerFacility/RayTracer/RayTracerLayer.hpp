@@ -17,7 +17,7 @@ using namespace UniEngine;
 namespace RayTracerFacility {
     class RAY_TRACER_FACILITY_API RayTracerLayer : public ILayer {
     protected:
-        void UpdateMeshesStorage(std::map<uint64_t, RayTracerMaterial> &materialStorage,
+        void UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &materialStorage,
                                  std::map<uint64_t, RayTracedGeometry> &geometryStorage,
                                  std::map<uint64_t, RayTracedInstance> &instanceStorage, bool &rebuildInstances,
                                  bool &updateShaderBindingTable) const;
@@ -30,10 +30,11 @@ namespace RayTracerFacility {
 
         static std::shared_ptr<RayTracerCamera> m_rayTracerCamera;
 
-        bool CheckMaterial(RayTracerMaterial &rayTracerMaterial, const std::shared_ptr<Material> &material) const;
+        bool CheckMaterial(RayTracedMaterial &rayTracerMaterial, const std::shared_ptr<Material> &material) const;
 
     public:
         bool m_renderMeshRenderer = true;
+        bool m_renderStrandsRenderer = true;
         bool m_renderParticles = true;
         bool m_renderMLVQRenderer = true;
         bool m_renderSkinnedMeshRenderer = true;
