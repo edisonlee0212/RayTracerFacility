@@ -15,7 +15,7 @@ Please visit script for further details.
  - OptiX Ai Denoiser
  - CUDA version of MLVQ library that supports rendering compressed BTF materials with OptiX.
    - Screenshot: ![MLVQScreenshot](/Resources/GitHub/MLVQ.png?raw=true "MLVQScreenshot")
- - Mesh surface illumination estimation
+ - TriangularMesh surface illumination estimation
    - Screenshot: ![IlluminationScreenshot](/Resources/GitHub/Illumination.png?raw=true "IlluminationScreenshot")
  - Virtual Laser Scanner/LiDAR for point cloud generation in virtual scene 
    - Screenshot: ![PointCloudScreenshot](/Resources/GitHub/VirtualScan.png?raw=true "PointCloudScreenshot")

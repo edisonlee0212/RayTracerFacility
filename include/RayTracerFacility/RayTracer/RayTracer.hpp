@@ -239,7 +239,7 @@ namespace RayTracerFacility {
         unsigned m_textureId = 0;
     };
 
-    struct DefaultMaterial;
+    struct SurfaceMaterial;
 
     struct RAY_TRACER_FACILITY_API RayTracedMaterial {
         MaterialType m_materialType = MaterialType::Default;
@@ -259,34 +259,45 @@ namespace RayTracerFacility {
 
         bool m_removeFlag = true;
 
-        void UploadForSBT(std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>> &boundTextures,
+        void UploadForSBT(std::vector<std::pair<unsigned, cudaTextureObject_t>> &boundTextures,
                           std::vector<cudaGraphicsResource_t> &boundResources);
 
         void BindTexture(unsigned int id, cudaGraphicsResource_t &graphicsResource, cudaTextureObject_t &textureObject);
     };
+
     enum class CurveMode {
         Linear,
         Quadratic,
         Cubic
     };
+
     struct RAY_TRACER_FACILITY_API RayTracedGeometry {
         GeometryType m_geometryType = GeometryType::Default;
         union {
             std::vector<UniEngine::Vertex> *m_vertices = nullptr;
             std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
-            std::vector<glm::vec3>* m_curvePoints;
+            std::vector<glm::vec3> *m_curvePoints;
         };
         std::vector<glm::mat4> *m_boneMatrices = nullptr;
         std::vector<glm::mat4> *m_instanceMatrices = nullptr;
-        std::vector<float>* m_curveThickness = nullptr;
+        std::vector<float> *m_curveThickness = nullptr;
         union {
             std::vector<glm::uvec3> *m_triangles = nullptr;
-            std::vector<int>* m_curveSegments;
+            std::vector<int> *m_curveSegments;
         };
         CurveMode m_curveMode = CurveMode::Linear;
+        std::vector<glm::vec2> *m_strandU;
+        std::vector<int> *m_strandIndices;
+        std::vector<glm::uvec2> *m_strandInfos;
 
         OptixTraversableHandle m_traversableHandle = 0;
+
         CudaBuffer m_vertexDataBuffer;
+        CudaBuffer m_curveStrandUBuffer;
+        CudaBuffer m_curveStrandIBuffer;
+        CudaBuffer m_curveStrandInfoBuffer;
+
+
         CudaBuffer m_triangleBuffer;
         CudaBuffer m_acceleratedStructureBuffer;
         size_t m_version = 0;
@@ -370,7 +381,7 @@ namespace RayTracerFacility {
 
         /*! constructs the shader binding table */
         void BuildSBT(
-                std::vector<std::pair<unsigned, std::pair<cudaTextureObject_t, int>>>
+                std::vector<std::pair<unsigned, cudaTextureObject_t>>
                 &boundTextures,
                 std::vector<cudaGraphicsResource_t> &boundResources);
 

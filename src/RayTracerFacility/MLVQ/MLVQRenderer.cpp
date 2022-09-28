@@ -16,7 +16,7 @@ const char *MLVQMaterials[]{"None", "alu", "corduroy", "fabric01", "impalla",
 
 void MLVQRenderer::OnInspect() {
     if(ImGui::Button("Sync")) Sync();
-    Editor::DragAndDropButton<Mesh>(m_mesh, "Mesh");
+    Editor::DragAndDropButton<Mesh>(m_mesh, "TriangularMesh");
     ImGui::Text("Material: ");
     ImGui::SameLine();
     ImGui::Combo("MLVQ Material", &m_materialIndex, MLVQMaterials,

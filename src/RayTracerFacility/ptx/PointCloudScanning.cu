@@ -11,12 +11,7 @@ namespace RayTracerFacility {
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
-        glm::vec2 texCoord;
-        glm::vec3 hitPoint;
-        glm::vec3 normal;
-        glm::vec3 tangent;
-        glm::vec3 vertexColor;
-        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
+        auto hitInfo = sbtData.GetHitInfo(rayDirection);
 
         PerRayData <uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
         prd.m_hitCount = 1;
@@ -29,7 +24,7 @@ namespace RayTracerFacility {
             }
                 break;
             case MaterialType::Default: {
-                glm::vec3 albedoColor = static_cast<DefaultMaterial
+                glm::vec3 albedoColor = static_cast<SurfaceMaterial
         *>(sbtData.m_material)->GetAlbedo(texCoord); prd.m_albedo = albedoColor;
             }
                 break;
@@ -39,8 +34,8 @@ namespace RayTracerFacility {
             }
                 break;
         }*/
-        prd.m_albedo = vertexColor;
-        prd.m_normal = hitPoint;
+        prd.m_albedo = hitInfo.m_color;
+        prd.m_normal = hitInfo.m_position;
     }
     extern "C" __global__ void __closesthit__PCS_SS() {}
 #pragma endregion

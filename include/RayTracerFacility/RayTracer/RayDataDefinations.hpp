@@ -6,42 +6,147 @@
 
 #include "MaterialProperties.hpp"
 #include <optix_device.h>
+#include "Curve.hpp"
 
 namespace RayTracerFacility {
-    struct Mesh {
-        UniEngine::Vertex *m_vertices;
-        glm::uvec3 *m_triangles;
+    static __forceinline__ __device__ float3 GetHitPoint() {
+        const float t = optixGetRayTmax();
+        const float3 rayOrigin = optixGetWorldRayOrigin();
+        const float3 rayDirection = optixGetWorldRayDirection();
 
-        __device__ void GetVertex(UniEngine::Vertex &target, const float2 &triangleBarycentrics,
-                                  const glm::uvec3 &triangleIndices) const {
+        return make_float3(rayOrigin.x + rayDirection.x * t, rayOrigin.y + rayDirection.y * t,
+                           rayOrigin.z + rayDirection.z * t);
+    }
+
+    // Compute surface normal of quadratic pimitive in world space.
+    static __forceinline__ __device__ float3 NormalLinear(const int primitiveIndex) {
+        const OptixTraversableHandle gas = optixGetGASTraversableHandle();
+        const unsigned int gasSbtIndex = optixGetSbtGASIndex();
+        float4 controlPoints[2];
+
+        optixGetLinearCurveVertexData(gas, primitiveIndex, gasSbtIndex, 0.0f, controlPoints);
+
+        LinearBSplineSegment interpolator(controlPoints);
+        float3 hitPoint = GetHitPoint();
+        // interpolators work in object space
+        hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
+        const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
+        return optixTransformNormalFromObjectToWorldSpace(normal);
+    }
+
+    // Compute surface normal of quadratic pimitive in world space.
+    static __forceinline__ __device__ float3 NormalQuadratic(const int primitiveIndex) {
+        const OptixTraversableHandle gas = optixGetGASTraversableHandle();
+        const unsigned int gasSbtIndex = optixGetSbtGASIndex();
+        float4 controlPoints[3];
+
+        optixGetQuadraticBSplineVertexData(gas, primitiveIndex, gasSbtIndex, 0.0f, controlPoints);
+
+        QuadraticBSplineSegment interpolator(controlPoints);
+        float3 hitPoint = GetHitPoint();
+        // interpolators work in object space
+        hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
+        const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
+        return optixTransformNormalFromObjectToWorldSpace(normal);
+    }
+
+    // Compute surface normal of cubic pimitive in world space.
+    static __forceinline__ __device__ float3 NormalCubic(const int primitiveIndex) {
+        const OptixTraversableHandle gas = optixGetGASTraversableHandle();
+        const unsigned int gasSbtIndex = optixGetSbtGASIndex();
+        float4 controlPoints[4];
+
+        optixGetCubicBSplineVertexData(gas, primitiveIndex, gasSbtIndex, 0.0f, controlPoints);
+
+        CubicBSplineSegment interpolator(controlPoints);
+        float3 hitPoint = GetHitPoint();
+        // interpolators work in object space
+        hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
+        const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
+        return optixTransformNormalFromObjectToWorldSpace(normal);
+    }
+
+    // Compute normal
+    static __forceinline__ __device__ float3 ComputeNormal(OptixPrimitiveType type, const int primitiveIndex) {
+        switch (type) {
+            case OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR:
+                return NormalLinear(primitiveIndex);
+                break;
+            case OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE:
+                return NormalQuadratic(primitiveIndex);
+                break;
+            case OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE:
+                return NormalCubic(primitiveIndex);
+                break;
+        }
+        return make_float3(0.0f);
+    }
+
+    struct HitInfo{
+        glm::vec3 m_position = glm::vec3(0.0f);
+        glm::vec3 m_normal = glm::vec3(0.0f);
+        glm::vec3 m_tangent = glm::vec3(0.0f);
+        glm::vec3 m_color = glm::vec3(1.0f);
+        glm::vec2 m_texCoord = glm::vec2(0.0f);
+    };
+
+    struct Curves {
+        glm::vec2 *m_strandU = nullptr;
+        int *m_strandIndices = nullptr;
+        glm::uvec2 *m_strandInfos = nullptr;
+
+        // Get curve hit-point in world coordinates.
+        __device__ HitInfo GetHitInfo() const {
+            HitInfo hitInfo;
+            const unsigned int primitiveIndex = optixGetPrimitiveIndex();
+            auto normal = ComputeNormal(optixGetPrimitiveType(), primitiveIndex);
+            hitInfo.m_normal = glm::vec3(normal.x, normal.y, normal.z);
+            auto hitPoint = GetHitPoint();
+            hitInfo.m_position = glm::vec3(hitPoint.x, hitPoint.y, hitPoint.z);
+            hitInfo.m_tangent = glm::cross(hitInfo.m_normal, glm::vec3(hitInfo.m_normal.y, hitInfo.m_normal.z, hitInfo.m_normal.x));
+            return hitInfo;
+        }
+    };
+
+
+    struct TriangularMesh {
+        UniEngine::Vertex *m_vertices = nullptr;
+        glm::uvec3 *m_triangles = nullptr;
+
+        __device__ HitInfo GetHitInfo() const {
+            HitInfo hitInfo;
+            const auto triangleBarycentrics = optixGetTriangleBarycentrics();
+            const auto primitiveId = optixGetPrimitiveIndex();
+            const auto triangleIndices = m_triangles[primitiveId];
             const auto &vx = m_vertices[triangleIndices.x];
             const auto &vy = m_vertices[triangleIndices.y];
             const auto &vz = m_vertices[triangleIndices.z];
-            target.m_texCoords = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                                 vx.m_texCoords +
-                                 triangleBarycentrics.x * vy.m_texCoords +
-                                 triangleBarycentrics.y * vz.m_texCoords;
-            target.m_position = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            hitInfo.m_texCoord = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+                                 vx.m_texCoord +
+                                 triangleBarycentrics.x * vy.m_texCoord +
+                                 triangleBarycentrics.y * vz.m_texCoord;
+            hitInfo.m_position = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                                 vx.m_position +
                                 triangleBarycentrics.x * vy.m_position +
                                 triangleBarycentrics.y * vz.m_position;
-            target.m_normal = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            hitInfo.m_normal = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                               vx.m_normal +
                               triangleBarycentrics.x * vy.m_normal +
                               triangleBarycentrics.y * vz.m_normal;
-            target.m_tangent = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
+            hitInfo.m_tangent = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
                                vx.m_tangent +
                                triangleBarycentrics.x * vy.m_tangent +
                                triangleBarycentrics.y * vz.m_tangent;
 
             auto z = 1.f - triangleBarycentrics.x - triangleBarycentrics.y;
             if (triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y) {
-                target.m_color = vx.m_color;
+                hitInfo.m_color = vx.m_color;
             } else if (triangleBarycentrics.y > z) {
-                target.m_color = vy.m_color;
+                hitInfo.m_color = vy.m_color;
             } else {
-                target.m_color = vz.m_color;
+                hitInfo.m_color = vz.m_color;
             }
+            return hitInfo;
         }
 
         __device__ glm::uvec3 GetIndices(const int &primitiveId) const {
@@ -51,9 +156,9 @@ namespace RayTracerFacility {
         __device__ glm::vec2 GetTexCoord(const float2 &triangleBarycentrics,
                                          const glm::uvec3 &triangleIndices) const {
             return (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                   m_vertices[triangleIndices.x].m_texCoords +
-                   triangleBarycentrics.x * m_vertices[triangleIndices.y].m_texCoords +
-                   triangleBarycentrics.y * m_vertices[triangleIndices.z].m_texCoords;
+                   m_vertices[triangleIndices.x].m_texCoord +
+                   triangleBarycentrics.x * m_vertices[triangleIndices.y].m_texCoord +
+                   triangleBarycentrics.y * m_vertices[triangleIndices.z].m_texCoord;
         }
 
         __device__ glm::vec3
@@ -118,46 +223,41 @@ namespace RayTracerFacility {
         }
     };
 
-    struct DefaultMaterialTexture {
-        cudaTextureObject_t m_texture;
-        int m_channel;
-    };
-
-    struct DefaultMaterial {
+    struct SurfaceMaterial {
         MaterialProperties m_materialProperties;
 
-        DefaultMaterialTexture m_albedoTexture;
-        DefaultMaterialTexture m_normalTexture;
-        DefaultMaterialTexture m_metallicTexture;
-        DefaultMaterialTexture m_roughnessTexture;
+        cudaTextureObject_t m_albedoTexture;
+        cudaTextureObject_t m_normalTexture;
+        cudaTextureObject_t m_metallicTexture;
+        cudaTextureObject_t m_roughnessTexture;
 
         __device__ glm::vec4 GetAlbedo(const glm::vec2 &texCoord) const {
-            if (!m_albedoTexture.m_texture)
+            if (!m_albedoTexture)
                 return glm::vec4(m_materialProperties.m_surfaceColor, 1.0f);
             float4 textureAlbedo =
-                    tex2D<float4>(m_albedoTexture.m_texture, texCoord.x, texCoord.y);
+                    tex2D<float4>(m_albedoTexture, texCoord.x, texCoord.y);
             return glm::vec4(textureAlbedo.x, textureAlbedo.y, textureAlbedo.z, textureAlbedo.w);
         }
 
         __device__ float GetRoughness(const glm::vec2 &texCoord) const {
-            if (!m_roughnessTexture.m_texture)
+            if (!m_roughnessTexture)
                 return m_materialProperties.m_roughness;
-            return tex2D<float4>(m_roughnessTexture.m_texture, texCoord.x, texCoord.y).x;
+            return tex2D<float4>(m_roughnessTexture, texCoord.x, texCoord.y).x;
         }
 
         __device__ float GetMetallic(const glm::vec2 &texCoord) const {
-            if (!m_metallicTexture.m_texture)
+            if (!m_metallicTexture)
                 return m_materialProperties.m_metallic;
-            return tex2D<float4>(m_metallicTexture.m_texture, texCoord.x, texCoord.y).x;
+            return tex2D<float4>(m_metallicTexture, texCoord.x, texCoord.y).x;
         }
 
         __device__ void ApplyNormalTexture(glm::vec3 &normal,
                                            const glm::vec2 &texCoord,
                                            const glm::vec3 &tangent) const {
-            if (!m_normalTexture.m_texture)
+            if (!m_normalTexture)
                 return;
             float4 textureNormal =
-                    tex2D<float4>(m_normalTexture.m_texture, texCoord.x, texCoord.y);
+                    tex2D<float4>(m_normalTexture, texCoord.x, texCoord.y);
             glm::vec3 B = glm::cross(normal, tangent);
             glm::mat3 TBN = glm::mat3(tangent, B, normal);
             normal =
@@ -247,25 +347,24 @@ namespace RayTracerFacility {
         MaterialType m_materialType;
         void *m_material;
 
-        __device__ void
-        GetGeometricInfo(glm::vec3 &rayDirection, glm::vec2 &texCoord, glm::vec3 &hitPoint, glm::vec3 &normal,
-                         glm::vec3 &tangent, glm::vec3 &color) const {
+        __device__ HitInfo
+        GetHitInfo(glm::vec3 &rayDirection) const {
+            HitInfo retVal;
             if (m_geometryType != GeometryType::Curve) {
-                const float2 triangleBarycentricsInternal = optixGetTriangleBarycentrics();
-                const int primitiveId = optixGetPrimitiveIndex();
-                auto *mesh = (Mesh *) m_geometry;
-                auto indices = mesh->GetIndices(primitiveId);
-                UniEngine::Vertex weightedVertex;
-                mesh->GetVertex(weightedVertex, triangleBarycentricsInternal, indices);
-                texCoord = weightedVertex.m_texCoords;
-                normal = m_globalTransform * glm::vec4(weightedVertex.m_normal, 0.0f);
-                if (glm::dot(rayDirection, normal) > 0.0f) {
-                    normal = -normal;
-                }
-                tangent = m_globalTransform * glm::vec4(weightedVertex.m_tangent, 0.0f);
-                hitPoint = m_globalTransform * glm::vec4(weightedVertex.m_position, 1.0f);
-                color = weightedVertex.m_color;
+                auto *mesh = (TriangularMesh *) m_geometry;
+                retVal = mesh->GetHitInfo();
+
+            }else {
+                auto *curves = (Curves *) m_geometry;
+                auto hitInfo = curves->GetHitInfo();
             }
+            retVal.m_normal = m_globalTransform * glm::vec4(retVal.m_normal, 0.0f);
+            if (glm::dot(rayDirection, retVal.m_normal) > 0.0f) {
+                retVal.m_normal = -retVal.m_normal;
+            }
+            retVal.m_tangent = m_globalTransform * glm::vec4(retVal.m_tangent, 0.0f);
+            retVal.m_position = m_globalTransform * glm::vec4(retVal.m_position, 1.0f);
+            return retVal;
         }
     };
 

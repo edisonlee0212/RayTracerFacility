@@ -10,12 +10,7 @@ namespace RayTracerFacility {
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
 #pragma region Retrive information
         const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
-        glm::vec2 texCoord;
-        glm::vec3 hitPoint;
-        glm::vec3 normal;
-        glm::vec3 tangent;
-        glm::vec3 vertexColor;
-        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
+        auto hitInfo = sbtData.GetHitInfo(rayDirection);
 #pragma endregion
         PerRayData <glm::vec3> &perRayData =
                 *GetRayDataPointer < PerRayData < glm::vec3 >> ();
@@ -29,16 +24,16 @@ namespace RayTracerFacility {
         perRayData.m_energy = glm::vec3(0.0f);
         auto &environment = cameraRenderingLaunchParams.m_rayTracerProperties.m_environment;
         if (sbtData.m_materialType != MaterialType::MLVQ) {
-            auto *material = static_cast<DefaultMaterial *>(sbtData.m_material);
-            material->ApplyNormalTexture(normal, texCoord, tangent);
+            auto *material = static_cast<SurfaceMaterial *>(sbtData.m_material);
+            material->ApplyNormalTexture(hitInfo.m_normal, hitInfo.m_texCoord, hitInfo.m_tangent);
             float metallic =
-                    material->GetMetallic(texCoord);
+                    material->GetMetallic(hitInfo.m_texCoord);
             float roughness =
-                    material->GetRoughness(texCoord);
+                    material->GetRoughness(hitInfo.m_texCoord);
             glm::vec3 albedoColor;
-            if (sbtData.m_materialType == MaterialType::Default) { albedoColor = material->GetAlbedo(texCoord); }
+            if (sbtData.m_materialType == MaterialType::Default) { albedoColor = material->GetAlbedo(hitInfo.m_texCoord); }
             else {
-                albedoColor = vertexColor;
+                albedoColor = hitInfo.m_color;
             }
             energy = glm::vec3(0.0f);
             float f = 1.0f;
@@ -51,14 +46,14 @@ namespace RayTracerFacility {
                                                                    environment.m_lightSize);
                 energy += glm::vec3(environment.m_color) * environment.m_ambientLightIntensity * albedoColor;
                 const float NdotL = glm::dot(
-                        normal, newRayDirection);
+                        hitInfo.m_normal, newRayDirection);
                 if (NdotL > 0.0f) {
                     uint32_t u0, u1;
                     PackRayDataPointer(&perRayData, u0, u1);
                     perRayData.m_energy = glm::vec3(0.0f);
                     optixTrace(
                             cameraRenderingLaunchParams.m_traversable,
-                            make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                            make_float3(hitInfo.m_position.x, hitInfo.m_position.y, hitInfo.m_position.z),
                             make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z),
                             1e-3f, // tmin
                             1e20f, // tmax
@@ -89,7 +84,7 @@ namespace RayTracerFacility {
                         needSample = BSSRDF(metallic, perRayData.m_random,
                                             material->m_materialProperties.m_subsurfaceRadius, sbtData.m_handle,
                                             cameraRenderingLaunchParams.m_traversable,
-                                            hitPoint, rayDirection, normal,
+                                            hitInfo.m_position, rayDirection, hitInfo.m_normal,
                                             incidentRayOrigin, newRayDirectionInternal, outNormal);
                         if (needSample) {
                             optixTrace(
@@ -119,10 +114,10 @@ namespace RayTracerFacility {
                         }
                     }
                     float3 newRayDirectionInternal;
-                    BRDF(metallic, perRayData.m_random, rayDirection, normal, newRayDirectionInternal);
+                    BRDF(metallic, perRayData.m_random, rayDirection, hitInfo.m_normal, newRayDirectionInternal);
                     optixTrace(
                             cameraRenderingLaunchParams.m_traversable,
-                            make_float3(hitPoint.x, hitPoint.y, hitPoint.z),
+                            make_float3(hitInfo.m_position.x, hitInfo.m_position.y, hitInfo.m_position.z),
                             newRayDirectionInternal,
                             1e-3f, // tmin
                             1e20f, // tmax
@@ -139,7 +134,7 @@ namespace RayTracerFacility {
                     energy += (1.0f - material->m_materialProperties.m_subsurfaceFactor) *
                               albedoColor *
                               glm::clamp(glm::abs(glm::dot(
-                                                 normal, glm::vec3(newRayDirectionInternal.x,
+                                                 hitInfo.m_normal, glm::vec3(newRayDirectionInternal.x,
                                                                    newRayDirectionInternal.y,
                                                                    newRayDirectionInternal.z))) *
                                          roughness +
@@ -149,13 +144,13 @@ namespace RayTracerFacility {
                 }
             }
             if (hitCount == 1) {
-                perRayData.m_normal = normal;
+                perRayData.m_normal = hitInfo.m_normal;
                 perRayData.m_albedo = albedoColor;
-                perRayData.m_position = hitPoint;
+                perRayData.m_position = hitInfo.m_position;
             }
             perRayData.m_energy =
                     energy +
-                    static_cast<DefaultMaterial *>(sbtData.m_material)->m_materialProperties.m_emission *
+                    static_cast<SurfaceMaterial *>(sbtData.m_material)->m_materialProperties.m_emission *
                     albedoColor;
 
         } else {
@@ -165,15 +160,15 @@ namespace RayTracerFacility {
                         .m_bounces) {
                 energy = glm::vec3(0.0f);
                 float f = 1.0f;
-                glm::vec3 reflected = Reflect(rayDirection, normal);
+                glm::vec3 reflected = Reflect(rayDirection, hitInfo.m_normal);
                 glm::vec3 newRayDirection =
                         RandomSampleHemisphere(perRayData.m_random, reflected, 1.0f);
                 static_cast<MLVQMaterial *>(sbtData.m_material)
-                        ->GetValue(texCoord, rayDirection, newRayDirection, normal, tangent,
+                        ->GetValue(hitInfo.m_texCoord, rayDirection, newRayDirection, hitInfo.m_normal, hitInfo.m_tangent,
                                    btfColor,
                                    false /*(perRayData.m_printInfo && sampleID == 0)*/);
-                auto origin = hitPoint;
-                origin += normal * 1e-3f;
+                auto origin = hitInfo.m_position;
+                origin += hitInfo.m_normal * 1e-3f;
                 float3 incidentRayOrigin = make_float3(origin.x, origin.y, origin.z);
                 float3 newRayDirectionInternal =
                         make_float3(newRayDirection.x, newRayDirection.y, newRayDirection.z);
@@ -195,9 +190,9 @@ namespace RayTracerFacility {
                 energy += btfColor * perRayData.m_energy;
             }
             if (hitCount == 1) {
-                perRayData.m_normal = normal;
+                perRayData.m_normal = hitInfo.m_normal;
                 perRayData.m_albedo = btfColor;
-                perRayData.m_position = hitPoint;
+                perRayData.m_position = hitInfo.m_position;
             }
             perRayData.m_energy = energy;
         }
@@ -214,19 +209,14 @@ namespace RayTracerFacility {
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
 #pragma region Retrive information
         const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();
-        glm::vec2 texCoord;
-        glm::vec3 hitPoint;
-        glm::vec3 normal;
-        glm::vec3 tangent;
-        glm::vec3 vertexColor;
-        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
+        auto hitInfo = sbtData.GetHitInfo(rayDirection);
 #pragma endregion
         switch (sbtData.m_materialType) {
             case MaterialType::Default: {
                 PerRayData <glm::vec3> &perRayData =
                         *GetRayDataPointer < PerRayData < glm::vec3 >> ();
                 glm::vec4 albedoColor =
-                        static_cast<DefaultMaterial *>(sbtData.m_material)->GetAlbedo(texCoord);
+                        static_cast<SurfaceMaterial *>(sbtData.m_material)->GetAlbedo(hitInfo.m_texCoord);
                 if (albedoColor.w <= perRayData.m_random()) optixIgnoreIntersection();
             }
                 break;

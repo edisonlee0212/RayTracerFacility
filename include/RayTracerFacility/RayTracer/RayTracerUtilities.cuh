@@ -238,18 +238,13 @@ namespace RayTracerFacility {
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
-        glm::vec2 texCoord;
-        glm::vec3 hitPoint;
-        glm::vec3 normal;
-        glm::vec3 tangent;
-        glm::vec3 vertexColor;
-        sbtData.GetGeometricInfo(rayDirection, texCoord, hitPoint, normal, tangent, vertexColor);
+        auto hitInfo = sbtData.GetHitInfo(rayDirection);
 
-        static_cast<DefaultMaterial *>(sbtData.m_material)
-                ->ApplyNormalTexture(normal, texCoord, tangent);
+        static_cast<SurfaceMaterial *>(sbtData.m_material)
+                ->ApplyNormalTexture(hitInfo.m_normal, hitInfo.m_texCoord, hitInfo.m_tangent);
 
-        perRayData.m_records[perRayData.m_recordSize].m_outNormal = normal;
-        perRayData.m_records[perRayData.m_recordSize].m_outPosition = hitPoint;
+        perRayData.m_records[perRayData.m_recordSize].m_outNormal = hitInfo.m_normal;
+        perRayData.m_records[perRayData.m_recordSize].m_outPosition = hitInfo.m_position;
         perRayData.m_recordSize++;
     }
 

@@ -62,6 +62,10 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 rayTracedGeometry.m_curveThickness = &strands->UnsafeGetThickness();
                 rayTracedGeometry.m_curveSegments = &strands->UnsafeGetSegments();
                 rayTracedGeometry.m_curvePoints = &strands->UnsafeGetPoints();
+                rayTracedGeometry.m_strandU = &strands->UnsafeGetStrandU();
+                rayTracedGeometry.m_strandIndices = &strands->UnsafeGetStrandIndices();
+                rayTracedGeometry.m_strandInfos = &strands->UnsafeGetStrandInfos();
+
                 rayTracedGeometry.m_version = strands->GetVersion();
                 rayTracedGeometry.m_curveMode = (CurveMode)strands->GetSplineMode();
                 rayTracedGeometry.m_handle = geometryHandle;
@@ -379,9 +383,9 @@ void RayTracerLayer::OnInspect() {
         ImGui::EndMainMenuBar();
     }
     if (ImGui::Begin("Ray Tracer Manager")) {
-        ImGui::Checkbox("Mesh Renderer", &m_renderMeshRenderer);
+        ImGui::Checkbox("TriangularMesh Renderer", &m_renderMeshRenderer);
         ImGui::Checkbox("Particles", &m_renderParticles);
-        ImGui::Checkbox("Skinned Mesh Renderer", &m_renderSkinnedMeshRenderer);
+        ImGui::Checkbox("Skinned TriangularMesh Renderer", &m_renderSkinnedMeshRenderer);
         ImGui::Checkbox("MLVQ Renderer", &m_renderSkinnedMeshRenderer);
         ImGui::Checkbox("Scene Camera", &m_enableSceneCamera);
         if (ImGui::TreeNode("Scene Camera Settings")) {
