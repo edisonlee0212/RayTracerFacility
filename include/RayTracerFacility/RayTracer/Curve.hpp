@@ -28,7 +28,7 @@
 #pragma once
 
 #include <optix.h>
-#include "Math.hpp"
+#include "CudaMath.hpp"
 #include <vector_types.h>
 
 //
