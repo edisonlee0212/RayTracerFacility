@@ -809,6 +809,10 @@ static void context_log_cb(const unsigned int level, const char *tag,
     fprintf(stderr, "[%2d][%12s]: %s\n", static_cast<int>(level), tag, message);
 }
 
+void printLogMessage(unsigned int level, const char *tag, const char *message, void * /* cbdata */ ) {
+    std::cerr << "[" << std::setw(2) << level << "][" << std::setw(12) << tag << "]: " << message << std::endl;
+}
+
 void RayTracer::CreateContext() {
     // for this sample, do everything on one device
     const int deviceID = 0;
@@ -818,8 +822,13 @@ void RayTracer::CreateContext() {
     const CUresult cuRes = cuCtxGetCurrent(&m_cudaContext);
     if (cuRes != CUDA_SUCCESS)
         fprintf(stderr, "Error querying current context: error code %d\n", cuRes);
+
+    OptixDeviceContextOptions options = {};
+    options.logCallbackFunction = &printLogMessage;
+    options.logCallbackLevel = 4;
+
     OPTIX_CHECK(
-            optixDeviceContextCreate(m_cudaContext, nullptr, &m_optixDeviceContext));
+            optixDeviceContextCreate(m_cudaContext, &options, &m_optixDeviceContext));
     OPTIX_CHECK(optixDeviceContextSetLogCallback(m_optixDeviceContext,
                                                  context_log_cb, nullptr, 4));
 }
@@ -952,8 +961,6 @@ void RayTracer::CreateMissPrograms() {
 
 void RayTracer::CreateHitGroupPrograms() {
     {
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -962,15 +969,36 @@ void RayTracer::CreateHitGroupPrograms() {
         pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_HITGROUP;
         pgDesc.hitgroup.moduleCH = m_cameraRenderingPipeline.m_module;
         pgDesc.hitgroup.moduleAH = m_cameraRenderingPipeline.m_module;
+
         // -------------------------------------------------------
         // radiance rays
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CR_R";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CR_R";
+        pgDesc.hitgroup.entryFunctionNameIS = 0;
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                        RayType::Radiance)]));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_cubicCurveModule;
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_linearCurveModule;
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_quadraticCurveModule;
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
         if (sizeofLog > 1)
             std::cout << log << std::endl;
 
@@ -979,17 +1007,33 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CR_SS";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CR_SS";
-
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                        RayType::SpacialSampling)]));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_cubicCurveModule;
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_linearCurveModule;
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_quadraticCurveModule;
+        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -1004,11 +1048,16 @@ void RayTracer::CreateHitGroupPrograms() {
         pgDesc.hitgroup.entryFunctionNameCH =
                 "__closesthit__IE_R";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__IE_R";
+        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_illuminationEstimationPipeline
-                        .m_hitGroupProgramGroups[static_cast<int>(
-                        RayType::Radiance)]));
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_illuminationEstimationPipeline.m_cubicCurveModule;
+        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // -------------------------------------------------------
@@ -1016,17 +1065,20 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__IE_SS";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__IE_SS";
-
+        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                        RayType::SpacialSampling)]));
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_illuminationEstimationPipeline.m_cubicCurveModule;
+        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -1041,11 +1093,16 @@ void RayTracer::CreateHitGroupPrograms() {
         pgDesc.hitgroup.entryFunctionNameCH =
                 "__closesthit__PCS_R";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__PCS_R";
+        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline
-                        .m_hitGroupProgramGroups[static_cast<int>(
-                        RayType::Radiance)]));
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_pointCloudScanningPipeline.m_cubicCurveModule;
+        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // -------------------------------------------------------
@@ -1053,11 +1110,16 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__PCS_SS";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__PCS_SS";
-
+        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups[static_cast<int>(
-                        RayType::SpacialSampling)]));
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
+
+        pgDesc.hitgroup.moduleIS = m_pointCloudScanningPipeline.m_cubicCurveModule;
+        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -1150,9 +1212,12 @@ __global__ void CopySkinnedVerticesKernel(int size,
 void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 #pragma region Clean previous buffer
     m_vertexDataBuffer.Free();
+    m_triangleBuffer.Free();
+
     m_curveStrandUBuffer.Free();
     m_curveStrandIBuffer.Free();
     m_curveStrandInfoBuffer.Free();
+
     m_acceleratedStructureBuffer.Free();
 #pragma endregion
 
@@ -1166,7 +1231,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
     // triangle inputs
     // ==================================================================
     OptixBuildInput buildInput;
-    const uint32_t triangleInputFlags[1] = { OPTIX_GEOMETRY_FLAG_NONE };
+    const uint32_t triangleInputFlags[1] = {OPTIX_GEOMETRY_FLAG_NONE};
     switch (m_geometryType) {
         case GeometryType::Curve: {
             CUdeviceptr devicePoints;
@@ -1181,8 +1246,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             deviceWidthBuffer.Upload(*m_curveThickness);
             deviceStrandsBuffer.Upload(*m_curveSegments);
             buildInput.type = OPTIX_BUILD_INPUT_TYPE_CURVES;
-            switch(m_curveMode)
-            {
+            switch (m_curveMode) {
                 case CurveMode::Linear:
                     buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR;
                     break;
@@ -1196,17 +1260,17 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             devicePoints = devicePositionBuffer.DevicePointer();
             deviceWidths = deviceWidthBuffer.DevicePointer();
             deviceStrands = deviceStrandsBuffer.DevicePointer();
-            buildInput.curveArray.numPrimitives        = m_curveSegments->size();
-            buildInput.curveArray.vertexBuffers        = &devicePoints;
-            buildInput.curveArray.numVertices          = static_cast<unsigned int>(m_curvePoints->size());
-            buildInput.curveArray.vertexStrideInBytes  = sizeof(glm::vec3);
-            buildInput.curveArray.widthBuffers         = &deviceWidths;
-            buildInput.curveArray.widthStrideInBytes   = sizeof( float );
-            buildInput.curveArray.normalBuffers        = 0;
-            buildInput.curveArray.normalStrideInBytes  = 0;
-            buildInput.curveArray.indexBuffer          = deviceStrands;
-            buildInput.curveArray.indexStrideInBytes   = sizeof( int );
-            buildInput.curveArray.flag                 = OPTIX_GEOMETRY_FLAG_NONE;
+            buildInput.curveArray.numPrimitives = m_curveSegments->size();
+            buildInput.curveArray.vertexBuffers = &devicePoints;
+            buildInput.curveArray.numVertices = static_cast<unsigned int>(m_curvePoints->size());
+            buildInput.curveArray.vertexStrideInBytes = sizeof(glm::vec3);
+            buildInput.curveArray.widthBuffers = &deviceWidths;
+            buildInput.curveArray.widthStrideInBytes = sizeof(float);
+            buildInput.curveArray.normalBuffers = 0;
+            buildInput.curveArray.normalStrideInBytes = 0;
+            buildInput.curveArray.indexBuffer = deviceStrands;
+            buildInput.curveArray.indexStrideInBytes = sizeof(int);
+            buildInput.curveArray.flag = OPTIX_GEOMETRY_FLAG_NONE;
             buildInput.curveArray.primitiveIndexOffset = 0;
         }
             break;
@@ -1338,7 +1402,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                                       m_vertices->size() * sizeof(UniEngine::Vertex));
 
             devicePositionBuffer.Resize(m_instanceMatrices->size() *
-                                    m_vertices->size() * sizeof(glm::vec3));
+                                        m_vertices->size() * sizeof(glm::vec3));
             int blockSize = 0;   // The launch configurator returned block verticesSize
             int minGridSize = 0; // The minimum grid verticesSize needed to achieve the
             // maximum occupancy for a full device launch
@@ -1408,10 +1472,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
     OptixAccelBuildOptions accelerateOptions = {};
     accelerateOptions.buildFlags =
-            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION;
-    if(m_geometryType == GeometryType::Curve){
-        accelerateOptions.buildFlags = accelerateOptions.buildFlags | OPTIX_BUILD_FLAG_ALLOW_RANDOM_VERTEX_ACCESS;
-    }
+            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION | OPTIX_BUILD_FLAG_ALLOW_RANDOM_VERTEX_ACCESS;
     accelerateOptions.motionOptions.numKeys = 1;
     accelerateOptions.operation = OPTIX_BUILD_OPERATION_BUILD;
 
@@ -1483,6 +1544,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 }
 
 void RayTracedGeometry::UploadForSBT() {
+    m_geometryBuffer.Free();
     if (m_geometryType == GeometryType::Curve) {
         Curves curves;
         curves.m_strandU = reinterpret_cast<glm::vec2 *>(m_curveStrandUBuffer.DevicePointer());
@@ -1509,12 +1571,12 @@ void RayTracer::BuildIAS() {
         geometry.m_geometryBuffer.Free();
         geometry.m_vertexDataBuffer.Free();
         geometry.m_triangleBuffer.Free();
+
         geometry.m_curveStrandUBuffer.Free();
         geometry.m_curveStrandIBuffer.Free();
         geometry.m_curveStrandInfoBuffer.Free();
 
         geometry.m_acceleratedStructureBuffer.Free();
-        //TODO Clean Curve here.
         m_geometries.erase(i);
     }
     for (auto &i: m_geometries) {
@@ -1638,6 +1700,7 @@ void RayTracer::CreateModule(RayTracerPipeline &targetPipeline, char ptxCode[],
             OPTIX_EXCEPTION_FLAG_NONE;
     targetPipeline.m_pipelineCompileOptions.pipelineLaunchParamsVariableName =
             launchParamsName;
+    targetPipeline.m_pipelineCompileOptions.usesPrimitiveTypeFlags = OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_LINEAR | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_QUADRATIC_BSPLINE | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_CUBIC_BSPLINE;
 
     targetPipeline.m_pipelineLinkOptions.maxTraceDepth = 31;
 
@@ -1649,6 +1712,23 @@ void RayTracer::CreateModule(RayTracerPipeline &targetPipeline, char ptxCode[],
             m_optixDeviceContext, &targetPipeline.m_moduleCompileOptions,
             &targetPipeline.m_pipelineCompileOptions, code.c_str(), code.size(), log,
             &sizeof_log, &targetPipeline.m_module));
+
+    OptixBuiltinISOptions builtinISOptions = {};
+    builtinISOptions.builtinISModuleType = OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE;
+    OPTIX_CHECK(optixBuiltinISModuleGet(m_optixDeviceContext, &targetPipeline.m_moduleCompileOptions,
+                                        &targetPipeline.m_pipelineCompileOptions, &builtinISOptions,
+                                        &targetPipeline.m_quadraticCurveModule));
+
+    builtinISOptions.builtinISModuleType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
+    OPTIX_CHECK(optixBuiltinISModuleGet(m_optixDeviceContext, &targetPipeline.m_moduleCompileOptions,
+                                        &targetPipeline.m_pipelineCompileOptions, &builtinISOptions,
+                                        &targetPipeline.m_cubicCurveModule));
+
+    builtinISOptions.builtinISModuleType = OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR;
+    OPTIX_CHECK(optixBuiltinISModuleGet(m_optixDeviceContext, &targetPipeline.m_moduleCompileOptions,
+                                        &targetPipeline.m_pipelineCompileOptions, &builtinISOptions,
+                                        &targetPipeline.m_linearCurveModule));
+
     if (sizeof_log > 1)
         std::cout << log << std::endl;
 }
@@ -1740,11 +1820,9 @@ void RayTracer::BuildSBT(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<CameraRenderingRayGenRecord> raygenRecords;
-        for (int i = 0; i < m_cameraRenderingPipeline.m_rayGenProgramGroups.size();
-             i++) {
+        for (auto &group: m_cameraRenderingPipeline.m_rayGenProgramGroups) {
             CameraRenderingRayGenRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_cameraRenderingPipeline.m_rayGenProgramGroups[i], &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
             rec.m_data = nullptr; /* for now ... */
             raygenRecords.push_back(rec);
         }
@@ -1759,8 +1837,7 @@ void RayTracer::BuildSBT(
         for (int i = 0; i < m_cameraRenderingPipeline.m_missProgramGroups.size();
              i++) {
             CameraRenderingRayMissRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_cameraRenderingPipeline.m_missProgramGroups[i], &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(m_cameraRenderingPipeline.m_missProgramGroups[i], &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
@@ -1782,12 +1859,9 @@ void RayTracer::BuildSBT(
 
         std::vector<CameraRenderingRayHitRecord> hitGroupRecords;
         for (auto &instancePair: m_instances) {
-            for (int rayID = 0;
-                 rayID < static_cast<int>(RayType::RayTypeCount);
-                 rayID++) {
+            for (auto &group: m_cameraRenderingPipeline.m_hitGroupProgramGroups) {
                 CameraRenderingRayHitRecord rec;
-                OPTIX_CHECK(optixSbtRecordPackHeader(
-                        m_cameraRenderingPipeline.m_hitGroupProgramGroups[rayID], &rec));
+                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 rec.m_data = sBTs[instancePair.first];
                 hitGroupRecords.push_back(rec);
             }
@@ -1805,13 +1879,9 @@ void RayTracer::BuildSBT(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<IlluminationEstimationRayGenRecord> raygenRecords;
-        for (int i = 0;
-             i < m_illuminationEstimationPipeline.m_rayGenProgramGroups.size();
-             i++) {
+        for (auto &group: m_illuminationEstimationPipeline.m_rayGenProgramGroups) {
             IlluminationEstimationRayGenRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_illuminationEstimationPipeline.m_rayGenProgramGroups[i],
-                    &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
             rec.m_data = nullptr; /* for now ... */
             raygenRecords.push_back(rec);
         }
@@ -1825,13 +1895,9 @@ void RayTracer::BuildSBT(
         // build miss records
         // ------------------------------------------------------------------
         std::vector<IlluminationEstimationRayMissRecord> missRecords;
-        for (int i = 0;
-             i < m_illuminationEstimationPipeline.m_missProgramGroups.size();
-             i++) {
+        for (auto &group: m_illuminationEstimationPipeline.m_missProgramGroups) {
             IlluminationEstimationRayMissRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_illuminationEstimationPipeline.m_missProgramGroups[i],
-                    &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
@@ -1854,16 +1920,10 @@ void RayTracer::BuildSBT(
         // (which the sanity checks in compilation would complain about)
         std::vector<IlluminationEstimationRayHitRecord> hitGroupRecords;
         for (auto &instancePair: m_instances) {
-            for (int rayID = 0;
-                 rayID <
-                 static_cast<int>(RayType::RayTypeCount);
-                 rayID++) {
+            for (auto &group: m_illuminationEstimationPipeline
+                    .m_hitGroupProgramGroups) {
                 IlluminationEstimationRayHitRecord rec;
-                OPTIX_CHECK(
-                        optixSbtRecordPackHeader(
-                                m_illuminationEstimationPipeline
-                                        .m_hitGroupProgramGroups[rayID],
-                                &rec));
+                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 rec.m_data = sBTs[instancePair.first];
                 hitGroupRecords.push_back(rec);
             }
@@ -1884,13 +1944,9 @@ void RayTracer::BuildSBT(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<PointCloudScanningRayGenRecord> raygenRecords;
-        for (int i = 0;
-             i < m_pointCloudScanningPipeline.m_rayGenProgramGroups.size();
-             i++) {
+        for (auto &group: m_pointCloudScanningPipeline.m_rayGenProgramGroups) {
             PointCloudScanningRayGenRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_pointCloudScanningPipeline.m_rayGenProgramGroups[i],
-                    &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
             rec.m_data = nullptr; /* for now ... */
             raygenRecords.push_back(rec);
         }
@@ -1904,13 +1960,9 @@ void RayTracer::BuildSBT(
         // build miss records
         // ------------------------------------------------------------------
         std::vector<PointCloudScanningRayMissRecord> missRecords;
-        for (int i = 0;
-             i < m_pointCloudScanningPipeline.m_missProgramGroups.size();
-             i++) {
+        for (auto &group: m_pointCloudScanningPipeline.m_missProgramGroups) {
             PointCloudScanningRayMissRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(
-                    m_pointCloudScanningPipeline.m_missProgramGroups[i],
-                    &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
@@ -1933,15 +1985,9 @@ void RayTracer::BuildSBT(
         // (which the sanity checks in compilation would complain about)
         std::vector<PointCloudScanningRayHitRecord> hitGroupRecords;
         for (auto &instancePair: m_instances) {
-            for (int rayID = 0;
-                 rayID <
-                 static_cast<int>(RayType::RayTypeCount);
-                 rayID++) {
+            for (auto &group: m_pointCloudScanningPipeline.m_hitGroupProgramGroups) {
                 PointCloudScanningRayHitRecord rec;
-                OPTIX_CHECK(
-                        optixSbtRecordPackHeader(
-                                m_pointCloudScanningPipeline.m_hitGroupProgramGroups[rayID],
-                                &rec));
+                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 rec.m_data = sBTs[instancePair.first];
                 hitGroupRecords.push_back(rec);
             }

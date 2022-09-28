@@ -327,6 +327,9 @@ namespace RayTracerFacility {
     struct RayTracerPipeline {
         std::string m_launchParamsName;
         OptixModule m_module;
+        OptixModule m_quadraticCurveModule;
+        OptixModule m_cubicCurveModule;
+        OptixModule m_linearCurveModule;
         OptixModuleCompileOptions m_moduleCompileOptions = {};
 
         OptixPipeline m_pipeline;
