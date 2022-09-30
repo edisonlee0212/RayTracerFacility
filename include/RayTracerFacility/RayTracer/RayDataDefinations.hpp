@@ -6,7 +6,7 @@
 
 #include "MaterialProperties.hpp"
 #include <optix_device.h>
-#include "Curve.hpp"
+#include "CurveSplineDefinations.hpp"
 
 namespace RayTracerFacility {
     static __forceinline__ __device__ float3 GetHitPoint() {
