@@ -9,6 +9,7 @@
 #include "PointCloudScanner.hpp"
 #include "ClassRegistry.hpp"
 #include "StrandsRenderer.hpp"
+
 using namespace RayTracerFacility;
 
 std::shared_ptr<RayTracerCamera> RayTracerLayer::m_rayTracerCamera;
@@ -33,7 +34,8 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 continue;
             auto strands = strandsRendererRenderer->m_strands.Get<Strands>();
             auto material = strandsRendererRenderer->m_material.Get<Material>();
-            if (!material || !strands || strands->UnsafeGetPoints().empty() || strands->UnsafeGetSegments().empty() || strands->UnsafeGetThickness().empty())
+            if (!material || !strands || strands->UnsafeGetPoints().empty() || strands->UnsafeGetSegments().empty() ||
+                strands->UnsafeGetThickness().empty())
                 continue;
             auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
             bool needInstanceUpdate = false;
@@ -67,7 +69,17 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 rayTracedGeometry.m_strandInfos = &strands->UnsafeGetStrandInfos();
 
                 rayTracedGeometry.m_version = strands->GetVersion();
-                rayTracedGeometry.m_curveMode = (CurveMode)strands->GetSplineMode();
+                switch (strands->GetSplineMode()) {
+                    case Strands::SplineMode::Linear:
+                        rayTracedGeometry.m_geometryType = GeometryType::Linear;
+                        break;
+                    case Strands::SplineMode::Quadratic:
+                        rayTracedGeometry.m_geometryType = GeometryType::QuadraticBSpline;
+                        break;
+                    case Strands::SplineMode::Cubic:
+                        rayTracedGeometry.m_geometryType = GeometryType::CubicBSpline;
+                        break;
+                }
                 rayTracedGeometry.m_handle = geometryHandle;
             }
             if (CheckMaterial(rayTracedMaterial, material)) needInstanceUpdate = true;
@@ -126,6 +138,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
                 rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();
                 rayTracedGeometry.m_version = mesh->GetVersion();
+                rayTracedGeometry.m_geometryType = GeometryType::Triangle;
                 rayTracedGeometry.m_handle = geometryHandle;
             }
             if (CheckMaterial(rayTracedMaterial, material)) needInstanceUpdate = true;
@@ -188,6 +201,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 || skinnedMeshRenderer->m_animator.Get<Animator>()->AnimatedCurrentFrame()) {
                 rayTracedGeometry.m_updateFlag = true;
                 needInstanceUpdate = true;
+                rayTracedGeometry.m_geometryType = GeometryType::Triangle;
                 rayTracedGeometry.m_rendererType = RendererType::Skinned;
                 rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
                 rayTracedGeometry.m_skinnedVertices = &mesh->UnsafeGetSkinnedVertices();
@@ -249,6 +263,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 || rayTracedGeometry.m_version != mesh->GetVersion()) {
                 rayTracedGeometry.m_updateFlag = true;
                 needInstanceUpdate = true;
+                rayTracedGeometry.m_geometryType = GeometryType::Triangle;
                 rayTracedGeometry.m_rendererType = RendererType::Instanced;
                 rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
                 rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();

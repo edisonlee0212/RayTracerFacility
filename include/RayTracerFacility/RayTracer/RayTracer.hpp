@@ -286,7 +286,6 @@ namespace RayTracerFacility {
             std::vector<glm::uvec3> *m_triangles = nullptr;
             std::vector<int> *m_curveSegments;
         };
-        CurveMode m_curveMode = CurveMode::Linear;
         std::vector<glm::vec2> *m_strandU;
         std::vector<int> *m_strandIndices;
         std::vector<glm::uvec2> *m_strandInfos;

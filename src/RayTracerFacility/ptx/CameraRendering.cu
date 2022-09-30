@@ -201,35 +201,11 @@ namespace RayTracerFacility {
     }
 
 #pragma region Closest hit functions
-    extern "C" __global__ void __closesthit__T_CR_R() {
+    extern "C" __global__ void __closesthit__CR_R() {
         ClosestHitFunc();
     }
 
-    extern "C" __global__ void __closesthit__CL_CR_R() {
-        ClosestHitFunc();
-    }
-
-    extern "C" __global__ void __closesthit__CC_CR_R() {
-        ClosestHitFunc();
-    }
-
-    extern "C" __global__ void __closesthit__CQ_CR_R() {
-        ClosestHitFunc();
-    }
-
-    extern "C" __global__ void __closesthit__T_CR_SS() {
-        SSHit();
-    }
-
-    extern "C" __global__ void __closesthit__CL_CR_SS() {
-        SSHit();
-    }
-
-    extern "C" __global__ void __closesthit__CC_CR_SS() {
-        SSHit();
-    }
-
-    extern "C" __global__ void __closesthit__CQ_CR_SS() {
+    extern "C" __global__ void __closesthit__CR_SS() {
         SSHit();
     }
 #pragma endregion
@@ -255,33 +231,11 @@ namespace RayTracerFacility {
         }
     }
 
-    extern "C" __global__ void __anyhit__T_CR_R(){
+    extern "C" __global__ void __anyhit__CR_R(){
         AnyHitFunc();
     }
 
-    extern "C" __global__ void __anyhit__CL_CR_R() {
-        AnyHitFunc();
-    }
-
-    extern "C" __global__ void __anyhit__CC_CR_R() {
-        AnyHitFunc();
-    }
-    extern "C" __global__ void __anyhit__CQ_CR_R() {
-        AnyHitFunc();
-    }
-
-    extern "C" __global__ void __anyhit__T_CR_SS() {
-        SSAnyHit();
-    }
-    extern "C" __global__ void __anyhit__CL_CR_SS() {
-        SSAnyHit();
-    }
-
-    extern "C" __global__ void __anyhit__CC_CR_SS() {
-        SSAnyHit();
-    }
-
-    extern "C" __global__ void __anyhit__CQ_CR_SS() {
+    extern "C" __global__ void __anyhit__CR_SS() {
         SSAnyHit();
     }
 #pragma endregion
