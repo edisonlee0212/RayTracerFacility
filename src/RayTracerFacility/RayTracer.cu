@@ -1,7 +1,7 @@
 #include <RayTracer.hpp>
 
 #include <optix_function_table_definition.h>
-
+#include <optix_stack_size.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -826,6 +826,7 @@ void RayTracer::CreateContext() {
     OptixDeviceContextOptions options = {};
     options.logCallbackFunction = &printLogMessage;
     options.logCallbackLevel = 4;
+    options.validationMode = OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_ALL;
 
     OPTIX_CHECK(
             optixDeviceContextCreate(m_cudaContext, &options, &m_optixDeviceContext));
@@ -858,8 +859,6 @@ void RayTracer::CreateRayGenPrograms() {
 
 void RayTracer::CreateMissPrograms() {
     {
-        m_cameraRenderingPipeline.m_missProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -875,8 +874,7 @@ void RayTracer::CreateMissPrograms() {
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_missProgramGroups[static_cast<int>(
-                        RayType::Radiance)]));
+                &m_cameraRenderingPipeline.m_missProgramGroups[RayType::Radiance]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // ------------------------------------------------------------------
@@ -885,14 +883,11 @@ void RayTracer::CreateMissPrograms() {
         pgDesc.miss.entryFunctionName = "__miss__CR_SS";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_missProgramGroups[static_cast<int>(
-                        RayType::SpacialSampling)]));
+                &m_cameraRenderingPipeline.m_missProgramGroups[RayType::SpacialSampling]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_illuminationEstimationPipeline.m_missProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -909,8 +904,7 @@ void RayTracer::CreateMissPrograms() {
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
                 &m_illuminationEstimationPipeline
-                        .m_missProgramGroups[static_cast<int>(
-                        RayType::Radiance)]));
+                        .m_missProgramGroups[RayType::Radiance]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // ------------------------------------------------------------------
@@ -919,14 +913,11 @@ void RayTracer::CreateMissPrograms() {
         pgDesc.miss.entryFunctionName = "__miss__IE_SS";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_illuminationEstimationPipeline.m_missProgramGroups[static_cast<int>(
-                        RayType::SpacialSampling)]));
+                &m_illuminationEstimationPipeline.m_missProgramGroups[RayType::SpacialSampling]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
     {
-        m_pointCloudScanningPipeline.m_missProgramGroups.resize(
-                static_cast<int>(RayType::RayTypeCount));
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -942,8 +933,7 @@ void RayTracer::CreateMissPrograms() {
 
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline.m_missProgramGroups[static_cast<int>(
-                        RayType::Radiance)]));
+                &m_pointCloudScanningPipeline.m_missProgramGroups[RayType::Radiance]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // ------------------------------------------------------------------
@@ -952,8 +942,7 @@ void RayTracer::CreateMissPrograms() {
         pgDesc.miss.entryFunctionName = "__miss__PCS_SS";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline.m_missProgramGroups[static_cast<int>(
-                        RayType::SpacialSampling)]));
+                &m_pointCloudScanningPipeline.m_missProgramGroups[RayType::SpacialSampling]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -961,6 +950,7 @@ void RayTracer::CreateMissPrograms() {
 
 void RayTracer::CreateHitGroupPrograms() {
     {
+
         char log[2048];
         size_t sizeofLog = sizeof(log);
 
@@ -973,31 +963,34 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         // radiance rays
         // -------------------------------------------------------
-        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CR_R";
-        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CR_R";
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__T_CR_R";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__T_CR_R";
         pgDesc.hitgroup.entryFunctionNameIS = 0;
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::Triangle]));
 
-        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_cubicCurveModule;
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
-        OPTIX_CHECK(optixProgramGroupCreate(
-                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
 
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CL_CR_R";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CL_CR_R";
         pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_linearCurveModule;
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::Linear]));
 
-        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_quadraticCurveModule;
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CC_CR_R";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CC_CR_R";
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_cubicCurveModule;
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::CubicBSpline]));
+
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CQ_CR_R";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CQ_CR_R";
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_quadraticCurveModule;
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::QuadraticBSpline]));
 
         if (sizeofLog > 1)
             std::cout << log << std::endl;
@@ -1005,30 +998,32 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         // BSSRDF Sampler ray
         // -------------------------------------------------------
-        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CR_SS";
-        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CR_SS";
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__T_CR_SS";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__T_CR_SS";
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::Triangle]));
 
-        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_cubicCurveModule;
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
-        OPTIX_CHECK(optixProgramGroupCreate(
-                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
-
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CL_CR_SS";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CL_CR_SS";
         pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_linearCurveModule;
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::Linear]));
 
-        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_quadraticCurveModule;
-        m_cameraRenderingPipeline.m_hitGroupProgramGroups.emplace_back();
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CC_CR_SS";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CC_CR_SS";
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_cubicCurveModule;
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_cameraRenderingPipeline.m_hitGroupProgramGroups.back()));
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::CubicBSpline]));
+
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__CQ_CR_SS";
+        pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__CQ_CR_SS";
+        pgDesc.hitgroup.moduleIS = m_cameraRenderingPipeline.m_quadraticCurveModule;
+        OPTIX_CHECK(optixProgramGroupCreate(
+                m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
+                &m_cameraRenderingPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::QuadraticBSpline]));
 
         if (sizeofLog > 1)
             std::cout << log << std::endl;
@@ -1045,19 +1040,16 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         // radiance rays
         // -------------------------------------------------------
-        pgDesc.hitgroup.entryFunctionNameCH =
-                "__closesthit__IE_R";
+        pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__IE_R";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__IE_R";
-        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::Triangle]));
 
         pgDesc.hitgroup.moduleIS = m_illuminationEstimationPipeline.m_cubicCurveModule;
-        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::CubicBSpline]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // -------------------------------------------------------
@@ -1065,16 +1057,14 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__IE_SS";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__IE_SS";
-        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::Triangle]));
 
         pgDesc.hitgroup.moduleIS = m_illuminationEstimationPipeline.m_cubicCurveModule;
-        m_illuminationEstimationPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups.back()));
+                &m_illuminationEstimationPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::CubicBSpline]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -1093,16 +1083,14 @@ void RayTracer::CreateHitGroupPrograms() {
         pgDesc.hitgroup.entryFunctionNameCH =
                 "__closesthit__PCS_R";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__PCS_R";
-        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::Triangle]));
 
         pgDesc.hitgroup.moduleIS = m_pointCloudScanningPipeline.m_cubicCurveModule;
-        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups[RayType::Radiance][GeometryType::CubicBSpline]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
         // -------------------------------------------------------
@@ -1110,16 +1098,14 @@ void RayTracer::CreateHitGroupPrograms() {
         // -------------------------------------------------------
         pgDesc.hitgroup.entryFunctionNameCH = "__closesthit__PCS_SS";
         pgDesc.hitgroup.entryFunctionNameAH = "__anyhit__PCS_SS";
-        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::Triangle]));
 
         pgDesc.hitgroup.moduleIS = m_pointCloudScanningPipeline.m_cubicCurveModule;
-        m_pointCloudScanningPipeline.m_hitGroupProgramGroups.emplace_back();
         OPTIX_CHECK(optixProgramGroupCreate(
                 m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups.back()));
+                &m_pointCloudScanningPipeline.m_hitGroupProgramGroups[RayType::SpacialSampling][GeometryType::CubicBSpline]));
         if (sizeofLog > 1)
             std::cout << log << std::endl;
     }
@@ -1226,14 +1212,15 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
     CudaBuffer deviceStrandsBuffer;
 
 
-#pragma region Triangle Inputs
+#pragma region Geometry Inputs
     // ==================================================================
-    // triangle inputs
+    // geometry inputs
     // ==================================================================
     OptixBuildInput buildInput;
     const uint32_t triangleInputFlags[1] = {OPTIX_GEOMETRY_FLAG_NONE};
-    switch (m_geometryType) {
-        case GeometryType::Curve: {
+    switch (m_rendererType) {
+        case RendererType::Curve: {
+
             CUdeviceptr devicePoints;
             CUdeviceptr deviceWidths;
             CUdeviceptr deviceStrands;
@@ -1248,12 +1235,15 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             buildInput.type = OPTIX_BUILD_INPUT_TYPE_CURVES;
             switch (m_curveMode) {
                 case CurveMode::Linear:
+                    m_geometryType = GeometryType::Linear;
                     buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR;
                     break;
                 case CurveMode::Quadratic:
+                    m_geometryType = GeometryType::QuadraticBSpline;
                     buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE;
                     break;
                 case CurveMode::Cubic:
+                    m_geometryType = GeometryType::CubicBSpline;
                     buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
                     break;
             }
@@ -1274,7 +1264,8 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             buildInput.curveArray.primitiveIndexOffset = 0;
         }
             break;
-        case GeometryType::Default: {
+        case RendererType::Default: {
+            m_geometryType = GeometryType::Triangle;
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
 
@@ -1330,7 +1321,8 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             buildInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
         }
             break;
-        case GeometryType::Skinned: {
+        case RendererType::Skinned: {
+            m_geometryType = GeometryType::Triangle;
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
 
@@ -1390,7 +1382,8 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             boneMatricesBuffer.Free();
         }
             break;
-        case GeometryType::Instanced: {
+        case RendererType::Instanced: {
+            m_geometryType = GeometryType::Triangle;
             CUdeviceptr deviceVertexPositions;
             CUdeviceptr deviceVertexTriangles;
 
@@ -1545,7 +1538,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
 void RayTracedGeometry::UploadForSBT() {
     m_geometryBuffer.Free();
-    if (m_geometryType == GeometryType::Curve) {
+    if (m_rendererType == RendererType::Curve) {
         Curves curves;
         curves.m_strandU = reinterpret_cast<glm::vec2 *>(m_curveStrandUBuffer.DevicePointer());
         curves.m_strandIndices = reinterpret_cast<int *>(m_curveStrandIBuffer.DevicePointer());
@@ -1594,7 +1587,7 @@ void RayTracer::BuildIAS() {
     for (auto &i: removeQueue) {
         m_instances.erase(i);
     }
-    OptixTraversableHandle iASHandle = 0;
+
     std::vector<OptixInstance> optixInstances;
     unsigned int sbtOffset = 0;
 
@@ -1613,14 +1606,14 @@ void RayTracer::BuildIAS() {
         optixInstances.push_back(optixInstance);
     }
 
-    CudaBuffer deviceInstances;
-    deviceInstances.Upload(optixInstances);
+    CudaBuffer deviceTempInstances;
+    deviceTempInstances.Upload(optixInstances);
 
     // Instance build input.
     OptixBuildInput buildInput = {};
 
     buildInput.type = OPTIX_BUILD_INPUT_TYPE_INSTANCES;
-    buildInput.instanceArray.instances = deviceInstances.DevicePointer();
+    buildInput.instanceArray.instances = deviceTempInstances.DevicePointer();
     buildInput.instanceArray.numInstances = static_cast<unsigned int>(optixInstances.size());
 
     OptixAccelBuildOptions accelBuildOptions = {};
@@ -1635,6 +1628,8 @@ void RayTracer::BuildIAS() {
     CudaBuffer deviceTempBufferIAS;
     deviceTempBufferIAS.Resize(bufferSizesIAS.tempSizeInBytes);
     m_iASBuffer.Resize(bufferSizesIAS.outputSizeInBytes);
+
+    OptixTraversableHandle iASHandle = 0;
     OPTIX_CHECK(optixAccelBuild(m_optixDeviceContext,
                                 0,  // CUDA stream
                                 &accelBuildOptions,
@@ -1647,8 +1642,7 @@ void RayTracer::BuildIAS() {
                                 &iASHandle,
                                 nullptr,  // emitted property list
                                 0));    // num emitted properties
-
-    deviceInstances.Free();
+    deviceTempInstances.Free();
     deviceTempBufferIAS.Free();
 
     m_cameraRenderingLaunchParams.m_traversable = iASHandle;
@@ -1665,7 +1659,6 @@ void RayTracer::AssemblePipelines() {
 
 void RayTracer::CreateRayGenProgram(RayTracerPipeline &targetPipeline,
                                     char entryFunctionName[]) const {
-    targetPipeline.m_rayGenProgramGroups.resize(1);
     OptixProgramGroupOptions pgOptions = {};
     OptixProgramGroupDesc pgDesc = {};
     pgDesc.kind = OPTIX_PROGRAM_GROUP_KIND_RAYGEN;
@@ -1675,7 +1668,7 @@ void RayTracer::CreateRayGenProgram(RayTracerPipeline &targetPipeline,
     size_t sizeofLog = sizeof(log);
     OPTIX_CHECK(optixProgramGroupCreate(
             m_optixDeviceContext, &pgDesc, 1, &pgOptions, log, &sizeofLog,
-            &targetPipeline.m_rayGenProgramGroups[0]));
+            &targetPipeline.m_rayGenProgramGroups));
     if (sizeofLog > 1)
         std::cout << log << std::endl;
 }
@@ -1692,7 +1685,7 @@ void RayTracer::CreateModule(RayTracerPipeline &targetPipeline, char ptxCode[],
 
     targetPipeline.m_pipelineCompileOptions = {};
     targetPipeline.m_pipelineCompileOptions.traversableGraphFlags =
-            OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_GAS;
+            OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_ANY;
     targetPipeline.m_pipelineCompileOptions.usesMotionBlur = false;
     targetPipeline.m_pipelineCompileOptions.numPayloadValues = 2;
     targetPipeline.m_pipelineCompileOptions.numAttributeValues = 2;
@@ -1700,9 +1693,10 @@ void RayTracer::CreateModule(RayTracerPipeline &targetPipeline, char ptxCode[],
             OPTIX_EXCEPTION_FLAG_NONE;
     targetPipeline.m_pipelineCompileOptions.pipelineLaunchParamsVariableName =
             launchParamsName;
-    targetPipeline.m_pipelineCompileOptions.usesPrimitiveTypeFlags = OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_LINEAR | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_QUADRATIC_BSPLINE | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_CUBIC_BSPLINE;
+    targetPipeline.m_pipelineCompileOptions.usesPrimitiveTypeFlags =
+            OPTIX_PRIMITIVE_TYPE_FLAGS_TRIANGLE | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_LINEAR |
+            OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_QUADRATIC_BSPLINE | OPTIX_PRIMITIVE_TYPE_FLAGS_ROUND_CUBIC_BSPLINE;
 
-    targetPipeline.m_pipelineLinkOptions.maxTraceDepth = 31;
 
     const std::string code = ptxCode;
 
@@ -1735,13 +1729,16 @@ void RayTracer::CreateModule(RayTracerPipeline &targetPipeline, char ptxCode[],
 
 void RayTracer::AssemblePipeline(RayTracerPipeline &targetPipeline) const {
     std::vector<OptixProgramGroup> programGroups;
-    for (auto *pg: targetPipeline.m_rayGenProgramGroups)
-        programGroups.push_back(pg);
-    for (auto *pg: targetPipeline.m_missProgramGroups)
-        programGroups.push_back(pg);
-    for (auto *pg: targetPipeline.m_hitGroupProgramGroups)
-        programGroups.push_back(pg);
+    programGroups.push_back(targetPipeline.m_rayGenProgramGroups);
+    for (auto &i: targetPipeline.m_missProgramGroups)
+        programGroups.push_back(i.second);
+    for (auto &i: targetPipeline.m_hitGroupProgramGroups)
+        for (auto &j: i.second)
+            programGroups.push_back(j.second);
 
+    const uint32_t maxTraceDepth = 31;
+    targetPipeline.m_pipelineLinkOptions.maxTraceDepth = maxTraceDepth;
+    targetPipeline.m_pipelineLinkOptions.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
     char log[2048];
     size_t sizeofLog = sizeof(log);
     OPTIX_CHECK(optixPipelineCreate(
@@ -1752,22 +1749,23 @@ void RayTracer::AssemblePipeline(RayTracerPipeline &targetPipeline) const {
     if (sizeofLog > 1)
         std::cout << log << std::endl;
 
-    OPTIX_CHECK(
-            optixPipelineSetStackSize(/* [in] The pipeline to configure the stack size
-                                   for */
-                    targetPipeline.m_pipeline,
-                    /* [in] The direct stack size requirement for
-                       direct callables invoked from IS or AH. */
-                    2 * 1024,
-                    /* [in] The direct stack size requirement for
-                       direct
-                       callables invoked from RG, MS, or CH.  */
-                    2 * 1024,
-                    /* [in] The continuation stack requirement. */
-                    2 * 1024,
-                    /* [in] The maximum depth of a traversable graph
-                       passed to trace. */
-                    1));
+    OptixStackSizes stackSizes = {};
+    for (auto &progGroup: programGroups) {
+        OPTIX_CHECK(optixUtilAccumulateStackSizes(progGroup, &stackSizes));
+    }
+
+    uint32_t directCallableStackSizeFromTraversal;
+    uint32_t directCallableStackSizeFromState;
+    uint32_t continuationStackSize;
+    OPTIX_CHECK(optixUtilComputeStackSizes(&stackSizes, maxTraceDepth,
+                                           0,  // maxCCDepth
+                                           0,  // maxDCDEpth
+                                           &directCallableStackSizeFromTraversal,
+                                           &directCallableStackSizeFromState, &continuationStackSize));
+    OPTIX_CHECK(optixPipelineSetStackSize(targetPipeline.m_pipeline, directCallableStackSizeFromTraversal,
+                                          directCallableStackSizeFromState, continuationStackSize,
+                                          2  // maxTraversableDepth
+    ));
     if (sizeofLog > 1)
         std::cout << log << std::endl;
 }
@@ -1809,7 +1807,7 @@ void RayTracer::BuildSBT(
         auto &sBT = sBTs[instancePair.first];
         sBT.m_handle = instance.m_privateComponentHandle;
         sBT.m_globalTransform = instance.m_globalTransform;
-        sBT.m_geometryType = geometry.m_geometryType;
+        sBT.m_geometryType = geometry.m_rendererType;
         sBT.m_geometry = reinterpret_cast<void *>(geometry.m_geometryBuffer.DevicePointer());
         sBT.m_materialType = material.m_materialType;
         sBT.m_material = reinterpret_cast<void *>(material.m_materialBuffer.DevicePointer());
@@ -1820,12 +1818,10 @@ void RayTracer::BuildSBT(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<CameraRenderingRayGenRecord> raygenRecords;
-        for (auto &group: m_cameraRenderingPipeline.m_rayGenProgramGroups) {
-            CameraRenderingRayGenRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
-            rec.m_data = nullptr; /* for now ... */
-            raygenRecords.push_back(rec);
-        }
+        CameraRenderingRayGenRecord rec;
+        OPTIX_CHECK(optixSbtRecordPackHeader(m_cameraRenderingPipeline.m_rayGenProgramGroups, &rec));
+        rec.m_data = nullptr; /* for now ... */
+        raygenRecords.push_back(rec);
         m_cameraRenderingPipeline.m_rayGenRecordsBuffer.Upload(raygenRecords);
         m_cameraRenderingPipeline.m_sbt.raygenRecord =
                 m_cameraRenderingPipeline.m_rayGenRecordsBuffer.DevicePointer();
@@ -1834,10 +1830,9 @@ void RayTracer::BuildSBT(
         // build miss records
         // ------------------------------------------------------------------
         std::vector<CameraRenderingRayMissRecord> missRecords;
-        for (int i = 0; i < m_cameraRenderingPipeline.m_missProgramGroups.size();
-             i++) {
+        for (auto &i: m_cameraRenderingPipeline.m_missProgramGroups) {
             CameraRenderingRayMissRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(m_cameraRenderingPipeline.m_missProgramGroups[i], &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(i.second, &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
@@ -1859,10 +1854,13 @@ void RayTracer::BuildSBT(
 
         std::vector<CameraRenderingRayHitRecord> hitGroupRecords;
         for (auto &instancePair: m_instances) {
-            for (auto &group: m_cameraRenderingPipeline.m_hitGroupProgramGroups) {
+            for(int rayID = 0; rayID < static_cast<int>(RayType::RayTypeCount); rayID++){
+                auto& collection = m_cameraRenderingPipeline.m_hitGroupProgramGroups[(RayType)rayID];
+                auto& geometry = m_geometries[instancePair.second.m_geometryMapKey];
+                auto group = collection[geometry.m_geometryType];
                 CameraRenderingRayHitRecord rec;
-                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 rec.m_data = sBTs[instancePair.first];
+                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 hitGroupRecords.push_back(rec);
             }
         }
@@ -1879,12 +1877,10 @@ void RayTracer::BuildSBT(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<IlluminationEstimationRayGenRecord> raygenRecords;
-        for (auto &group: m_illuminationEstimationPipeline.m_rayGenProgramGroups) {
-            IlluminationEstimationRayGenRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
-            rec.m_data = nullptr; /* for now ... */
-            raygenRecords.push_back(rec);
-        }
+        IlluminationEstimationRayGenRecord rec;
+        OPTIX_CHECK(optixSbtRecordPackHeader(m_illuminationEstimationPipeline.m_rayGenProgramGroups, &rec));
+        rec.m_data = nullptr; /* for now ... */
+        raygenRecords.push_back(rec);
         m_illuminationEstimationPipeline.m_rayGenRecordsBuffer.Upload(
                 raygenRecords);
         m_illuminationEstimationPipeline.m_sbt.raygenRecord =
@@ -1895,9 +1891,9 @@ void RayTracer::BuildSBT(
         // build miss records
         // ------------------------------------------------------------------
         std::vector<IlluminationEstimationRayMissRecord> missRecords;
-        for (auto &group: m_illuminationEstimationPipeline.m_missProgramGroups) {
+        for (auto &i: m_illuminationEstimationPipeline.m_missProgramGroups) {
             IlluminationEstimationRayMissRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(i.second, &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
@@ -1920,11 +1916,13 @@ void RayTracer::BuildSBT(
         // (which the sanity checks in compilation would complain about)
         std::vector<IlluminationEstimationRayHitRecord> hitGroupRecords;
         for (auto &instancePair: m_instances) {
-            for (auto &group: m_illuminationEstimationPipeline
-                    .m_hitGroupProgramGroups) {
+            for(int rayID = 0; rayID < static_cast<int>(RayType::RayTypeCount); rayID++){
+                auto& collection = m_illuminationEstimationPipeline.m_hitGroupProgramGroups[(RayType)rayID];
+                auto& geometry = m_geometries[instancePair.second.m_geometryMapKey];
+                auto group = collection[geometry.m_geometryType];
                 IlluminationEstimationRayHitRecord rec;
-                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 rec.m_data = sBTs[instancePair.first];
+                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 hitGroupRecords.push_back(rec);
             }
         }
@@ -1944,12 +1942,10 @@ void RayTracer::BuildSBT(
         // build raygen records
         // ------------------------------------------------------------------
         std::vector<PointCloudScanningRayGenRecord> raygenRecords;
-        for (auto &group: m_pointCloudScanningPipeline.m_rayGenProgramGroups) {
-            PointCloudScanningRayGenRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
-            rec.m_data = nullptr; /* for now ... */
-            raygenRecords.push_back(rec);
-        }
+        PointCloudScanningRayGenRecord rec;
+        OPTIX_CHECK(optixSbtRecordPackHeader(m_pointCloudScanningPipeline.m_rayGenProgramGroups, &rec));
+        rec.m_data = nullptr; /* for now ... */
+        raygenRecords.push_back(rec);
         m_pointCloudScanningPipeline.m_rayGenRecordsBuffer.Upload(
                 raygenRecords);
         m_pointCloudScanningPipeline.m_sbt.raygenRecord =
@@ -1960,9 +1956,9 @@ void RayTracer::BuildSBT(
         // build miss records
         // ------------------------------------------------------------------
         std::vector<PointCloudScanningRayMissRecord> missRecords;
-        for (auto &group: m_pointCloudScanningPipeline.m_missProgramGroups) {
+        for (auto &i: m_pointCloudScanningPipeline.m_missProgramGroups) {
             PointCloudScanningRayMissRecord rec;
-            OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
+            OPTIX_CHECK(optixSbtRecordPackHeader(i.second, &rec));
             rec.m_data = nullptr; /* for now ... */
             missRecords.push_back(rec);
         }
@@ -1985,10 +1981,13 @@ void RayTracer::BuildSBT(
         // (which the sanity checks in compilation would complain about)
         std::vector<PointCloudScanningRayHitRecord> hitGroupRecords;
         for (auto &instancePair: m_instances) {
-            for (auto &group: m_pointCloudScanningPipeline.m_hitGroupProgramGroups) {
+            for(int rayID = 0; rayID < static_cast<int>(RayType::RayTypeCount); rayID++){
+                auto& collection = m_pointCloudScanningPipeline.m_hitGroupProgramGroups[(RayType)rayID];
+                auto& geometry = m_geometries[instancePair.second.m_geometryMapKey];
+                auto group = collection[geometry.m_geometryType];
                 PointCloudScanningRayHitRecord rec;
-                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 rec.m_data = sBTs[instancePair.first];
+                OPTIX_CHECK(optixSbtRecordPackHeader(group, &rec));
                 hitGroupRecords.push_back(rec);
             }
         }

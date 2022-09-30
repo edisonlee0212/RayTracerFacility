@@ -3,6 +3,9 @@
 namespace RayTracerFacility {
     extern "C" __constant__ PointCloudScanningLaunchParams
             pointCloudScanningLaunchParams;
+
+
+
 #pragma region Closest hit functions
     extern "C" __global__ void __closesthit__PCS_R() {
         const auto &sbtData = *(const SBT *) optixGetSbtDataPointer();

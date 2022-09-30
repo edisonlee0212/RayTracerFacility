@@ -18,10 +18,19 @@ namespace RayTracerFacility {
         MLVQ
     };
 
-    enum class GeometryType {
+    enum class RendererType {
         Default,
         Instanced,
         Skinned,
         Curve
+    };
+
+    enum class GeometryType {
+        Custom,
+        QuadraticBSpline,
+        CubicBSpline,
+        Linear,
+        CatmullRom,
+        Triangle
     };
 }

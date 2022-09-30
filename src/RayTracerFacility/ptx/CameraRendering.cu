@@ -3,8 +3,7 @@
 namespace RayTracerFacility {
     extern "C" __constant__ CameraRenderingLaunchParams cameraRenderingLaunchParams;
 
-#pragma region Closest hit functions
-    extern "C" __global__ void __closesthit__CR_R() {
+    static __forceinline__ __device__ void ClosestHitFunc() {
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
@@ -31,7 +30,9 @@ namespace RayTracerFacility {
             float roughness =
                     material->GetRoughness(hitInfo.m_texCoord);
             glm::vec3 albedoColor;
-            if (sbtData.m_materialType == MaterialType::Default) { albedoColor = material->GetAlbedo(hitInfo.m_texCoord); }
+            if (sbtData.m_materialType == MaterialType::Default) {
+                albedoColor = material->GetAlbedo(hitInfo.m_texCoord);
+            }
             else {
                 albedoColor = hitInfo.m_color;
             }
@@ -135,8 +136,8 @@ namespace RayTracerFacility {
                               albedoColor *
                               glm::clamp(glm::abs(glm::dot(
                                                  hitInfo.m_normal, glm::vec3(newRayDirectionInternal.x,
-                                                                   newRayDirectionInternal.y,
-                                                                   newRayDirectionInternal.z))) *
+                                                                             newRayDirectionInternal.y,
+                                                                             newRayDirectionInternal.z))) *
                                          roughness +
                                          (1.0f - roughness) * f,
                                          0.0f, 1.0f) *
@@ -164,7 +165,8 @@ namespace RayTracerFacility {
                 glm::vec3 newRayDirection =
                         RandomSampleHemisphere(perRayData.m_random, reflected, 1.0f);
                 static_cast<MLVQMaterial *>(sbtData.m_material)
-                        ->GetValue(hitInfo.m_texCoord, rayDirection, newRayDirection, hitInfo.m_normal, hitInfo.m_tangent,
+                        ->GetValue(hitInfo.m_texCoord, rayDirection, newRayDirection, hitInfo.m_normal,
+                                   hitInfo.m_tangent,
                                    btfColor,
                                    false /*(perRayData.m_printInfo && sampleID == 0)*/);
                 auto origin = hitInfo.m_position;
@@ -198,12 +200,42 @@ namespace RayTracerFacility {
         }
     }
 
-    extern "C" __global__ void __closesthit__CR_SS() {
+#pragma region Closest hit functions
+    extern "C" __global__ void __closesthit__T_CR_R() {
+        ClosestHitFunc();
+    }
+
+    extern "C" __global__ void __closesthit__CL_CR_R() {
+        ClosestHitFunc();
+    }
+
+    extern "C" __global__ void __closesthit__CC_CR_R() {
+        ClosestHitFunc();
+    }
+
+    extern "C" __global__ void __closesthit__CQ_CR_R() {
+        ClosestHitFunc();
+    }
+
+    extern "C" __global__ void __closesthit__T_CR_SS() {
+        SSHit();
+    }
+
+    extern "C" __global__ void __closesthit__CL_CR_SS() {
+        SSHit();
+    }
+
+    extern "C" __global__ void __closesthit__CC_CR_SS() {
+        SSHit();
+    }
+
+    extern "C" __global__ void __closesthit__CQ_CR_SS() {
         SSHit();
     }
 #pragma endregion
 #pragma region Any hit functions
-    extern "C" __global__ void __anyhit__CR_R() {
+
+    static __forceinline__ __device__ void AnyHitFunc() {
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
@@ -222,7 +254,34 @@ namespace RayTracerFacility {
                 break;
         }
     }
-    extern "C" __global__ void __anyhit__CR_SS() {
+
+    extern "C" __global__ void __anyhit__T_CR_R(){
+        AnyHitFunc();
+    }
+
+    extern "C" __global__ void __anyhit__CL_CR_R() {
+        AnyHitFunc();
+    }
+
+    extern "C" __global__ void __anyhit__CC_CR_R() {
+        AnyHitFunc();
+    }
+    extern "C" __global__ void __anyhit__CQ_CR_R() {
+        AnyHitFunc();
+    }
+
+    extern "C" __global__ void __anyhit__T_CR_SS() {
+        SSAnyHit();
+    }
+    extern "C" __global__ void __anyhit__CL_CR_SS() {
+        SSAnyHit();
+    }
+
+    extern "C" __global__ void __anyhit__CC_CR_SS() {
+        SSAnyHit();
+    }
+
+    extern "C" __global__ void __anyhit__CQ_CR_SS() {
         SSAnyHit();
     }
 #pragma endregion
@@ -240,7 +299,6 @@ namespace RayTracerFacility {
                 rayOrig, rayDirection,
                 environment);
         perRayData.m_albedo = perRayData.m_energy = environmentalLightColor;
-
     }
     extern "C" __global__ void __miss__CR_SS() {
 

@@ -272,7 +272,8 @@ namespace RayTracerFacility {
     };
 
     struct RAY_TRACER_FACILITY_API RayTracedGeometry {
-        GeometryType m_geometryType = GeometryType::Default;
+        RendererType m_rendererType = RendererType::Default;
+        GeometryType m_geometryType = GeometryType::Triangle;
         union {
             std::vector<UniEngine::Vertex> *m_vertices = nullptr;
             std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
@@ -336,11 +337,11 @@ namespace RayTracerFacility {
         OptixPipelineCompileOptions m_pipelineCompileOptions = {};
         OptixPipelineLinkOptions m_pipelineLinkOptions = {};
 
-        std::vector<OptixProgramGroup> m_rayGenProgramGroups;
+        OptixProgramGroup m_rayGenProgramGroups;
         CudaBuffer m_rayGenRecordsBuffer;
-        std::vector<OptixProgramGroup> m_missProgramGroups;
+        std::map<RayType, std::map<GeometryType, OptixProgramGroup>> m_hitGroupProgramGroups;
         CudaBuffer m_missRecordsBuffer;
-        std::vector<OptixProgramGroup> m_hitGroupProgramGroups;
+        std::map<RayType, OptixProgramGroup> m_missProgramGroups;
         CudaBuffer m_hitGroupRecordsBuffer;
         OptixShaderBindingTable m_sbt = {};
         CudaBuffer m_launchParamsBuffer;

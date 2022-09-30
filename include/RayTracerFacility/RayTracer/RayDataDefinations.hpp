@@ -14,11 +14,10 @@ namespace RayTracerFacility {
         const float3 rayOrigin = optixGetWorldRayOrigin();
         const float3 rayDirection = optixGetWorldRayDirection();
 
-        return make_float3(rayOrigin.x + rayDirection.x * t, rayOrigin.y + rayDirection.y * t,
-                           rayOrigin.z + rayDirection.z * t);
+        return optixTransformPointFromWorldToObjectSpace(rayOrigin + rayDirection * t);
     }
 
-    // Compute surface normal of quadratic pimitive in world space.
+    // Compute surface normal of quadratic pimitive in object space.
     static __forceinline__ __device__ float3 NormalLinear(const int primitiveIndex) {
         const OptixTraversableHandle gas = optixGetGASTraversableHandle();
         const unsigned int gasSbtIndex = optixGetSbtGASIndex();
@@ -31,10 +30,10 @@ namespace RayTracerFacility {
         // interpolators work in object space
         hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
         const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
-        return optixTransformNormalFromObjectToWorldSpace(normal);
+        return normal;
     }
 
-    // Compute surface normal of quadratic pimitive in world space.
+    // Compute surface normal of quadratic pimitive in object space.
     static __forceinline__ __device__ float3 NormalQuadratic(const int primitiveIndex) {
         const OptixTraversableHandle gas = optixGetGASTraversableHandle();
         const unsigned int gasSbtIndex = optixGetSbtGASIndex();
@@ -47,10 +46,10 @@ namespace RayTracerFacility {
         // interpolators work in object space
         hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
         const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
-        return optixTransformNormalFromObjectToWorldSpace(normal);
+        return normal;
     }
 
-    // Compute surface normal of cubic pimitive in world space.
+    // Compute surface normal of cubic pimitive in object space.
     static __forceinline__ __device__ float3 NormalCubic(const int primitiveIndex) {
         const OptixTraversableHandle gas = optixGetGASTraversableHandle();
         const unsigned int gasSbtIndex = optixGetSbtGASIndex();
@@ -63,7 +62,7 @@ namespace RayTracerFacility {
         // interpolators work in object space
         hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
         const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
-        return optixTransformNormalFromObjectToWorldSpace(normal);
+        return normal;
     }
 
     // Compute normal
@@ -71,13 +70,10 @@ namespace RayTracerFacility {
         switch (type) {
             case OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR:
                 return NormalLinear(primitiveIndex);
-                break;
             case OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE:
                 return NormalQuadratic(primitiveIndex);
-                break;
             case OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE:
                 return NormalCubic(primitiveIndex);
-                break;
         }
         return make_float3(0.0f);
     }
@@ -342,7 +338,7 @@ namespace RayTracerFacility {
     struct SBT {
         unsigned long long m_handle;
         glm::mat4 m_globalTransform;
-        GeometryType m_geometryType;
+        RendererType m_geometryType;
         void *m_geometry;
         MaterialType m_materialType;
         void *m_material;
@@ -350,7 +346,7 @@ namespace RayTracerFacility {
         __device__ HitInfo
         GetHitInfo(glm::vec3 &rayDirection) const {
             HitInfo retVal;
-            if (m_geometryType != GeometryType::Curve) {
+            if (m_geometryType != RendererType::Curve) {
                 auto *mesh = (TriangularMesh *) m_geometry;
                 retVal = mesh->GetHitInfo();
 

@@ -58,7 +58,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             if (rayTracedGeometry.m_handle == 0 || rayTracedGeometry.m_version != strands->GetVersion()) {
                 rayTracedGeometry.m_updateFlag = true;
                 needInstanceUpdate = true;
-                rayTracedGeometry.m_geometryType = GeometryType::Curve;
+                rayTracedGeometry.m_rendererType = RendererType::Curve;
                 rayTracedGeometry.m_curveThickness = &strands->UnsafeGetThickness();
                 rayTracedGeometry.m_curveSegments = &strands->UnsafeGetSegments();
                 rayTracedGeometry.m_curvePoints = &strands->UnsafeGetPoints();
@@ -122,7 +122,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             if (rayTracedGeometry.m_handle == 0 || rayTracedGeometry.m_version != mesh->GetVersion()) {
                 rayTracedGeometry.m_updateFlag = true;
                 needInstanceUpdate = true;
-                rayTracedGeometry.m_geometryType = GeometryType::Default;
+                rayTracedGeometry.m_rendererType = RendererType::Default;
                 rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
                 rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();
                 rayTracedGeometry.m_version = mesh->GetVersion();
@@ -188,7 +188,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 || skinnedMeshRenderer->m_animator.Get<Animator>()->AnimatedCurrentFrame()) {
                 rayTracedGeometry.m_updateFlag = true;
                 needInstanceUpdate = true;
-                rayTracedGeometry.m_geometryType = GeometryType::Skinned;
+                rayTracedGeometry.m_rendererType = RendererType::Skinned;
                 rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
                 rayTracedGeometry.m_skinnedVertices = &mesh->UnsafeGetSkinnedVertices();
                 rayTracedGeometry.m_boneMatrices =
@@ -249,7 +249,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 || rayTracedGeometry.m_version != mesh->GetVersion()) {
                 rayTracedGeometry.m_updateFlag = true;
                 needInstanceUpdate = true;
-                rayTracedGeometry.m_geometryType = GeometryType::Instanced;
+                rayTracedGeometry.m_rendererType = RendererType::Instanced;
                 rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
                 rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();
                 rayTracedGeometry.m_instanceMatrices = &matrices->m_value;
