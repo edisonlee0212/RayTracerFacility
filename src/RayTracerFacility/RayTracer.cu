@@ -826,7 +826,7 @@ void RayTracer::CreateContext() {
     OptixDeviceContextOptions options = {};
     options.logCallbackFunction = &printLogMessage;
     options.logCallbackLevel = 4;
-    options.validationMode = OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_ALL;
+    //options.validationMode = OPTIX_DEVICE_CONTEXT_VALIDATION_MODE_ALL;
 
     OPTIX_CHECK(
             optixDeviceContextCreate(m_cudaContext, &options, &m_optixDeviceContext));
