@@ -1212,7 +1212,7 @@ __global__ void CopySkinnedVerticesKernel(int size,
         glm::vec3 T = glm::normalize(boneTransform *
                                      glm::vec4(vertices[idx].m_tangent, 0.0f));
         T = glm::normalize(T - dot(T, N) * N);
-
+        targetVertices[idx].m_position = position;
         targetVertices[idx].m_normal = N;
         targetVertices[idx].m_tangent = T;
         targetVertices[idx].m_texCoord = vertices[idx].m_texCoord;
