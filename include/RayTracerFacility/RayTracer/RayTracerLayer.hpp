@@ -49,6 +49,7 @@ namespace RayTracerFacility {
         float m_lastScrollY = 0;
         bool m_startMouse = false;
         bool m_startScroll = false;
+        bool m_leftMouseButtonHold = false;
         bool m_rightMouseButtonHold = false;
         float m_resolutionMultiplier = 0.5f;
         std::shared_ptr<RayTracerCamera> m_sceneCamera;

@@ -29,6 +29,7 @@ namespace RayTracerFacility {
         void SetOutputType(OutputType value);
         void SetAccumulate(bool value);
         void SetGamma(float value);
+        [[nodiscard]] glm::mat4 GetProjection() const;
         void SetDenoiserStrength(float value);
         void OnCreate() override;
         void OnDestroy() override;

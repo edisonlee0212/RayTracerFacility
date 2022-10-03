@@ -201,3 +201,7 @@ void RayTracerCamera::SetMainCamera(bool value) {
 void RayTracerCamera::SetMaxDistance(float value) {
     m_cameraProperties.SetMaxDistance(value);
 }
+
+glm::mat4 RayTracerCamera::GetProjection() const {
+    return glm::perspective(glm::radians(m_cameraProperties.m_fov * 0.5f), (float)m_frameSize.x / m_frameSize.y, 0.0001f, 100.0f);
+}

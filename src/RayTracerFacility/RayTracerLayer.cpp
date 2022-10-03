@@ -9,6 +9,7 @@
 #include "PointCloudScanner.hpp"
 #include "ClassRegistry.hpp"
 #include "StrandsRenderer.hpp"
+#include <ImGuizmo.h>
 
 using namespace RayTracerFacility;
 
@@ -426,8 +427,12 @@ void RayTracerLayer::OnInspect() {
 void RayTracerLayer::OnDestroy() { CudaModule::Terminate(); }
 
 void RayTracerLayer::SceneCameraWindow() {
+    auto scene = GetScene();
     auto editorLayer = Application::GetLayer<EditorLayer>();
     if (!editorLayer) return;
+    if (m_leftMouseButtonHold && !Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_LEFT, Windows::GetWindow())) {
+        m_leftMouseButtonHold = false;
+    }
     if (m_rightMouseButtonHold &&
         !Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT, Windows::GetWindow())) {
         m_rightMouseButtonHold = false;
@@ -450,24 +455,22 @@ void RayTracerLayer::SceneCameraWindow() {
             }
             ImGui::PopStyleVar();
             ImVec2 viewPortSize = ImGui::GetWindowSize();
-            viewPortSize.y -= 20;
-            if (viewPortSize.y < 0)
-                viewPortSize.y = 0;
             if (m_sceneCamera->m_allowAutoResize)
                 m_sceneCamera->m_frameSize =
-                        glm::vec2(viewPortSize.x, viewPortSize.y) *
+                        glm::vec2(viewPortSize.x, viewPortSize.y - 20) *
                         m_resolutionMultiplier;
             if (m_sceneCamera->m_rendered) {
                 ImGui::Image(reinterpret_cast<ImTextureID>(m_sceneCamera->m_cameraProperties.m_outputTextureId),
-                             viewPortSize, ImVec2(0, 1), ImVec2(1, 0));
+                             ImVec2(viewPortSize.x, viewPortSize.y - 20), ImVec2(0, 1), ImVec2(1, 0));
                 editorLayer->CameraWindowDragAndDrop();
             } else
                 ImGui::Text("No mesh in the scene!");
+            auto mousePosition = glm::vec2(FLT_MAX, FLT_MIN);
             if (ImGui::IsWindowFocused()) {
                 const bool valid = true;
-                const glm::vec2 mousePosition =
-                        Inputs::GetMouseAbsolutePositionInternal(
-                                Windows::GetWindow());
+                auto mp = ImGui::GetMousePos();
+                auto wp = ImGui::GetWindowPos();
+                mousePosition = glm::vec2(mp.x - wp.x, mp.y - wp.y - 20);
                 if (valid) {
                     if (!m_startMouse) {
                         m_lastX = mousePosition.x;
@@ -480,12 +483,13 @@ void RayTracerLayer::SceneCameraWindow() {
                     m_lastY = mousePosition.y;
 #pragma region Scene Camera Controller
                     if (!m_rightMouseButtonHold &&
+                        !(mousePosition.x < 0 || mousePosition.y < 0 || mousePosition.x > viewPortSize.x ||
+                          mousePosition.y > viewPortSize.y) &&
                         Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_RIGHT,
                                                  Windows::GetWindow())) {
                         m_rightMouseButtonHold = true;
                     }
-                    if (m_rightMouseButtonHold &&
-                        !editorLayer->m_lockCamera) {
+                    if (m_rightMouseButtonHold && !editorLayer->m_lockCamera) {
                         const glm::vec3 front =
                                 editorLayer->m_sceneCameraRotation *
                                 glm::vec3(0, 0, -1);
@@ -548,6 +552,83 @@ void RayTracerLayer::SceneCameraWindow() {
 #pragma endregion
                 }
             }
+
+#pragma region Gizmos and Entity Selection
+            bool mouseSelectEntity = true;
+            if (scene->IsEntityValid(editorLayer->m_selectedEntity)) {
+                ImGuizmo::SetOrthographic(false);
+                ImGuizmo::SetDrawlist();
+                ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, viewPortSize.x, viewPortSize.y);
+
+                glm::mat4 cameraView =
+                        glm::inverse(glm::translate(editorLayer->m_sceneCameraPosition) *
+                                     glm::mat4_cast(editorLayer->m_sceneCameraRotation));
+                glm::mat4 cameraProjection = m_sceneCamera->GetProjection();
+                const auto op = editorLayer->LocalPositionSelected() ? ImGuizmo::OPERATION::TRANSLATE
+                                                                     : editorLayer->LocalRotationSelected()
+                                                                       ? ImGuizmo::OPERATION::ROTATE
+                                                                       : ImGuizmo::OPERATION::SCALE;
+
+                auto transform = scene->GetDataComponent<Transform>(editorLayer->m_selectedEntity);
+                GlobalTransform parentGlobalTransform;
+                Entity parentEntity = scene->GetParent(editorLayer->m_selectedEntity);
+                if (parentEntity.GetIndex() != 0) {
+                    parentGlobalTransform = scene->GetDataComponent<GlobalTransform>(
+                            scene->GetParent(editorLayer->m_selectedEntity));
+                }
+                auto globalTransform = scene->GetDataComponent<GlobalTransform>(editorLayer->m_selectedEntity);
+
+                ImGuizmo::Manipulate(
+                        glm::value_ptr(cameraView),
+                        glm::value_ptr(cameraProjection),
+                        op,
+                        ImGuizmo::LOCAL,
+                        glm::value_ptr(globalTransform.m_value));
+                if (ImGuizmo::IsUsing()) {
+                    transform.m_value = glm::inverse(parentGlobalTransform.m_value) * globalTransform.m_value;
+                    scene->SetDataComponent(editorLayer->m_selectedEntity, transform);
+                    transform.Decompose(
+                            editorLayer->UnsafeGetPreviouslyStoredPosition(),
+                            editorLayer->UnsafeGetPreviouslyStoredRotation(),
+                            editorLayer->UnsafeGetPreviouslyStoredScale());
+                    mouseSelectEntity = false;
+                }
+            }
+            /*
+            if (ImGui::IsWindowFocused() && mouseSelectEntity) {
+                if (!m_leftMouseButtonHold &&
+                    !(mousePosition.x < 0 || mousePosition.y < 0 || mousePosition.x > viewPortSize.x ||
+                      mousePosition.y > viewPortSize.y) &&
+                    Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_LEFT, Windows::GetWindow())) {
+                    Entity focusedEntity = editorLayer->MouseEntitySelection(mousePosition);
+                    if (focusedEntity == Entity()) {
+                        editorLayer->SetSelectedEntity(Entity());
+                    } else {
+                        Entity walker = focusedEntity;
+                        bool found = false;
+                        while (walker.GetIndex() != 0) {
+                            if (walker == editorLayer->m_selectedEntity) {
+                                found = true;
+                                break;
+                            }
+                            walker = scene->GetParent(walker);
+                        }
+                        if (found) {
+                            walker = scene->GetParent(walker);
+                            if (walker.GetIndex() == 0) {
+                                editorLayer->SetSelectedEntity(focusedEntity);
+                            } else {
+                                editorLayer->SetSelectedEntity(walker);
+                            }
+                        } else {
+                            editorLayer->SetSelectedEntity(focusedEntity);
+                        }
+                    }
+                    m_leftMouseButtonHold = true;
+                }
+            }
+            */
+#pragma endregion
         }
         ImGui::EndChild();
         auto *window = ImGui::FindWindowByName("Scene (Ray)");
@@ -565,15 +646,12 @@ void RayTracerLayer::RayCameraWindow() {
         if (ImGui::BeginChild("RayCameraRenderer", ImVec2(0, 0), false,
                               ImGuiWindowFlags_None | ImGuiWindowFlags_MenuBar)) {
             ImVec2 viewPortSize = ImGui::GetWindowSize();
-            viewPortSize.y -= 20;
-            if (viewPortSize.y < 0)
-                viewPortSize.y = 0;
             if (m_rayTracerCamera) {
                 if (m_rayTracerCamera->m_allowAutoResize)
-                    m_rayTracerCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y);
+                    m_rayTracerCamera->m_frameSize = glm::vec2(viewPortSize.x, viewPortSize.y - 20);
                 if (m_rayTracerCamera->m_rendered) {
                     ImGui::Image(reinterpret_cast<ImTextureID>(m_rayTracerCamera->m_cameraProperties.m_outputTextureId),
-                                 viewPortSize, ImVec2(0, 1), ImVec2(1, 0));
+                                 ImVec2(viewPortSize.x, viewPortSize.y - 20), ImVec2(0, 1), ImVec2(1, 0));
                     editorLayer->CameraWindowDragAndDrop();
                 } else
                     ImGui::Text("No mesh in the scene!");
