@@ -1160,6 +1160,14 @@ CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matri
 }
 
 __global__ void
+CopyStrandPointsKernel(int size, UniEngine::StrandPoint *strandPoints, float* targetThicknesses) {
+    const int idx = threadIdx.x + blockIdx.x * blockDim.x;
+    if (idx < size) {
+        targetThicknesses[idx] = strandPoints[idx].m_thickness;
+    }
+}
+
+__global__ void
 CopyVerticesKernel(int size, UniEngine::Vertex *vertices,
                    glm::vec3 *targetPositions) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -1234,8 +1242,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
     CudaBuffer devicePositionBuffer;
     CudaBuffer deviceWidthBuffer;
-    CudaBuffer deviceStrandsBuffer;
-
 
 #pragma region Geometry Inputs
     // ==================================================================
@@ -1253,9 +1259,26 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             m_curveStrandIBuffer.Upload(*m_strandIndices);
             m_curveStrandInfoBuffer.Upload(*m_strandInfos);
 
-            devicePositionBuffer.Upload(*m_curvePoints);
-            deviceWidthBuffer.Upload(*m_curveThickness);
-            deviceStrandsBuffer.Upload(*m_curveSegments);
+            deviceWidthBuffer.Resize(
+                    m_curvePoints->size() * sizeof(float));
+            m_vertexDataBuffer.Upload(*m_curvePoints);
+            m_triangleBuffer.Upload(*m_curveSegments);
+
+            int blockSize = 0;   // The launch configurator returned block size
+            int minGridSize = 0; // The minimum grid size needed to achieve the
+            // maximum occupancy for a full device launch
+            int gridSize = 0;    // The actual grid size needed, based on input size
+            int size = m_curvePoints->size();
+            cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
+                                               CopyStrandPointsKernel, 0, size);
+            gridSize = (size + blockSize - 1) / blockSize;
+            CopyStrandPointsKernel<<<gridSize, blockSize>>>(
+                    size,
+                    static_cast<UniEngine::StrandPoint *>(m_vertexDataBuffer.m_dPtr),
+                    static_cast<float *>(deviceWidthBuffer.m_dPtr));
+            CUDA_SYNC_CHECK();
+
+
             buildInput.type = OPTIX_BUILD_INPUT_TYPE_CURVES;
             switch (m_geometryType) {
                 case GeometryType::Linear:
@@ -1268,13 +1291,13 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
                     buildInput.curveArray.curveType = OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE;
                     break;
             }
-            devicePoints = devicePositionBuffer.DevicePointer();
+            devicePoints = m_vertexDataBuffer.DevicePointer();
             deviceWidths = deviceWidthBuffer.DevicePointer();
-            deviceStrands = deviceStrandsBuffer.DevicePointer();
+            deviceStrands = m_triangleBuffer.DevicePointer();
             buildInput.curveArray.numPrimitives = m_curveSegments->size();
             buildInput.curveArray.vertexBuffers = &devicePoints;
             buildInput.curveArray.numVertices = static_cast<unsigned int>(m_curvePoints->size());
-            buildInput.curveArray.vertexStrideInBytes = sizeof(glm::vec3);
+            buildInput.curveArray.vertexStrideInBytes = sizeof(UniEngine::StrandPoint);
             buildInput.curveArray.widthBuffers = &deviceWidths;
             buildInput.curveArray.widthStrideInBytes = sizeof(float);
             buildInput.curveArray.normalBuffers = 0;
@@ -1290,8 +1313,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             CUdeviceptr deviceVertexTriangles;
 
             m_vertexDataBuffer.Upload(*m_vertices);
-            devicePositionBuffer.Resize(
-                    m_vertices->size() * sizeof(glm::vec3));
             int blockSize = 0;   // The launch configurator returned block size
             int minGridSize = 0; // The minimum grid size needed to achieve the
             // maximum occupancy for a full device launch
@@ -1300,10 +1321,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             cudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize,
                                                CopyVerticesKernel, 0, size);
             gridSize = (size + blockSize - 1) / blockSize;
-            CopyVerticesKernel<<<gridSize, blockSize>>>(
-                    size,
-                    static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr),
-                    static_cast<glm::vec3 *>(devicePositionBuffer.m_dPtr));
             CUDA_SYNC_CHECK();
             m_triangleBuffer.Upload(*m_triangles);
 
@@ -1313,14 +1330,14 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             // create local variables, because we need a *pointer* to the
             // device pointers
             deviceVertexPositions =
-                    devicePositionBuffer.DevicePointer();
+                    m_vertexDataBuffer.DevicePointer();
             deviceVertexTriangles = m_triangleBuffer.DevicePointer();
 
             buildInput.triangleArray.vertexFormat =
                     OPTIX_VERTEX_FORMAT_FLOAT3;
-            buildInput.triangleArray.vertexStrideInBytes = sizeof(glm::vec3);
+            buildInput.triangleArray.vertexStrideInBytes = sizeof(UniEngine::Vertex);
             buildInput.triangleArray.numVertices =
-                    static_cast<int>(devicePositionBuffer.m_sizeInBytes / sizeof(glm::vec3));
+                    static_cast<int>(m_vertices->size());
             buildInput.triangleArray.vertexBuffers =
                     &deviceVertexPositions;
 
@@ -1549,7 +1566,6 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 #pragma endregion
 
     devicePositionBuffer.Free();
-    deviceStrandsBuffer.Free();
     deviceWidthBuffer.Free();
     m_updateFlag = false;
 }
@@ -1558,9 +1574,11 @@ void RayTracedGeometry::UploadForSBT() {
     m_geometryBuffer.Free();
     if (m_geometryType != GeometryType::Triangle) {
         Curves curves;
+        curves.m_strandPoints = reinterpret_cast<UniEngine::StrandPoint *>(m_vertexDataBuffer.DevicePointer());
         curves.m_strandU = reinterpret_cast<glm::vec2 *>(m_curveStrandUBuffer.DevicePointer());
         curves.m_strandIndices = reinterpret_cast<int *>(m_curveStrandIBuffer.DevicePointer());
         curves.m_strandInfos = reinterpret_cast<glm::uvec2 *>(m_curveStrandInfoBuffer.DevicePointer());
+        curves.m_segments = reinterpret_cast<int *>(m_triangleBuffer.DevicePointer());
         m_geometryBuffer.Upload(&curves, 1);
     } else {
         TriangularMesh mesh;

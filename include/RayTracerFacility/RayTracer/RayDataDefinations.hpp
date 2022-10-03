@@ -17,68 +17,7 @@ namespace RayTracerFacility {
         return rayOrigin + rayDirection * t;
     }
 
-    // Compute surface normal of quadratic pimitive in world space.
-    static __forceinline__ __device__ float3 NormalLinear(const int primitiveIndex) {
-        const OptixTraversableHandle gas = optixGetGASTraversableHandle();
-        const unsigned int gasSbtIndex = optixGetSbtGASIndex();
-        float4 controlPoints[2];
-
-        optixGetLinearCurveVertexData(gas, primitiveIndex, gasSbtIndex, 0.0f, controlPoints);
-
-        LinearBSplineSegment interpolator(controlPoints);
-        float3 hitPoint = GetHitPoint();
-        // interpolators work in object space
-        hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
-        const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
-        return optixTransformNormalFromObjectToWorldSpace(normal);
-    }
-
-    // Compute surface normal of quadratic pimitive in world space.
-    static __forceinline__ __device__ float3 NormalQuadratic(const int primitiveIndex) {
-        const OptixTraversableHandle gas = optixGetGASTraversableHandle();
-        const unsigned int gasSbtIndex = optixGetSbtGASIndex();
-        float4 controlPoints[3];
-
-        optixGetQuadraticBSplineVertexData(gas, primitiveIndex, gasSbtIndex, 0.0f, controlPoints);
-
-        QuadraticBSplineSegment interpolator(controlPoints);
-        float3 hitPoint = GetHitPoint();
-        // interpolators work in object space
-        hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
-        const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
-        return optixTransformNormalFromObjectToWorldSpace(normal);
-    }
-
-    // Compute surface normal of cubic pimitive in world space.
-    static __forceinline__ __device__ float3 NormalCubic(const int primitiveIndex) {
-        const OptixTraversableHandle gas = optixGetGASTraversableHandle();
-        const unsigned int gasSbtIndex = optixGetSbtGASIndex();
-        float4 controlPoints[4];
-
-        optixGetCubicBSplineVertexData(gas, primitiveIndex, gasSbtIndex, 0.0f, controlPoints);
-
-        CubicBSplineSegment interpolator(controlPoints);
-        float3 hitPoint = GetHitPoint();
-        // interpolators work in object space
-        hitPoint = optixTransformPointFromWorldToObjectSpace(hitPoint);
-        const float3 normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
-        return optixTransformNormalFromObjectToWorldSpace(normal);
-    }
-
-    // Compute normal
-    static __forceinline__ __device__ float3 ComputeNormal(OptixPrimitiveType type, const int primitiveIndex) {
-        switch (type) {
-            case OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR:
-                return NormalLinear(primitiveIndex);
-            case OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE:
-                return NormalQuadratic(primitiveIndex);
-            case OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE:
-                return NormalCubic(primitiveIndex);
-        }
-        return make_float3(0.0f);
-    }
-
-    struct HitInfo{
+    struct HitInfo {
         glm::vec3 m_position = glm::vec3(0.0f);
         glm::vec3 m_normal = glm::vec3(0.0f);
         glm::vec3 m_tangent = glm::vec3(0.0f);
@@ -87,21 +26,104 @@ namespace RayTracerFacility {
     };
 
     struct Curves {
+        UniEngine::StrandPoint *m_strandPoints = nullptr;
+        //The starting index of point where this segment starts;
+        int *m_segments = nullptr;
+        //The start and end's U for current segment for entire strand.
         glm::vec2 *m_strandU = nullptr;
+        //The index of strand this segment belongs.
         int *m_strandIndices = nullptr;
+        //Current strand's start index and number of segment in current strand
         glm::uvec2 *m_strandInfos = nullptr;
 
         // Get curve hit-point in world coordinates.
         __device__ HitInfo GetHitInfo() const {
             HitInfo hitInfo;
             const unsigned int primitiveIndex = optixGetPrimitiveIndex();
-            auto normal = ComputeNormal(optixGetPrimitiveType(), primitiveIndex);
-            hitInfo.m_normal = glm::vec3(normal.x, normal.y, normal.z);
-            auto hitPoint = GetHitPoint();
-            hitInfo.m_position = glm::vec3(hitPoint.x, hitPoint.y, hitPoint.z);
-            hitInfo.m_tangent = glm::cross(hitInfo.m_normal, glm::vec3(hitInfo.m_normal.y, hitInfo.m_normal.z, hitInfo.m_normal.x));
+            auto type = optixGetPrimitiveType();
+            float3 hitPointInternal = GetHitPoint();
+            // interpolators work in object space
+            hitPointInternal = optixTransformPointFromWorldToObjectSpace(hitPointInternal);
+            hitInfo.m_position = glm::vec3(hitPointInternal.x, hitPointInternal.y, hitPointInternal.z);
+
+            switch (type) {
+                case OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR: {
+                    LinearBSplineSegment interpolator(&m_strandPoints[m_segments[primitiveIndex]]);
+                    const auto u = optixGetCurveParameter();
+                    hitInfo.m_normal = surfaceNormal(interpolator, u, hitInfo.m_position);
+                    hitInfo.m_texCoord = interpolator.texCoord(u);
+                    hitInfo.m_color = interpolator.color(u);
+                }
+                    break;
+                case OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE: {
+                    QuadraticBSplineSegment interpolator(&m_strandPoints[m_segments[primitiveIndex]]);
+                    const auto u = optixGetCurveParameter();
+                    hitInfo.m_normal = surfaceNormal(interpolator, u, hitInfo.m_position);
+                    hitInfo.m_texCoord = interpolator.texCoord(u);
+                    hitInfo.m_color = interpolator.color(u);
+                }
+                    break;
+                case OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE: {
+                    CubicBSplineSegment interpolator(&m_strandPoints[m_segments[primitiveIndex]]);
+                    const auto u = optixGetCurveParameter();
+                    hitInfo.m_normal = surfaceNormal(interpolator, u, hitInfo.m_position);
+                    hitInfo.m_texCoord = interpolator.texCoord(u);
+                    hitInfo.m_color = interpolator.color(u);
+                }
+                    break;
+
+            }
+            hitInfo.m_tangent = glm::cross(hitInfo.m_normal,
+                                           glm::vec3(hitInfo.m_normal.y, hitInfo.m_normal.z, hitInfo.m_normal.x));
             return hitInfo;
         }
+
+        // Compute surface normal of quadratic primitive in world space.
+        __forceinline__ __device__ glm::vec3 NormalLinear(const int primitiveIndex) const {
+            LinearBSplineSegment interpolator(&m_strandPoints[m_segments[primitiveIndex]]);
+            float3 hitPointInternal = GetHitPoint();
+            // interpolators work in object space
+            hitPointInternal = optixTransformPointFromWorldToObjectSpace(hitPointInternal);
+            glm::vec3 hitPoint = glm::vec3(hitPointInternal.x, hitPointInternal.y, hitPointInternal.z);
+            const auto normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
+            return normal;
+        }
+
+        // Compute surface normal of quadratic primitive in world space.
+        __forceinline__ __device__ glm::vec3 NormalQuadratic(const int primitiveIndex) const {
+            QuadraticBSplineSegment interpolator(&m_strandPoints[m_segments[primitiveIndex]]);
+            float3 hitPointInternal = GetHitPoint();
+            // interpolators work in object space
+            hitPointInternal = optixTransformPointFromWorldToObjectSpace(hitPointInternal);
+            glm::vec3 hitPoint = glm::vec3(hitPointInternal.x, hitPointInternal.y, hitPointInternal.z);
+            const auto normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
+            return normal;
+        }
+
+        // Compute surface normal of cubic primitive in world space.
+        __forceinline__ __device__ glm::vec3 NormalCubic(const int primitiveIndex) const {
+            CubicBSplineSegment interpolator(&m_strandPoints[m_segments[primitiveIndex]]);
+            float3 hitPointInternal = GetHitPoint();
+            // interpolators work in object space
+            hitPointInternal = optixTransformPointFromWorldToObjectSpace(hitPointInternal);
+            glm::vec3 hitPoint = glm::vec3(hitPointInternal.x, hitPointInternal.y, hitPointInternal.z);
+            const auto normal = surfaceNormal(interpolator, optixGetCurveParameter(), hitPoint);
+            return normal;
+        }
+
+        // Compute normal
+        __forceinline__ __device__ glm::vec3 ComputeNormal(OptixPrimitiveType type, const int primitiveIndex) const {
+            switch (type) {
+                case OPTIX_PRIMITIVE_TYPE_ROUND_LINEAR:
+                    return NormalLinear(primitiveIndex);
+                case OPTIX_PRIMITIVE_TYPE_ROUND_QUADRATIC_BSPLINE:
+                    return NormalQuadratic(primitiveIndex);
+                case OPTIX_PRIMITIVE_TYPE_ROUND_CUBIC_BSPLINE:
+                    return NormalCubic(primitiveIndex);
+            }
+            return glm::vec3(0.0f);
+        }
+
     };
 
 
@@ -122,17 +144,17 @@ namespace RayTracerFacility {
                                  triangleBarycentrics.x * vy.m_texCoord +
                                  triangleBarycentrics.y * vz.m_texCoord;
             hitInfo.m_position = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                                vx.m_position +
-                                triangleBarycentrics.x * vy.m_position +
-                                triangleBarycentrics.y * vz.m_position;
+                                 vx.m_position +
+                                 triangleBarycentrics.x * vy.m_position +
+                                 triangleBarycentrics.y * vz.m_position;
             hitInfo.m_normal = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                              vx.m_normal +
-                              triangleBarycentrics.x * vy.m_normal +
-                              triangleBarycentrics.y * vz.m_normal;
+                               vx.m_normal +
+                               triangleBarycentrics.x * vy.m_normal +
+                               triangleBarycentrics.y * vz.m_normal;
             hitInfo.m_tangent = (1.f - triangleBarycentrics.x - triangleBarycentrics.y) *
-                               vx.m_tangent +
-                               triangleBarycentrics.x * vy.m_tangent +
-                               triangleBarycentrics.y * vz.m_tangent;
+                                vx.m_tangent +
+                                triangleBarycentrics.x * vy.m_tangent +
+                                triangleBarycentrics.y * vz.m_tangent;
 
             auto z = 1.f - triangleBarycentrics.x - triangleBarycentrics.y;
             if (triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y) {
@@ -349,16 +371,17 @@ namespace RayTracerFacility {
             if (m_geometryType != RendererType::Curve) {
                 auto *mesh = (TriangularMesh *) m_geometry;
                 retVal = mesh->GetHitInfo();
-                retVal.m_normal = m_globalTransform * glm::vec4(retVal.m_normal, 0.0f);
-                if (glm::dot(rayDirection, retVal.m_normal) > 0.0f) {
-                    retVal.m_normal = -retVal.m_normal;
-                }
-                retVal.m_tangent = m_globalTransform * glm::vec4(retVal.m_tangent, 0.0f);
-                retVal.m_position = m_globalTransform * glm::vec4(retVal.m_position, 1.0f);
-            }else {
+
+            } else {
                 auto *curves = (Curves *) m_geometry;
                 retVal = curves->GetHitInfo();
             }
+            retVal.m_normal = glm::normalize(m_globalTransform * glm::vec4(retVal.m_normal, 0.0f));
+            if (glm::dot(rayDirection, retVal.m_normal) > 0.0f) {
+                retVal.m_normal = -retVal.m_normal;
+            }
+            retVal.m_tangent = glm::normalize(m_globalTransform * glm::vec4(retVal.m_tangent, 0.0f));
+            retVal.m_position = m_globalTransform * glm::vec4(retVal.m_position, 1.0f);
             return retVal;
         }
     };

@@ -34,8 +34,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 continue;
             auto strands = strandsRendererRenderer->m_strands.Get<Strands>();
             auto material = strandsRendererRenderer->m_material.Get<Material>();
-            if (!material || !strands || strands->UnsafeGetPoints().empty() || strands->UnsafeGetSegments().empty() ||
-                strands->UnsafeGetThickness().empty())
+            if (!material || !strands || strands->UnsafeGetPoints().empty() || strands->UnsafeGetSegments().empty())
                 continue;
             auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
             bool needInstanceUpdate = false;
@@ -61,7 +60,6 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 rayTracedGeometry.m_updateFlag = true;
                 needInstanceUpdate = true;
                 rayTracedGeometry.m_rendererType = RendererType::Curve;
-                rayTracedGeometry.m_curveThickness = &strands->UnsafeGetThickness();
                 rayTracedGeometry.m_curveSegments = &strands->UnsafeGetSegments();
                 rayTracedGeometry.m_curvePoints = &strands->UnsafeGetPoints();
                 rayTracedGeometry.m_strandU = &strands->UnsafeGetStrandU();

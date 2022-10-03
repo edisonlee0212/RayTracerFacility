@@ -277,11 +277,10 @@ namespace RayTracerFacility {
         union {
             std::vector<UniEngine::Vertex> *m_vertices = nullptr;
             std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
-            std::vector<glm::vec3> *m_curvePoints;
+            std::vector<UniEngine::StrandPoint> *m_curvePoints;
         };
         std::vector<glm::mat4> *m_boneMatrices = nullptr;
         std::vector<glm::mat4> *m_instanceMatrices = nullptr;
-        std::vector<float> *m_curveThickness = nullptr;
         union {
             std::vector<glm::uvec3> *m_triangles = nullptr;
             std::vector<int> *m_curveSegments;
