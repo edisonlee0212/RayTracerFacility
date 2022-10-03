@@ -43,7 +43,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             auto entityHandle = scene->GetEntityHandle(entity);
             auto geometryHandle = strands->GetHandle();
             auto materialHandle = material->GetHandle();
-            auto &rayTracedInstance = instanceStorage[entityHandle];
+            auto &rayTracedInstance = instanceStorage[strandsRendererRenderer->GetHandle().GetValue()];
             auto &rayTracedGeometry = geometryStorage[geometryHandle];
             auto &rayTracedMaterial = materialStorage[materialHandle];
             rayTracedInstance.m_removeFlag = false;
@@ -116,7 +116,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             auto entityHandle = scene->GetEntityHandle(entity);
             auto geometryHandle = mesh->GetHandle();
             auto materialHandle = material->GetHandle();
-            auto &rayTracedInstance = instanceStorage[entityHandle];
+            auto &rayTracedInstance = instanceStorage[meshRenderer->GetHandle().GetValue()];
             auto &rayTracedGeometry = geometryStorage[geometryHandle];
             auto &rayTracedMaterial = materialStorage[materialHandle];
             rayTracedInstance.m_removeFlag = false;
@@ -176,9 +176,9 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             bool needMaterialUpdate = false;
 
             auto entityHandle = scene->GetEntityHandle(entity);
-            auto geometryHandle = mesh->GetHandle();
+            auto geometryHandle = skinnedMeshRenderer->GetHandle().GetValue();
             auto materialHandle = material->GetHandle();
-            auto &rayTracedInstance = instanceStorage[entityHandle];
+            auto &rayTracedInstance = instanceStorage[geometryHandle];
             auto &rayTracedGeometry = geometryStorage[geometryHandle];
             auto &rayTracedMaterial = materialStorage[materialHandle];
             rayTracedInstance.m_removeFlag = false;
@@ -241,9 +241,9 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             bool needMaterialUpdate = false;
 
             auto entityHandle = scene->GetEntityHandle(entity);
-            auto geometryHandle = mesh->GetHandle();
+            auto geometryHandle = particles->GetHandle().GetValue();
             auto materialHandle = material->GetHandle();
-            auto &rayTracedInstance = instanceStorage[entityHandle];
+            auto &rayTracedInstance = instanceStorage[geometryHandle];
             auto &rayTracedGeometry = geometryStorage[geometryHandle];
             auto &rayTracedMaterial = materialStorage[materialHandle];
             rayTracedInstance.m_removeFlag = false;
