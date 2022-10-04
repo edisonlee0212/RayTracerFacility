@@ -1500,7 +1500,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
     OptixAccelBuildOptions accelerateOptions = {};
     accelerateOptions.buildFlags =
-            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION | OPTIX_BUILD_FLAG_ALLOW_RANDOM_VERTEX_ACCESS;
+            OPTIX_BUILD_FLAG_NONE | OPTIX_BUILD_FLAG_ALLOW_COMPACTION | OPTIX_BUILD_FLAG_PREFER_FAST_TRACE;
     accelerateOptions.motionOptions.numKeys = 1;
     accelerateOptions.operation = OPTIX_BUILD_OPERATION_BUILD;
 
