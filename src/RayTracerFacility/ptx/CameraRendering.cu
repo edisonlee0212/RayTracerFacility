@@ -163,7 +163,7 @@ namespace RayTracerFacility {
                 float f = 1.0f;
                 glm::vec3 reflected = Reflect(rayDirection, hitInfo.m_normal);
                 glm::vec3 newRayDirection =
-                        RandomSampleHemisphere(perRayData.m_random, reflected, 1.0f);
+                        RandomSampleHemisphere(perRayData.m_random, reflected, 0.0f);
                 static_cast<SurfaceCompressedBTF *>(sbtData.m_material)
                         ->GetValue(hitInfo.m_texCoord, rayDirection, newRayDirection, hitInfo.m_normal,
                                    hitInfo.m_tangent,
