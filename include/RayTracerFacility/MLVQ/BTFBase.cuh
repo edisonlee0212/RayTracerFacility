@@ -15,7 +15,6 @@ namespace RayTracerFacility {
         bool m_hdr = false;
         float m_hdrValue = 1.0f;
         bool m_hasData = false;
-
         __device__ void GetValueDeg(const glm::vec2 &texCoord,
                                     const float &illuminationTheta,
                                     const float &illuminationPhi,

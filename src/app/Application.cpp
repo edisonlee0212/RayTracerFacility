@@ -4,7 +4,7 @@
 #include <Application.hpp>
 #ifdef RAYTRACERFACILITY
 #include <RayTracerLayer.hpp>
-#include "MLVQRenderer.hpp"
+#include "BTFMeshRenderer.hpp"
 #include "TriangleIlluminationEstimator.hpp"
 #endif
 

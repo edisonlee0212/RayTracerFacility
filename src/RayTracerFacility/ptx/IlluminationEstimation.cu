@@ -118,7 +118,7 @@ namespace RayTracerFacility {
 
             }
                 break;
-            case MaterialType::MLVQ: {
+            case MaterialType::CompressedBTF: {
                 glm::vec3 btfColor;
                 if (perRayData.m_hitCount <=
                     illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties
@@ -128,7 +128,7 @@ namespace RayTracerFacility {
                     glm::vec3 reflected = Reflect(rayDirection, hitInfo.m_normal);
                     glm::vec3 newRayDirection =
                             RandomSampleHemisphere(perRayData.m_random, reflected, 1.0f);
-                    static_cast<MLVQMaterial *>(sbtData.m_material)
+                    static_cast<SurfaceCompressedBTF *>(sbtData.m_material)
                             ->GetValue(hitInfo.m_texCoord, rayDirection, newRayDirection, hitInfo.m_normal, hitInfo.m_tangent,
                                        btfColor,
                                        false /*(perRayData.m_printInfo && sampleID == 0)*/);

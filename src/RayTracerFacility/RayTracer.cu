@@ -797,11 +797,6 @@ RayTracer::RayTracer() {
 
     std::cout << "#Optix: context, module, pipeline, etc, all set up ..."
               << std::endl;
-
-    MLVQMaterialStorage storage;
-    storage.m_material = std::make_shared<MLVQMaterial>();
-    storage.m_buffer.Upload(storage.m_material.get(), 1);
-    m_MLVQMaterialStorage.push_back(storage);
 }
 
 static void context_log_cb(const unsigned int level, const char *tag,
@@ -1160,7 +1155,7 @@ CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matri
 }
 
 __global__ void
-CopyStrandPointsKernel(int size, UniEngine::StrandPoint *strandPoints, float* targetThicknesses) {
+CopyStrandPointsKernel(int size, UniEngine::StrandPoint *strandPoints, float *targetThicknesses) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
     if (idx < size) {
         targetThicknesses[idx] = strandPoints[idx].m_thickness;
@@ -1812,22 +1807,11 @@ void RayTracer::BuildSBT(
     std::vector<uint64_t> removeQueue;
     for (auto &i: m_materials) {
         auto &material = i.second;
-        if (material.m_materialType == MaterialType::Default || material.m_materialType == MaterialType::VertexColor)
-            material.m_materialBuffer.Free();
+        material.m_materialBuffer.Free();
         if (material.m_removeFlag) {
             removeQueue.emplace_back(i.first);
         } else {
-            if (material.m_materialType == MaterialType::MLVQ) {
-                if (material.m_MLVQMaterialIndex >= 0 &&
-                    material.m_MLVQMaterialIndex < m_MLVQMaterialStorage.size()) {
-                    material.m_materialBuffer =
-                            m_MLVQMaterialStorage[material.m_MLVQMaterialIndex].m_buffer;
-                } else {
-                    material.m_materialBuffer = m_MLVQMaterialStorage[0].m_buffer;
-                }
-            } else {
-                material.UploadForSBT(boundTextures, boundResources);
-            }
+            material.UploadForSBT(boundTextures, boundResources);
         }
     }
     for (auto &i: removeQueue) {
@@ -2040,96 +2024,178 @@ void RayTracer::BuildSBT(
 }
 
 
-void RayTracer::LoadBtfMaterials(const std::vector<std::string> &folderPathes) {
-    for (const auto &entry: folderPathes) {
-        MLVQMaterialStorage storage;
-        storage.m_material = std::make_shared<MLVQMaterial>();
-        storage.m_material->m_btf.Init(entry);
-        storage.m_buffer.Upload(storage.m_material.get(), 1);
-        m_MLVQMaterialStorage.push_back(storage);
-    }
-}
-
 void RayTracedMaterial::UploadForSBT(
         std::vector<std::pair<unsigned, cudaTextureObject_t>> &boundTextures,
         std::vector<cudaGraphicsResource_t> &boundResources) {
-    SurfaceMaterial material;
+    switch (m_materialType) {
+        case MaterialType::VertexColor: {
+            SurfaceMaterial material;
 #pragma region Material Settings
-    material.m_materialProperties = m_materialProperties;
-    material.m_albedoTexture = 0;
-    material.m_normalTexture = 0;
-    material.m_roughnessTexture = 0;
-    material.m_metallicTexture = 0;
-    if (m_albedoTexture.m_textureId != 0) {
-        bool duplicate = false;
-        for (auto &boundTexture: boundTextures) {
-            if (boundTexture.first == m_albedoTexture.m_textureId) {
-                material.m_albedoTexture = boundTexture.second;
-                duplicate = true;
-                break;
+            material.m_materialProperties = m_materialProperties;
+            material.m_albedoTexture = 0;
+            material.m_normalTexture = 0;
+            material.m_roughnessTexture = 0;
+            material.m_metallicTexture = 0;
+            if (m_albedoTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_albedoTexture.m_textureId) {
+                        material.m_albedoTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_albedoTexture.m_textureId, graphicsResource,
+                                material.m_albedoTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_albedoTexture.m_textureId, material.m_albedoTexture);
+                }
             }
-        }
-        if (!duplicate) {
-            cudaGraphicsResource_t graphicsResource;
-            BindTexture(m_albedoTexture.m_textureId, graphicsResource,
-                        material.m_albedoTexture);
-            boundResources.push_back(graphicsResource);
-            boundTextures.emplace_back(m_albedoTexture.m_textureId, material.m_albedoTexture);
-        }
-    }
-    if (m_normalTexture.m_textureId != 0) {
-        bool duplicate = false;
-        for (auto &boundTexture: boundTextures) {
-            if (boundTexture.first == m_normalTexture.m_textureId) {
-                material.m_normalTexture = boundTexture.second;
-                duplicate = true;
-                break;
+            if (m_normalTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_normalTexture.m_textureId) {
+                        material.m_normalTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_normalTexture.m_textureId, graphicsResource,
+                                material.m_normalTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_normalTexture.m_textureId, material.m_normalTexture);
+                }
             }
-        }
-        if (!duplicate) {
-            cudaGraphicsResource_t graphicsResource;
-            BindTexture(m_normalTexture.m_textureId, graphicsResource,
-                        material.m_normalTexture);
-            boundResources.push_back(graphicsResource);
-            boundTextures.emplace_back(m_normalTexture.m_textureId, material.m_normalTexture);
-        }
-    }
-    if (m_roughnessTexture.m_textureId != 0) {
-        bool duplicate = false;
-        for (auto &boundTexture: boundTextures) {
-            if (boundTexture.first == m_roughnessTexture.m_textureId) {
-                material.m_roughnessTexture = boundTexture.second;
-                duplicate = true;
-                break;
+            if (m_roughnessTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_roughnessTexture.m_textureId) {
+                        material.m_roughnessTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_roughnessTexture.m_textureId, graphicsResource,
+                                material.m_roughnessTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_roughnessTexture.m_textureId, material.m_roughnessTexture);
+                }
             }
-        }
-        if (!duplicate) {
-            cudaGraphicsResource_t graphicsResource;
-            BindTexture(m_roughnessTexture.m_textureId, graphicsResource,
-                        material.m_roughnessTexture);
-            boundResources.push_back(graphicsResource);
-            boundTextures.emplace_back(m_roughnessTexture.m_textureId, material.m_roughnessTexture);
-        }
-    }
-    if (m_metallicTexture.m_textureId != 0) {
-        bool duplicate = false;
-        for (auto &boundTexture: boundTextures) {
-            if (boundTexture.first == m_metallicTexture.m_textureId) {
-                material.m_metallicTexture = boundTexture.second;
-                duplicate = true;
-                break;
+            if (m_metallicTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_metallicTexture.m_textureId) {
+                        material.m_metallicTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_metallicTexture.m_textureId, graphicsResource,
+                                material.m_metallicTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_metallicTexture.m_textureId, material.m_metallicTexture);
+                }
             }
-        }
-        if (!duplicate) {
-            cudaGraphicsResource_t graphicsResource;
-            BindTexture(m_metallicTexture.m_textureId, graphicsResource,
-                        material.m_metallicTexture);
-            boundResources.push_back(graphicsResource);
-            boundTextures.emplace_back(m_metallicTexture.m_textureId, material.m_metallicTexture);
-        }
-    }
 #pragma endregion
-    m_materialBuffer.Upload(&material, 1);
+            m_materialBuffer.Upload(&material, 1);
+        }
+            break;
+        case MaterialType::CompressedBTF: {
+            SurfaceCompressedBTF material;
+            material.m_btf = *m_btfBase;
+            m_materialBuffer.Upload(&material, 1);
+        }
+            break;
+        case MaterialType::Default: {
+            SurfaceMaterial material;
+#pragma region Material Settings
+            material.m_materialProperties = m_materialProperties;
+            material.m_albedoTexture = 0;
+            material.m_normalTexture = 0;
+            material.m_roughnessTexture = 0;
+            material.m_metallicTexture = 0;
+            if (m_albedoTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_albedoTexture.m_textureId) {
+                        material.m_albedoTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_albedoTexture.m_textureId, graphicsResource,
+                                material.m_albedoTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_albedoTexture.m_textureId, material.m_albedoTexture);
+                }
+            }
+            if (m_normalTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_normalTexture.m_textureId) {
+                        material.m_normalTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_normalTexture.m_textureId, graphicsResource,
+                                material.m_normalTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_normalTexture.m_textureId, material.m_normalTexture);
+                }
+            }
+            if (m_roughnessTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_roughnessTexture.m_textureId) {
+                        material.m_roughnessTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_roughnessTexture.m_textureId, graphicsResource,
+                                material.m_roughnessTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_roughnessTexture.m_textureId, material.m_roughnessTexture);
+                }
+            }
+            if (m_metallicTexture.m_textureId != 0) {
+                bool duplicate = false;
+                for (auto &boundTexture: boundTextures) {
+                    if (boundTexture.first == m_metallicTexture.m_textureId) {
+                        material.m_metallicTexture = boundTexture.second;
+                        duplicate = true;
+                        break;
+                    }
+                }
+                if (!duplicate) {
+                    cudaGraphicsResource_t graphicsResource;
+                    BindTexture(m_metallicTexture.m_textureId, graphicsResource,
+                                material.m_metallicTexture);
+                    boundResources.push_back(graphicsResource);
+                    boundTextures.emplace_back(m_metallicTexture.m_textureId, material.m_metallicTexture);
+                }
+            }
+#pragma endregion
+            m_materialBuffer.Upload(&material, 1);
+        }
+            break;
+    }
+
 }
 
 void

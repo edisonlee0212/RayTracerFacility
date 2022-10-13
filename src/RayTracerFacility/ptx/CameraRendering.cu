@@ -22,7 +22,7 @@ namespace RayTracerFacility {
         perRayData.m_hitCount = hitCount;
         perRayData.m_energy = glm::vec3(0.0f);
         auto &environment = cameraRenderingLaunchParams.m_rayTracerProperties.m_environment;
-        if (sbtData.m_materialType != MaterialType::MLVQ) {
+        if (sbtData.m_materialType != MaterialType::CompressedBTF) {
             auto *material = static_cast<SurfaceMaterial *>(sbtData.m_material);
             material->ApplyNormalTexture(hitInfo.m_normal, hitInfo.m_texCoord, hitInfo.m_tangent);
             float metallic =
@@ -164,7 +164,7 @@ namespace RayTracerFacility {
                 glm::vec3 reflected = Reflect(rayDirection, hitInfo.m_normal);
                 glm::vec3 newRayDirection =
                         RandomSampleHemisphere(perRayData.m_random, reflected, 1.0f);
-                static_cast<MLVQMaterial *>(sbtData.m_material)
+                static_cast<SurfaceCompressedBTF *>(sbtData.m_material)
                         ->GetValue(hitInfo.m_texCoord, rayDirection, newRayDirection, hitInfo.m_normal,
                                    hitInfo.m_tangent,
                                    btfColor,

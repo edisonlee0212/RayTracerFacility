@@ -7,15 +7,15 @@
 #include <Mesh.hpp>
 #include <Texture2D.hpp>
 
+
 using namespace UniEngine;
 namespace RayTracerFacility {
-    class RAY_TRACER_FACILITY_API MLVQRenderer : public IPrivateComponent {
+    class RAY_TRACER_FACILITY_API BTFMeshRenderer : public IPrivateComponent {
     public:
         AssetRef m_mesh;
-        int m_materialIndex = 0;
-        void OnInspect() override;
-        void Sync();
+        AssetRef m_btf;
 
+        void OnInspect() override;
         void Serialize(YAML::Emitter &out) override;
         void Deserialize(const YAML::Node &in) override;
 

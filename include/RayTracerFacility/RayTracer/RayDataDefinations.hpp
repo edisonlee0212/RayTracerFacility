@@ -287,7 +287,7 @@ namespace RayTracerFacility {
         __device__ float GetRadiusMax() const { return 0.5f; }
     };
 
-    struct MLVQMaterial {
+    struct SurfaceCompressedBTF {
         BtfBase m_btf;
 #pragma region Device functions
 

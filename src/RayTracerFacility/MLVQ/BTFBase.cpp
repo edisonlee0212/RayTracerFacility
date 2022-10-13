@@ -260,7 +260,7 @@ bool BtfBase::Init(const std::string &materialDirectoryPath) {
     return false;
   }
   // Here we only allow single material, so the array representations in
-  // original MLVQ lib are not implemented.
+  // original CompressedBTF lib are not implemented.
 #pragma endregion
 #pragma region HDR
   std::string materialName;

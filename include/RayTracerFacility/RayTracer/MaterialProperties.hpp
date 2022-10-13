@@ -15,7 +15,7 @@ namespace RayTracerFacility {
     enum class MaterialType {
         Default,
         VertexColor,
-        MLVQ
+        CompressedBTF
     };
 
     enum class RendererType {

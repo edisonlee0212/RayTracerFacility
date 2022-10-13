@@ -1,4 +1,4 @@
-#include "MLVQRenderer.hpp"
+#include "BTFMeshRenderer.hpp"
 #include <RayTracerLayer.hpp>
 #include <ProjectManager.hpp>
 #include <RayTracer.hpp>
@@ -9,7 +9,7 @@
 #include "PointCloudScanner.hpp"
 #include "ClassRegistry.hpp"
 #include "StrandsRenderer.hpp"
-#include <ImGuizmo.h>
+#include "CompressedBTF.hpp"
 
 using namespace RayTracerFacility;
 
@@ -94,8 +94,6 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             rebuildInstances = rebuildInstances || needInstanceUpdate;
         }
     }
-
-
     if (const auto *rayTracedEntities =
                 scene->UnsafeGetPrivateComponentOwnersList<MeshRenderer>();
             rayTracedEntities && m_renderMeshRenderer) {
@@ -154,8 +152,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
         }
     }
     if (const auto *rayTracedEntities =
-                scene->UnsafeGetPrivateComponentOwnersList<
-                        SkinnedMeshRenderer>();
+                scene->UnsafeGetPrivateComponentOwnersList<SkinnedMeshRenderer>();
             rayTracedEntities && m_renderSkinnedMeshRenderer) {
         for (auto entity: *rayTracedEntities) {
             if (!scene->IsEntityEnabled(entity))
@@ -223,7 +220,8 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             rebuildInstances = rebuildInstances || needInstanceUpdate;
         }
     }
-    if (const auto *rayTracedEntities = scene->UnsafeGetPrivateComponentOwnersList<Particles>();
+    if (const auto *rayTracedEntities =
+                scene->UnsafeGetPrivateComponentOwnersList<Particles>();
             rayTracedEntities && m_renderParticles) {
         for (auto entity: *rayTracedEntities) {
             if (!scene->IsEntityEnabled(entity))
@@ -283,6 +281,63 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
             rebuildInstances = rebuildInstances || needInstanceUpdate;
         }
     }
+    if (const auto *rayTracedEntities =
+                scene->UnsafeGetPrivateComponentOwnersList<BTFMeshRenderer>();
+            rayTracedEntities && m_renderBTFMeshRenderer) {
+        for (auto entity: *rayTracedEntities) {
+            if (!scene->IsEntityEnabled(entity))
+                continue;
+            auto meshRenderer =
+                    scene->GetOrSetPrivateComponent<BTFMeshRenderer>(entity).lock();
+            if (!meshRenderer->IsEnabled())
+                continue;
+            auto mesh = meshRenderer->m_mesh.Get<Mesh>();
+            auto material = meshRenderer->m_btf.Get<CompressedBTF>();
+            if (!material || !material->m_btfBase.m_hasData || !mesh || mesh->UnsafeGetVertices().empty())
+                continue;
+            auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
+            bool needInstanceUpdate = false;
+            bool needMaterialUpdate = false;
+
+            auto entityHandle = scene->GetEntityHandle(entity);
+            auto geometryHandle = mesh->GetHandle();
+            auto materialHandle = material->GetHandle();
+            auto &rayTracedInstance = instanceStorage[meshRenderer->GetHandle().GetValue()];
+            auto &rayTracedGeometry = geometryStorage[geometryHandle];
+            auto &rayTracedMaterial = materialStorage[materialHandle];
+            rayTracedInstance.m_removeFlag = false;
+            rayTracedMaterial.m_removeFlag = false;
+            rayTracedGeometry.m_removeFlag = false;
+
+            if (rayTracedInstance.m_entityHandle != entityHandle
+                || rayTracedInstance.m_privateComponentHandle != meshRenderer->GetHandle().GetValue()
+                || rayTracedInstance.m_version != meshRenderer->GetVersion()
+                || globalTransform != rayTracedInstance.m_globalTransform) {
+                needInstanceUpdate = true;
+            }
+            if (rayTracedGeometry.m_handle == 0 || rayTracedGeometry.m_version != mesh->GetVersion()) {
+                rayTracedGeometry.m_updateFlag = true;
+                needInstanceUpdate = true;
+                rayTracedGeometry.m_rendererType = RendererType::Default;
+                rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
+                rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();
+                rayTracedGeometry.m_version = mesh->GetVersion();
+                rayTracedGeometry.m_geometryType = GeometryType::Triangle;
+                rayTracedGeometry.m_handle = geometryHandle;
+            }
+            if (CheckCompressedBTF(rayTracedMaterial, material)) needInstanceUpdate = true;
+            if (needInstanceUpdate) {
+                rayTracedInstance.m_entityHandle = entityHandle;
+                rayTracedInstance.m_privateComponentHandle = meshRenderer->GetHandle().GetValue();
+                rayTracedInstance.m_version = meshRenderer->GetVersion();
+                rayTracedInstance.m_globalTransform = globalTransform;
+                rayTracedInstance.m_geometryMapKey = geometryHandle;
+                rayTracedInstance.m_materialMapKey = materialHandle;
+            }
+            updateShaderBindingTable = updateShaderBindingTable || needMaterialUpdate;
+            rebuildInstances = rebuildInstances || needInstanceUpdate;
+        }
+    }
 
     for (auto &i: instanceStorage) if (i.second.m_removeFlag) rebuildInstances = true;
 }
@@ -332,14 +387,16 @@ void RayTracerLayer::UpdateScene() {
 
 void RayTracerLayer::OnCreate() {
     CudaModule::Init();
-    ClassRegistry::RegisterPrivateComponent<MLVQRenderer>(
-            "MLVQRenderer");
+    ClassRegistry::RegisterPrivateComponent<BTFMeshRenderer>(
+            "BTFMeshRenderer");
     ClassRegistry::RegisterPrivateComponent<TriangleIlluminationEstimator>(
             "TriangleIlluminationEstimator");
     ClassRegistry::RegisterPrivateComponent<RayTracerCamera>(
             "RayTracerCamera");
     ClassRegistry::RegisterPrivateComponent<PointCloudScanner>(
             "PointCloudScanner");
+    ClassRegistry::RegisterAsset<CompressedBTF>(
+            "CompressedBTF", {".cbtf"});
 
     m_sceneCamera = Serialization::ProduceSerializable<RayTracerCamera>();
     m_sceneCamera->OnCreate();
@@ -397,10 +454,11 @@ void RayTracerLayer::OnInspect() {
         ImGui::EndMainMenuBar();
     }
     if (ImGui::Begin("Ray Tracer Manager")) {
-        ImGui::Checkbox("TriangularMesh Renderer", &m_renderMeshRenderer);
+        ImGui::Checkbox("Mesh Renderer", &m_renderMeshRenderer);
+        ImGui::Checkbox("Strand Renderer", &m_renderStrandsRenderer);
         ImGui::Checkbox("Particles", &m_renderParticles);
-        ImGui::Checkbox("Skinned TriangularMesh Renderer", &m_renderSkinnedMeshRenderer);
-        ImGui::Checkbox("MLVQ Renderer", &m_renderSkinnedMeshRenderer);
+        ImGui::Checkbox("Skinned Mesh Renderer", &m_renderSkinnedMeshRenderer);
+        ImGui::Checkbox("BTF Mesh Renderer", &m_renderBTFMeshRenderer);
         ImGui::Checkbox("Scene Camera", &m_enableSceneCamera);
         if (ImGui::TreeNode("Scene Camera Settings")) {
             m_sceneCamera->OnInspect();
@@ -409,14 +467,6 @@ void RayTracerLayer::OnInspect() {
         if (ImGui::TreeNodeEx("Environment Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
             m_environmentProperties.OnInspect();
             ImGui::TreePop();
-        }
-        if (ImGui::Button("Load all MLVQ Materials")) {
-            std::vector<std::string> pathes;
-            std::filesystem::path folder("../Resources/btfs");
-            for (auto &entry: std::filesystem::directory_iterator(folder)) {
-                pathes.push_back(entry.path().string());
-            }
-            CudaModule::GetRayTracer()->LoadBtfMaterials(pathes);
         }
     }
     ImGui::End();
@@ -788,6 +838,21 @@ RayTracerLayer::CheckMaterial(RayTracedMaterial &rayTracerMaterial, const std::s
     if (rayTracerMaterial.m_handle != material->GetHandle()) {
         changed = true;
         rayTracerMaterial.m_handle = material->GetHandle();
+    }
+    return changed;
+}
+
+bool RayTracerLayer::CheckCompressedBTF(RayTracedMaterial &rayTracerMaterial,
+                                        const std::shared_ptr<CompressedBTF> &compressedBtf) const {
+    bool changed = false;
+    if(rayTracerMaterial.m_materialType != MaterialType::CompressedBTF){
+        changed = true;
+        rayTracerMaterial.m_materialType = MaterialType::CompressedBTF;
+    }
+    if(rayTracerMaterial.m_version != compressedBtf->m_version){
+        changed = true;
+        rayTracerMaterial.m_version = compressedBtf->m_version;
+        rayTracerMaterial.m_btfBase = &compressedBtf->m_btfBase;
     }
     return changed;
 }

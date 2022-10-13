@@ -10,6 +10,7 @@
 #include <ProjectManager.hpp>
 #include "ILayer.hpp"
 #include "Windows.hpp"
+#include "CompressedBTF.hpp"
 #include <memory>
 #include <ray_tracer_facility_export.h>
 
@@ -32,11 +33,12 @@ namespace RayTracerFacility {
 
         bool CheckMaterial(RayTracedMaterial &rayTracerMaterial, const std::shared_ptr<Material> &material) const;
 
+        bool CheckCompressedBTF(RayTracedMaterial &rayTracerMaterial, const std::shared_ptr<CompressedBTF> &compressedBtf) const;
     public:
         bool m_renderMeshRenderer = true;
         bool m_renderStrandsRenderer = true;
         bool m_renderParticles = true;
-        bool m_renderMLVQRenderer = true;
+        bool m_renderBTFMeshRenderer = true;
         bool m_renderSkinnedMeshRenderer = true;
 
         bool m_enableMenus = true;

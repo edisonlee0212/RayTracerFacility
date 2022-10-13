@@ -31,7 +31,7 @@ namespace RayTracerFacility {
         *>(sbtData.m_material)->GetAlbedo(texCoord); prd.m_albedo = albedoColor;
             }
                 break;
-            case MaterialType::MLVQ: {
+            case MaterialType::CompressedBTF: {
                 glm::vec3 btfColor = glm::vec3(0);
                 prd.m_albedo = btfColor;
             }

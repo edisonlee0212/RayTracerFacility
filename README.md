@@ -13,8 +13,8 @@ Please visit script for further details.
    - Screenshot: ![RayTracerScreenshot](/Resources/GitHub/BRDF.png?raw=true "BRDFScreenshot")
    - Screenshot: ![IndirectLightingScreenshot](/Resources/GitHub/IndirectLighting.png?raw=true "IndirectLightingScreenshot")
  - OptiX Ai Denoiser
- - CUDA version of MLVQ library that supports rendering compressed BTF materials with OptiX.
-   - Screenshot: ![MLVQScreenshot](/Resources/GitHub/MLVQ.png?raw=true "MLVQScreenshot")
+ - CUDA version of CompressedBTF library that supports rendering compressed BTF materials with OptiX.
+   - Screenshot: ![MLVQScreenshot](/Resources/GitHub/CompressedBTF.png?raw=true "MLVQScreenshot")
  - TriangularMesh surface illumination estimation
    - Screenshot: ![IlluminationScreenshot](/Resources/GitHub/Illumination.png?raw=true "IlluminationScreenshot")
  - Virtual Laser Scanner/LiDAR for point cloud generation in virtual scene 

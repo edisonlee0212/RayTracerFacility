@@ -244,7 +244,7 @@ namespace RayTracerFacility {
     struct RAY_TRACER_FACILITY_API RayTracedMaterial {
         MaterialType m_materialType = MaterialType::Default;
 
-        int m_MLVQMaterialIndex;
+        BtfBase* m_btfBase;
         MaterialProperties m_materialProperties;
 
         RayTracedTexture m_albedoTexture;
@@ -252,7 +252,7 @@ namespace RayTracerFacility {
         RayTracedTexture m_metallicTexture;
         RayTracedTexture m_roughnessTexture;
 
-        size_t m_version;
+        size_t m_version = 0;
         uint64_t m_handle = 0;
 
         CudaBuffer m_materialBuffer;
@@ -344,9 +344,9 @@ namespace RayTracerFacility {
         OptixShaderBindingTable m_sbt = {};
         CudaBuffer m_launchParamsBuffer;
     };
-    struct MLVQMaterial;
+    struct SurfaceCompressedBTF;
     struct MLVQMaterialStorage {
-        std::shared_ptr<MLVQMaterial> m_material;
+        std::shared_ptr<SurfaceCompressedBTF> m_material;
         CudaBuffer m_buffer;
     };
 
@@ -390,10 +390,6 @@ namespace RayTracerFacility {
         void LoadBtfMaterials(const std::vector<std::string> &folderPathes);
 
     protected:
-
-#pragma region MLVQ
-        std::vector<MLVQMaterialStorage> m_MLVQMaterialStorage;
-#pragma endregion
 
 #pragma region Device and context
         /*! @{ CUDA device context and stream that optix pipeline will run
