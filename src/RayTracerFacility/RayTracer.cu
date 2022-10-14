@@ -96,8 +96,10 @@ const char *OutputTypes[]{"Color", "Normal", "Albedo", "Depth"};
 void CameraProperties::OnInspect() {
     if (ImGui::TreeNode("Camera Properties")) {
         ImGui::Checkbox("Accumulate", &m_accumulate);
-        ImGui::DragFloat("Gamma", &m_gamma,
-                         0.01f, 0.1f, 3.0f);
+        if(ImGui::DragFloat("Gamma", &m_gamma,
+                         0.01f, 0.1f, 5.0f)){
+            SetGamma(m_gamma);
+        }
         int outputType = (int) m_outputType;
         if (ImGui::Combo("Output Type", &outputType, OutputTypes,
                          IM_ARRAYSIZE(OutputTypes))) {

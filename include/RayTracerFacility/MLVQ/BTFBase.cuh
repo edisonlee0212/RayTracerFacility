@@ -15,6 +15,8 @@ namespace RayTracerFacility {
         bool m_hdr = false;
         float m_hdrValue = 1.0f;
         bool m_hasData = false;
+        float m_multiplier = 1.0f;
+        float m_texCoordMultiplier = 1.0f;
         __device__ void GetValueDeg(const glm::vec2 &texCoord,
                                     const float &illuminationTheta,
                                     const float &illuminationPhi,
@@ -25,19 +27,19 @@ namespace RayTracerFacility {
                 return;
             }
 
-                if (illuminationTheta > 90.0f || viewTheta > 90.0f) {
-                    out = glm::vec3(0.0f);
-                    return;
-                }
+            if (illuminationTheta > 90.0f || viewTheta > 90.0f) {
+                out = glm::vec3(0.0f);
+                return;
+            }
             SharedCoordinates tc(m_tcTemplate);
             // fast version, pre-computation of interpolation values only once
             if (print)
                 printf("Sampling from PDF6...");
-            m_pdf6.GetValDeg2(texCoord, illuminationTheta, illuminationPhi, viewTheta,
+            m_pdf6.GetValDeg2(texCoord * m_texCoordMultiplier, illuminationTheta, illuminationPhi, viewTheta,
                               viewPhi, out, tc, print);
             if (print)
                 printf("Col6[%.2f, %.2f, %.2f]\n", out.x, out.y, out.z);
-
+            out *= m_multiplier;
             if (m_hdr) {
                 // we encode the values multiplied by a user coefficient
                 // before it is converted to User Color Model
