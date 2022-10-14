@@ -193,6 +193,10 @@ void EnvironmentProperties::OnInspect() {
             if (ImGui::DragInt("Samples light", &m_atmosphere.m_numSamplesLight, 1, 128)) {
                 m_atmosphere.m_numSamplesLight = glm::clamp(m_atmosphere.m_numSamplesLight, 1, 128);
             }
+            static glm::vec3 angles = glm::vec3(90, 0, 0);
+            if (ImGui::DragFloat3("Sun angle", &angles.x, 1.0f)) {
+                m_sunDirection = glm::quat(glm::radians(angles)) * glm::vec3(0, 0, -1);
+            }
             ImGui::TreePop();
         }
         if (ImGui::Button("Reset Atmosphere")) {
