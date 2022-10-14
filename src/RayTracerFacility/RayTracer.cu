@@ -95,7 +95,9 @@ const char *OutputTypes[]{"Color", "Normal", "Albedo", "Depth"};
 
 void CameraProperties::OnInspect() {
     if (ImGui::TreeNode("Camera Properties")) {
-        ImGui::Checkbox("Accumulate", &m_accumulate);
+        if(ImGui::Checkbox("Accumulate", &m_accumulate)){
+            m_modified = true;
+        }
         if(ImGui::DragFloat("Gamma", &m_gamma,
                          0.01f, 0.1f, 5.0f)){
             SetGamma(m_gamma);
@@ -104,6 +106,7 @@ void CameraProperties::OnInspect() {
         if (ImGui::Combo("Output Type", &outputType, OutputTypes,
                          IM_ARRAYSIZE(OutputTypes))) {
             m_outputType = static_cast<OutputType>(outputType);
+            m_modified = true;
         }
         if (ImGui::DragFloat("Max Distance", &m_maxDistance, 0.1f, 0.1f, 10000.0f)) {
             SetMaxDistance(m_maxDistance);
@@ -127,6 +130,7 @@ void CameraProperties::OnInspect() {
 
 void CameraProperties::SetDenoiserStrength(float value) {
     m_denoiserStrength = glm::clamp(value, 0.0f, 1.0f);
+    m_modified = true;
 }
 
 void CameraProperties::SetGamma(float value) {

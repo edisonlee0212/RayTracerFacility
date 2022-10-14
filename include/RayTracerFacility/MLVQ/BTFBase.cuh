@@ -17,6 +17,7 @@ namespace RayTracerFacility {
         bool m_hasData = false;
         float m_multiplier = 1.0f;
         float m_texCoordMultiplier = 1.0f;
+        float m_gamma = 2.2f;
         __device__ void GetValueDeg(const glm::vec2 &texCoord,
                                     const float &illuminationTheta,
                                     const float &illuminationPhi,
@@ -47,6 +48,7 @@ namespace RayTracerFacility {
                 const float multi = 1.0f / m_hdrValue;
                 out *= multi;
             }
+            out = glm::pow(out, glm::vec3(m_gamma));
         }
 
         int m_materialOrder; //! order of the material processed
