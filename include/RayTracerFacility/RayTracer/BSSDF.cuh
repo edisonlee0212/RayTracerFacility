@@ -12,7 +12,7 @@ namespace RayTracerFacility {
         unsigned long long m_handle;
         Random m_random;
         int m_recordSize = 0;
-        SSHitRecord m_records[8];
+        SSHitRecord m_records[4];
     };
 
     static __forceinline__ __device__ void SSAnyHit() {
@@ -22,11 +22,11 @@ namespace RayTracerFacility {
         if (perRayData.m_handle != sbtData.m_handle) {
             optixIgnoreIntersection();
         }
-        if (perRayData.m_recordSize >= 8) optixTerminateRay();
+        if (perRayData.m_recordSize >= 4) optixTerminateRay();
         const float3 rayDirectionInternal = optixGetWorldRayDirection();
         glm::vec3 rayDirection = glm::vec3(
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
-        auto hitInfo = sbtData.GetHitInfo(rayDirection);
+        auto hitInfo = sbtData.GetHitInfo(rayDirection, false);
 
         static_cast<SurfaceMaterial *>(sbtData.m_material)
                 ->ApplyNormalTexture(hitInfo.m_normal, hitInfo.m_texCoord, hitInfo.m_tangent);
@@ -46,7 +46,7 @@ namespace RayTracerFacility {
     BSSRDF(float metallic, Random &random, float radius, unsigned long long handle, OptixTraversableHandle traversable,
            const glm::vec3 &inPosition, const glm::vec3 &inDirection, const glm::vec3 &inNormal,
            float3 &outPosition, float3 &outDirection, glm::vec3 &outNormal) {
-        glm::vec3 diskNormal = RandomSampleHemisphere(random, inNormal);
+        glm::vec3 diskNormal = inNormal; //RandomSampleHemisphere(random, inNormal);
         glm::vec3 diskCenter = inPosition + radius * diskNormal / 2.0f;
         float diskRadius = radius * glm::sqrt(random());
         float distance = glm::sqrt(radius * radius - diskRadius * diskRadius);
@@ -75,12 +75,11 @@ namespace RayTracerFacility {
                         RayType::SpacialSampling), // missSBTIndex
                 u0, u1);
         if (perRayData.m_recordSize > 0) {
-            int index = perRayData.m_random() * perRayData.m_recordSize - 0.01f;
+            int index = glm::clamp((int)(perRayData.m_random() * perRayData.m_recordSize), 0, perRayData.m_recordSize - 1);
             if (glm::distance(inPosition, perRayData.m_records[index].m_outPosition) <= radius) {
                 outNormal = perRayData.m_records[index].m_outNormal;
-                outPosition = make_float3(perRayData.m_records[index].m_outPosition.x,
-                                          perRayData.m_records[index].m_outPosition.y,
-                                          perRayData.m_records[index].m_outPosition.z);
+                auto out = perRayData.m_records[index].m_outPosition + outNormal * 0.01f;
+                outPosition = make_float3(out.x, out.y, out.z);
                 //outDirection = make_float3(outNormal.x, outNormal.y, outNormal.z);
                 BRDF(metallic, random, -outNormal, outNormal, outDirection);
                 return true;

@@ -366,7 +366,7 @@ namespace RayTracerFacility {
         void *m_material;
 
         __device__ HitInfo
-        GetHitInfo(glm::vec3 &rayDirection) const {
+        GetHitInfo(glm::vec3 &rayDirection, bool checkNormal = true) const {
             HitInfo retVal;
             if (m_geometryType != RendererType::Curve) {
                 auto *mesh = (TriangularMesh *) m_geometry;
@@ -377,7 +377,7 @@ namespace RayTracerFacility {
                 retVal = curves->GetHitInfo();
             }
             retVal.m_normal = glm::normalize(m_globalTransform * glm::vec4(retVal.m_normal, 0.0f));
-            if (glm::dot(rayDirection, retVal.m_normal) > 0.0f) {
+            if (checkNormal && glm::dot(rayDirection, retVal.m_normal) > 0.0f) {
                 retVal.m_normal = -retVal.m_normal;
             }
             retVal.m_tangent = glm::normalize(m_globalTransform * glm::vec4(retVal.m_tangent, 0.0f));
