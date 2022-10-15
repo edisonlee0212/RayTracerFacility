@@ -4,6 +4,7 @@
 
 #include <Vertex.hpp>
 
+#include "Enums.hpp"
 #include "MaterialProperties.hpp"
 #include <optix_device.h>
 #include "CurveSplineDefinations.hpp"
@@ -242,7 +243,7 @@ namespace RayTracerFacility {
     };
 
     struct SurfaceMaterial {
-        MaterialProperties m_materialProperties;
+        UniEngine::MaterialProperties m_materialProperties;
 
         cudaTextureObject_t m_albedoTexture;
         cudaTextureObject_t m_normalTexture;
@@ -251,7 +252,7 @@ namespace RayTracerFacility {
 
         __device__ glm::vec4 GetAlbedo(const glm::vec2 &texCoord) const {
             if (!m_albedoTexture)
-                return glm::vec4(m_materialProperties.m_surfaceColor, 1.0f);
+                return glm::vec4(m_materialProperties.m_albedoColor, 1.0f - m_materialProperties.m_transmission);
             float4 textureAlbedo =
                     tex2D<float4>(m_albedoTexture, texCoord.x, texCoord.y);
             return glm::vec4(textureAlbedo.x, textureAlbedo.y, textureAlbedo.z, textureAlbedo.w);

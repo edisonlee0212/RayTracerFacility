@@ -95,12 +95,12 @@ namespace RayTracerFacility {
                                .m_bounces) {
                 bool needSample = false;
                 if (hitCount <= 1 && material->m_materialProperties.m_subsurfaceFactor > 0.0f &&
-                    material->m_materialProperties.m_subsurfaceRadius > 0.0f) {
+                    material->m_materialProperties.m_subsurfaceRadius.x > 0.0f) {
                     float3 incidentRayOrigin;
                     float3 newRayDirectionInternal;
                     glm::vec3 outNormal;
                     needSample = BSSRDF(metallic, perRayData.m_random,
-                                        material->m_materialProperties.m_subsurfaceRadius, sbtData.m_handle,
+                                        material->m_materialProperties.m_subsurfaceRadius.x, sbtData.m_handle,
                                         optixTraversableHandle,
                                         hitInfo.m_position, rayDirection, hitInfo.m_normal,
                                         incidentRayOrigin, newRayDirectionInternal, outNormal);

@@ -16,8 +16,8 @@
 
 #include "map"
 
+#include "Enums.hpp"
 #include "MaterialProperties.hpp"
-
 #include "filesystem"
 
 namespace RayTracerFacility {
@@ -244,8 +244,8 @@ namespace RayTracerFacility {
     struct RAY_TRACER_FACILITY_API RayTracedMaterial {
         MaterialType m_materialType = MaterialType::Default;
 
-        BtfBase* m_btfBase;
-        MaterialProperties m_materialProperties;
+        BtfBase *m_btfBase;
+        UniEngine::MaterialProperties m_materialProperties;
 
         RayTracedTexture m_albedoTexture;
         RayTracedTexture m_normalTexture;
