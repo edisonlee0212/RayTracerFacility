@@ -13,10 +13,6 @@ template <typename T> struct PDF6D {
                      //! from 0
   int m_colorAmount; // the number of colors
 
-  std::vector<int> m_pdf6DSlices;
-  std::vector<float> m_pdf6DScale;
-
-
   // the database of 4D functions to which we point in the array PDF6Dslices
   PDF4D<T> m_pdf4;
 
@@ -30,9 +26,9 @@ template <typename T> struct PDF6D {
   }
 #pragma region CUDA
     CudaBuffer m_pdf6DSlicesBuffer;
-    CudaBuffer m_pdf6DScaleBuffer;
+    CudaBuffer m_pdf6DScalesBuffer;
     int *m_devicePdf6DSlices;  //! planar index pointing on 4D PDF for individual pixels
-    float *m_devicePdf6DScale; //! corresponding normalization values
+    float *m_devicePdf6DScales; //! corresponding normalization values
     __device__ void GetValDeg2(const glm::vec2 &texCoord, float illuminationTheta,
                                float illuminationPhi, float viewTheta,
                                float viewPhi, T &out, SharedCoordinates &tc,
@@ -94,10 +90,9 @@ template <typename T> struct PDF6D {
         if (print)
             printf("Col4[%.2f, %.2f, %.2f]\n", out.x, out.y, out.z);
         // we have to multiply it by valid scale factor at the end
-        const float scale = m_devicePdf6DScale[y * m_numOfCols + x];
+        const float scale = m_devicePdf6DScales[y * m_numOfCols + x];
         out *= scale;
     }
 #pragma endregion
-
 };
 } // namespace RayTracerFacility

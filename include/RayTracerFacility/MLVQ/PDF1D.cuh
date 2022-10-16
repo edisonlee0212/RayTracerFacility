@@ -10,8 +10,6 @@ namespace RayTracerFacility {
         int m_numOfBeta;
         // current number of stored 1D functions
         int m_numOfPdf1D;
-        std::vector<float> m_pdf1DBasis;
-
         // The shared coordinates to be used for interpolation
         // when retrieving the data from the database
         void Init(const int &lengthOfSlice) {
@@ -19,7 +17,6 @@ namespace RayTracerFacility {
             m_numOfBeta = lengthOfSlice;
             m_numOfPdf1D = 0;
         }
-
 #pragma region CUDA
         // the data array of 1D functions. These are normalized !
         CudaBuffer m_pdf1DBasisBuffer;

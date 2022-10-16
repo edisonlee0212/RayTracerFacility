@@ -293,7 +293,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 continue;
             auto mesh = meshRenderer->m_mesh.Get<Mesh>();
             auto material = meshRenderer->m_btf.Get<CompressedBTF>();
-            if (!material || !material->m_btfBase.m_hasData || !mesh || mesh->UnsafeGetVertices().empty())
+            if (!material || !material->m_bTFBase.m_hasData || !mesh || mesh->UnsafeGetVertices().empty())
                 continue;
             auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
             bool needInstanceUpdate = false;
@@ -818,7 +818,7 @@ bool RayTracerLayer::CheckCompressedBTF(RayTracedMaterial &rayTracerMaterial,
     if (rayTracerMaterial.m_version != compressedBtf->m_version) {
         changed = true;
         rayTracerMaterial.m_version = compressedBtf->m_version;
-        rayTracerMaterial.m_btfBase = &compressedBtf->m_btfBase;
+        rayTracerMaterial.m_btfBase = &compressedBtf->m_bTFBase;
     }
     return changed;
 }

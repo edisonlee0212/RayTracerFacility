@@ -6,13 +6,10 @@
 
 namespace RayTracerFacility {
     struct IndexAB {
-        std::vector<int> m_indexAbBasis;
-
         // current number of stored 1D index slices
         int m_numOfIndexSlices;
         // length of index slice
         int m_numOfBeta;
-
         VectorColor m_ab;
 
         void Init(const int &lengthOfSlice) {

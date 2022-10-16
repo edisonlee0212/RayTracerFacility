@@ -1,4 +1,4 @@
-#include "BDF.cuh"
+#include "BSDF.cuh"
 #include "BSSDF.cuh"
 #include "Environment.cuh"
 namespace RayTracerFacility {

@@ -244,7 +244,7 @@ namespace RayTracerFacility {
     struct RAY_TRACER_FACILITY_API RayTracedMaterial {
         MaterialType m_materialType = MaterialType::Default;
 
-        BtfBase *m_btfBase;
+        BTFBase *m_btfBase;
         UniEngine::MaterialProperties m_materialProperties;
 
         RayTracedTexture m_albedoTexture;
@@ -252,7 +252,7 @@ namespace RayTracerFacility {
         RayTracedTexture m_metallicTexture;
         RayTracedTexture m_roughnessTexture;
 
-        size_t m_version = 0;
+        size_t m_version = -1;
         uint64_t m_handle = 0;
 
         CudaBuffer m_materialBuffer;
@@ -299,7 +299,7 @@ namespace RayTracerFacility {
 
         CudaBuffer m_triangleBuffer;
         CudaBuffer m_acceleratedStructureBuffer;
-        size_t m_version = 0;
+        size_t m_version = -1;
         uint64_t m_handle = 0;
         bool m_updateFlag = false;
         bool m_removeFlag = true;
@@ -314,7 +314,7 @@ namespace RayTracerFacility {
 
     struct RAY_TRACER_FACILITY_API RayTracedInstance {
         uint64_t m_entityHandle = 0;
-        size_t m_version = 0;
+        size_t m_version = -1;
         uint64_t m_privateComponentHandle = 0;
 
         uint64_t m_geometryMapKey = 0;

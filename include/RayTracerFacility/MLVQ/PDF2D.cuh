@@ -38,7 +38,7 @@ namespace RayTracerFacility {
                 m_size2D = slicesPerHemisphere * lengthOfSlice;
             }
 
-            std::vector<int> m_pdf2DColors;
+
 #pragma region CUDA
             // Here are the indices to CIndexAB class
             CudaBuffer m_pdf2DColorsBuffer;
@@ -72,8 +72,7 @@ namespace RayTracerFacility {
                 m_numOfPdf2D = 0;
             }
 
-            std::vector<float> m_pdf2DScales;
-            std::vector<int> m_pdf2DSlices;
+
 #pragma region CUDA
             // the database of 1D functions over luminance
             // Here are the indices to PDF1D class
@@ -103,7 +102,6 @@ namespace RayTracerFacility {
             }
 
 #pragma endregion
-
         };
 
         // Here are the instances of color and luminance 2D function database

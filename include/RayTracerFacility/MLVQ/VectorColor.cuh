@@ -9,8 +9,6 @@ namespace RayTracerFacility {
         int m_startIndex;
         // no. of channels describing one color (in our case usually 2 (CIE a-b))
         int m_numOfChannels;
-        std::vector<float> m_vectorColorBasis;
-
         // current number of stored a-b colors
         int m_numOfColors;
 
@@ -30,7 +28,6 @@ namespace RayTracerFacility {
             assert(colorIndex >= 0 && (colorIndex < m_numOfColors));
             return m_deviceVectorColorBasis[colorIndex * m_numOfChannels + posAB];
         }
-
 #pragma endregion
     };
 } // namespace RayTracerFacility

@@ -22,8 +22,7 @@ namespace RayTracerFacility {
             m_stepPhi = 360.0f / numOfPhi;
             m_numOfPdf4D = 0;
         }
-        std::vector<int> m_pdf4DSlices;
-        std::vector<float> m_pdf4DScales;
+
 #pragma region CUDA
         // These are the data allocated maxPDF4D times, serving to represent the
         // function

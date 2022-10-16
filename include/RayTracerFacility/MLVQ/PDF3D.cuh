@@ -21,9 +21,6 @@ namespace RayTracerFacility {
             m_numOfPdf3D = 0;
         }
 
-        std::vector<int> m_pdf3DSlices;
-        std::vector<float> m_pdf3DScales;
-
 #pragma region CUDA
         // These are the data allocated maxPDF2D times, serving to represent the
         // function

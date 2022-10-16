@@ -289,7 +289,7 @@ namespace RayTracerFacility {
     };
 
     struct SurfaceCompressedBTF {
-        BtfBase m_btf;
+        BTFBase m_btf;
 #pragma region Device functions
 
         __device__ void ComputeAngles(const glm::vec3 &direction,
