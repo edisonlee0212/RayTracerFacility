@@ -71,7 +71,7 @@ std::string LoadFileAsString(const std::string &path) {
 
 using namespace RayTracerFacility;
 
-bool CompressedBTF::Import(const std::filesystem::path &path) {
+bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
     auto materialDirectoryPath = path.string();
 #pragma region Path check
     std::string allMaterialInfo;
@@ -399,7 +399,7 @@ void CompressedBTF::OnInspect() {
     bool changed = false;
     FileUtils::OpenFolder("Import Database", [&](const std::filesystem::path &path) {
         try {
-            bool succeed = Import(path);
+            bool succeed = ImportFromFolder(path);
             if (m_bTFBase.m_hdr) {
                 m_bTFBase.m_multiplier = m_bTFBase.m_hdrValue;
             } else {
@@ -554,6 +554,7 @@ void DeserializePDF1D(PDF1D &target, const YAML::Node &in) {
 void SerializePDF2D(const PDF2D &target, YAML::Emitter &out) {
     out << YAML::Key << "m_numOfPdf2D" << YAML::Value << target.m_numOfPdf2D;
     out << YAML::Key << "m_size2D" << YAML::Value << target.m_size2D;
+    out << YAML::Key << "m_lengthOfSlice" << YAML::Value << target.m_lengthOfSlice;
 
     out << YAML::Key << "m_color.m_numOfPdf2D" << YAML::Value << target.m_color.m_numOfPdf2D;
     out << YAML::Key << "m_color.m_numOfAlpha" << YAML::Value << target.m_color.m_numOfAlpha;
@@ -575,6 +576,7 @@ void SerializePDF2D(const PDF2D &target, YAML::Emitter &out) {
 void DeserializePDF2D(PDF2D &target, const YAML::Node &in) {
     if (in["m_numOfPdf2D"]) target.m_numOfPdf2D = in["m_numOfPdf2D"].as<int>();
     if (in["m_size2D"]) target.m_size2D = in["m_size2D"].as<int>();
+    if (in["m_lengthOfSlice"]) target.m_lengthOfSlice = in["m_lengthOfSlice"].as<int>();
 
     if (in["m_color.m_numOfPdf2D"]) target.m_color.m_numOfPdf2D = in["m_color.m_numOfPdf2D"].as<int>();
     if (in["m_color.m_numOfAlpha"]) target.m_color.m_numOfAlpha = in["m_color.m_numOfAlpha"].as<int>();
@@ -701,6 +703,7 @@ void DeserializeBTFBase(BTFBase &target, const YAML::Node &in) {
 
     if (in["m_hdr"]) target.m_hdr = in["m_hdr"].as<bool>();
     if (in["m_hdrValue"]) target.m_hdrValue = in["m_hdrValue"].as<float>();
+
     if (in["m_multiplier"]) target.m_multiplier = in["m_multiplier"].as<float>();
     if (in["m_texCoordMultiplier"]) target.m_texCoordMultiplier = in["m_texCoordMultiplier"].as<float>();
     if (in["m_gamma"]) target.m_gamma = in["m_gamma"].as<float>();
@@ -849,9 +852,9 @@ void CompressedBTF::UploadDeviceData() {
 
     auto &luminance = pdf2.m_luminance;
     luminance.m_pdf2DSlicesBuffer.Upload(m_pdf2DSlices);
+    luminance.m_pdf2DScalesBuffer.Upload(m_pdf2DScales);
     luminance.m_devicePdf2DSlices = reinterpret_cast<int *>(
             luminance.m_pdf2DSlicesBuffer.DevicePointer());
-    luminance.m_pdf2DScalesBuffer.Upload(m_pdf2DScales);
     luminance.m_devicePdf2DScales = reinterpret_cast<float *>(
             luminance.m_pdf2DScalesBuffer.DevicePointer());
 

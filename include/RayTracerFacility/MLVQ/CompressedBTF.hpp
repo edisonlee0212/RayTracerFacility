@@ -39,7 +39,7 @@ namespace RayTracerFacility {
         size_t m_version = 0;
         BTFBase m_bTFBase;
         void OnInspect() override;
-        bool Import(const std::filesystem::path &path);
+        bool ImportFromFolder(const std::filesystem::path &path);
         void Serialize(YAML::Emitter &out) override;
 
         void Deserialize(const YAML::Node &in) override;
