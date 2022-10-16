@@ -115,7 +115,6 @@ namespace RayTracerFacility {
             m_luminance.Init(m_pdf1.m_numOfBeta, slicesPerHemisphere);
         }
 
-        std::vector<int> m_indexLuminanceColors;
 #pragma region CUDA
         // Here are the indices of luminances + color 2D functions
         // index [][0] is luminance, index [][1] is color

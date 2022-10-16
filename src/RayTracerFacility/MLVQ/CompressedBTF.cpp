@@ -372,7 +372,7 @@ bool CompressedBTF::Import(const std::filesystem::path &path) {
                    m_pdf2DScales);
 
     ParseIntData(prefix + "_PDF2Dindices.txt", pdf2.m_numOfPdf2D,
-                 pdf2.m_lengthOfSlice, minIntVal, maxIntVal, pdf2.m_indexLuminanceColors);
+                 pdf2.m_lengthOfSlice, minIntVal, maxIntVal, m_indexLuminanceColors);
 
     ParseFloatData(prefix + "_PDF3Dscale.txt", pdf3.m_numOfPdf3D,
                    pdf3.m_numOfTheta, minFloatVal, maxFloatVal, m_pdf3DScales);
@@ -385,7 +385,6 @@ bool CompressedBTF::Import(const std::filesystem::path &path) {
 
     ParseIntData(prefix + "_PDF4Dslices.txt", pdf4.m_numOfPdf4D, pdf4.m_numOfPhi,
                  minIntVal, maxIntVal, m_pdf4DSlices);
-
 
 
     UNIENGINE_LOG("The database was read successfully.");
@@ -438,7 +437,6 @@ void CompressedBTF::OnInspect() {
         m_version++;
     }
 }
-
 
 
 void SerializeSharedCoordinates(const SharedCoordinates &sharedCoordinates, YAML::Emitter &out) {
@@ -728,6 +726,7 @@ void DeserializeBTFBase(BTFBase &target, const YAML::Node &in) {
 
     if (in["m_materialCount"]) target.m_materialCount = in["m_materialCount"].as<int>();
 }
+
 template<typename T>
 void LoadList(const std::string &name, const YAML::Node &in, std::vector<T> &target) {
     if (in[name]) {
@@ -744,6 +743,7 @@ void SaveList(const std::string &name, YAML::Emitter &out, const std::vector<T> 
             << YAML::Binary((const unsigned char *) target.data(), target.size() * sizeof(T));
     }
 }
+
 void CompressedBTF::Serialize(YAML::Emitter &out) {
     if (m_bTFBase.m_hasData) {
         out << YAML::Key << "m_bTFBase" << YAML::Value << YAML::BeginMap;
@@ -823,31 +823,31 @@ void CompressedBTF::UploadDeviceData() {
 
     auto &pdf4 = pdf6.m_pdf4;
     pdf4.m_pdf4DScalesBuffer.Upload(m_pdf4DScales);
+    pdf4.m_pdf4DSlicesBuffer.Upload(m_pdf4DSlices);
     pdf4.m_devicePdf4DScales =
             reinterpret_cast<float *>(pdf4.m_pdf4DScalesBuffer.DevicePointer());
-    pdf4.m_pdf4DSlicesBuffer.Upload(m_pdf4DSlices);
     pdf4.m_devicePdf4DSlices =
             reinterpret_cast<int *>(pdf4.m_pdf4DSlicesBuffer.DevicePointer());
 
-    auto& pdf3 = pdf4.m_pdf3;
+    auto &pdf3 = pdf4.m_pdf3;
     pdf3.m_pdf3DScalesBuffer.Upload(m_pdf3DScales);
+    pdf3.m_pdf3DSlicesBuffer.Upload(m_pdf3DSlices);
     pdf3.m_devicePdf3DScales =
             reinterpret_cast<float *>(pdf3.m_pdf3DScalesBuffer.DevicePointer());
-    pdf3.m_pdf3DSlicesBuffer.Upload(m_pdf3DSlices);
     pdf3.m_devicePdf3DSlices =
             reinterpret_cast<int *>(pdf3.m_pdf3DSlicesBuffer.DevicePointer());
 
-    auto& pdf2 = pdf3.m_pdf2;
+    auto &pdf2 = pdf3.m_pdf2;
     pdf2.m_indexLuminanceColorBuffer.Upload(m_indexLuminanceColors);
     pdf2.m_deviceIndexLuminanceColor =
             reinterpret_cast<int *>(pdf2.m_indexLuminanceColorBuffer.DevicePointer());
 
-    auto& color = pdf2.m_color;
+    auto &color = pdf2.m_color;
     color.m_pdf2DColorsBuffer.Upload(m_pdf2DColors);
     color.m_devicePdf2DColors =
             reinterpret_cast<int *>(color.m_pdf2DColorsBuffer.DevicePointer());
 
-    auto& luminance = pdf2.m_luminance;
+    auto &luminance = pdf2.m_luminance;
     luminance.m_pdf2DSlicesBuffer.Upload(m_pdf2DSlices);
     luminance.m_devicePdf2DSlices = reinterpret_cast<int *>(
             luminance.m_pdf2DSlicesBuffer.DevicePointer());
@@ -855,17 +855,17 @@ void CompressedBTF::UploadDeviceData() {
     luminance.m_devicePdf2DScales = reinterpret_cast<float *>(
             luminance.m_pdf2DScalesBuffer.DevicePointer());
 
-    auto& iab = pdf2.m_iab;
+    auto &iab = pdf2.m_iab;
     iab.m_indexAbBasisBuffer.Upload(m_indexAbBasis);
     iab.m_deviceIndexAbBasis =
             reinterpret_cast<int *>(iab.m_indexAbBasisBuffer.DevicePointer());
 
-    auto& pdf1 = pdf2.m_pdf1;
+    auto &pdf1 = pdf2.m_pdf1;
     pdf1.m_pdf1DBasisBuffer.Upload(m_pdf1DBasis);
     pdf1.m_devicePdf1DBasis =
             reinterpret_cast<float *>(pdf1.m_pdf1DBasisBuffer.DevicePointer());
 
-    auto& ab = iab.m_ab;
+    auto &ab = iab.m_ab;
     ab.m_vectorColorBasisBuffer.Upload(m_vectorColorBasis);
     ab.m_deviceVectorColorBasis =
             reinterpret_cast<float *>(ab.m_vectorColorBasisBuffer.DevicePointer());
