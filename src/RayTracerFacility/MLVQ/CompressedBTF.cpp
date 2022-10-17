@@ -124,7 +124,7 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
                &maxMaterials, &flagAllMaterials, &flagUse34DviewRep,
                &flagUsePDF2compactRep) != 6) {
         fclose(fp);
-        printf("File is corrupted for reading basic parameters\n");
+        UNIENGINE_ERROR("File is corrupted for reading basic parameters");
         return false;
     }
     // Here we need to read this information about original data
@@ -132,8 +132,8 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
     if (fscanf(fp, "%d\n%d\n%d\n%d\n", &ncolour, &nview, &nillu, &tileSize) !=
         4) {
         fclose(fp);
-        printf(
-                "File is corrupted for reading basic parameters about orig database\n");
+        UNIENGINE_ERROR(
+                "File is corrupted for reading basic parameters about orig database");
         return false;
     }
 
@@ -146,7 +146,7 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
                &stepsPerBeta, &tmp3, &stepsPerAlpha, &tmp5, &stepsPerTheta, &tmp7,
                &stepsPerPhi, &tmp9, &tmp10, &tmp11, &tmp12) != 12) {
         fclose(fp);
-        printf("File is corrupted for reading angle parameterization settings\n");
+        UNIENGINE_ERROR("File is corrupted for reading angle parameterization settings\n");
         return false;
     }
     m_bTFBase.m_useCosBeta = useCosBetaFlag ? true : false;
@@ -163,7 +163,6 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
     std::vector<float> betaAngles;
     // we always must have odd number of quantization steps per 180 degrees
     if (m_bTFBase.m_useCosBeta) {
-        printf("We use cos beta quantization with these values:\n");
         betaAngles.resize(m_bTFBase.m_numOfBeta);
         for (int i = 0; i < m_bTFBase.m_numOfBeta; i++) {
             float sinBeta = -1.0f + 2.0f * i / (m_bTFBase.m_numOfBeta - 1);
@@ -171,23 +170,18 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
                 sinBeta = 1.0f;
             // in degrees
             betaAngles[i] = glm::degrees(glm::asin(sinBeta));
-            printf("%3.2f ", betaAngles[i]);
         }
-        printf("\n");
         betaAngles[0] = -90.f;
         betaAngles[(m_bTFBase.m_numOfBeta - 1) / 2] = 0.f;
         betaAngles[m_bTFBase.m_numOfBeta - 1] = 90.f;
     } else {
         float stepBeta = 0.f;
         // uniform quantization in angle
-        printf("We use uniform angle quantization with these values:\n");
         stepBeta = 180.f / (m_bTFBase.m_numOfBeta - 1);
         betaAngles.resize(m_bTFBase.m_numOfBeta);
         for (int i = 0; i < m_bTFBase.m_numOfBeta; i++) {
             betaAngles[i] = i * stepBeta - 90.f;
-            printf("%3.2f ", betaAngles[i]);
         }
-        printf("\n");
         betaAngles[(m_bTFBase.m_numOfBeta - 1) / 2] = 0.f;
         betaAngles[m_bTFBase.m_numOfBeta - 1] = 90.0f;
     }
@@ -243,10 +237,8 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
     m_bTFBase.m_materialCount = maxMaterials;
     if (flagAllMaterials) {
         m_bTFBase.m_allMaterialsInOneDatabase = true;
-        printf("Loading all materials from one database\n");
     } else {
         m_bTFBase.m_allMaterialsInOneDatabase = false;
-        printf("Loading materials from several separate databases\n");
     }
 
 #pragma endregion
@@ -292,18 +284,16 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
     std::string fileName =
             materialDirectoryPath + "/" + materialName + "_materialInfo.txt";
     // Now creating PDF6 for each material using common database
-    printf("Loading materials for common DBF1,DBF2,DBF3,DBF4,AB,IAB database\n");
     if ((fp = fopen(fileName.c_str(), "r")) == NULL) {
         UNIENGINE_ERROR("Cannot open file" + fileName);
-        return true;
+        return false;
     }
     char nameM[200];
     if (fscanf(fp, "%s %s %s %s %d %d %d %d %f\n", &(nameM[0]), l1, l2, l3, &ro,
                &co, &pr, &pc, &hdrValue) != 9) {
         UNIENGINE_ERROR("ERROR:Reading the information about material failed\n");
-        printf("Exiting\n");
         fclose(fp);
-        exit(-1);
+        return false;
     }
     inputPath = std::string(l1);
     outputPath = std::string(l2);
@@ -387,9 +377,13 @@ bool CompressedBTF::ImportFromFolder(const std::filesystem::path &path) {
                  minIntVal, maxIntVal, m_pdf4DSlices);
 
 
-    UNIENGINE_LOG("The database was read successfully.");
-#pragma endregion
 
+#pragma endregion
+    if (m_bTFBase.m_hdr) {
+        m_bTFBase.m_multiplier = m_bTFBase.m_hdrValue;
+    } else {
+        m_bTFBase.m_multiplier = 1.0f;
+    }
     UploadDeviceData();
     return true; // OK - database loaded, or at least partially
 #pragma endregion
@@ -400,11 +394,6 @@ void CompressedBTF::OnInspect() {
     FileUtils::OpenFolder("Import Database", [&](const std::filesystem::path &path) {
         try {
             bool succeed = ImportFromFolder(path);
-            if (m_bTFBase.m_hdr) {
-                m_bTFBase.m_multiplier = m_bTFBase.m_hdrValue;
-            } else {
-                m_bTFBase.m_multiplier = 1.0f;
-            }
             if (succeed) changed = true;
             UNIENGINE_LOG((std::string("BTF Material import ") + (succeed ? "succeed" : "failed")))
         } catch (const std::exception &e) {
