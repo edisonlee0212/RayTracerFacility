@@ -605,7 +605,8 @@ void RayTracerLayer::SceneCameraWindow() {
 
 #pragma region Gizmos and Entity Selection
             bool mouseSelectEntity = true;
-            if (scene->IsEntityValid(editorLayer->m_selectedEntity)) {
+            auto selectedEntity = editorLayer->GetSelectedEntity();
+            if (scene->IsEntityValid(selectedEntity)) {
                 ImGuizmo::SetOrthographic(false);
                 ImGuizmo::SetDrawlist();
                 ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, viewPortSize.x, viewPortSize.y);
@@ -619,14 +620,14 @@ void RayTracerLayer::SceneCameraWindow() {
                                                                        ? ImGuizmo::OPERATION::ROTATE
                                                                        : ImGuizmo::OPERATION::SCALE;
 
-                auto transform = scene->GetDataComponent<Transform>(editorLayer->m_selectedEntity);
+                auto transform = scene->GetDataComponent<Transform>(selectedEntity);
                 GlobalTransform parentGlobalTransform;
-                Entity parentEntity = scene->GetParent(editorLayer->m_selectedEntity);
+                Entity parentEntity = scene->GetParent(selectedEntity);
                 if (parentEntity.GetIndex() != 0) {
                     parentGlobalTransform = scene->GetDataComponent<GlobalTransform>(
-                            scene->GetParent(editorLayer->m_selectedEntity));
+                            scene->GetParent(selectedEntity));
                 }
-                auto globalTransform = scene->GetDataComponent<GlobalTransform>(editorLayer->m_selectedEntity);
+                auto globalTransform = scene->GetDataComponent<GlobalTransform>(selectedEntity);
 
                 ImGuizmo::Manipulate(
                         glm::value_ptr(cameraView),
@@ -636,7 +637,7 @@ void RayTracerLayer::SceneCameraWindow() {
                         glm::value_ptr(globalTransform.m_value));
                 if (ImGuizmo::IsUsing()) {
                     transform.m_value = glm::inverse(parentGlobalTransform.m_value) * globalTransform.m_value;
-                    scene->SetDataComponent(editorLayer->m_selectedEntity, transform);
+                    scene->SetDataComponent(selectedEntity, transform);
                     transform.Decompose(
                             editorLayer->UnsafeGetPreviouslyStoredPosition(),
                             editorLayer->UnsafeGetPreviouslyStoredRotation(),
