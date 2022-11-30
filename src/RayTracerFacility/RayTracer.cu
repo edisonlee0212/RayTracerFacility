@@ -501,7 +501,7 @@ bool RayTracer::RenderToCamera(const EnvironmentProperties &environmentPropertie
                         cudaMemcpyDeviceToDevice));
             } else {
                 OptixDenoiserParams denoiserParams;
-                denoiserParams.denoiseAlpha = 1;
+                denoiserParams.denoiseAlpha = OptixDenoiserAlphaMode::OPTIX_DENOISER_ALPHA_MODE_FULL_DENOISE_PASS;
                 m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.Resize(sizeof(float));
                 if (m_cameraRenderingLaunchParams.m_cameraProperties.m_denoiserIntensity.m_sizeInBytes !=
                     sizeof(float))
