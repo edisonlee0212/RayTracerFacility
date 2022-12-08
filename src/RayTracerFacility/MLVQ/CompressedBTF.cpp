@@ -722,7 +722,7 @@ void DeserializeBTFBase(BTFBase &target, const YAML::Node &in) {
 template<typename T>
 void LoadList(const std::string &name, const YAML::Node &in, std::vector<T> &target) {
     if (in[name]) {
-        auto data = in[name].as<YAML::Binary>();
+        const auto& data = in[name].as<YAML::Binary>();
         target.resize(data.size() / sizeof(T));
         std::memcpy(target.data(), data.data(), data.size());
     }
