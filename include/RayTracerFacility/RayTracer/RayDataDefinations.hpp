@@ -22,7 +22,7 @@ namespace RayTracerFacility {
         glm::vec3 m_position = glm::vec3(0.0f);
         glm::vec3 m_normal = glm::vec3(0.0f);
         glm::vec3 m_tangent = glm::vec3(0.0f);
-        glm::vec3 m_color = glm::vec3(1.0f);
+        glm::vec4 m_color = glm::vec4(1.0f);
         glm::vec2 m_texCoord = glm::vec2(0.0f);
     };
 
@@ -31,11 +31,10 @@ namespace RayTracerFacility {
         //The starting index of point where this segment starts;
         int *m_segments = nullptr;
         //The start and end's U for current segment for entire strand.
-        glm::vec2 *m_strandU = nullptr;
+        //glm::vec2 *m_strandU = nullptr;
         //The index of strand this segment belongs.
-        int *m_strandIndices = nullptr;
-        //Current strand's start index and number of segment in current strand
-        glm::uvec2 *m_strandInfos = nullptr;
+        //int *m_strandIndices = nullptr;
+        
 
         // Get curve hit-point in world coordinates.
         __device__ HitInfo GetHitInfo() const {

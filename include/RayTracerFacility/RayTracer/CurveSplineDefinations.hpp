@@ -82,7 +82,7 @@ struct LinearBSplineSegment {
         p[1] = q[1] - q[0];  // pre-transform p[] for fast evaluation
     }
 
-    __device__ __forceinline__ glm::vec3 color(const float &u) const { return p[0].m_color + p[1].m_color * u; }
+    __device__ __forceinline__ glm::vec4 color(const float &u) const { return p[0].m_color + p[1].m_color * u; }
 
     __device__ __forceinline__ glm::vec2 texCoord(const float &u) const { return p[0].m_texCoord + p[1].m_texCoord * u; }
 
@@ -129,7 +129,7 @@ struct QuadraticBSplineSegment {
         p[2] = q[0] / 2.0f - q[1] + q[2] / 2.0f;
     }
 
-    __device__ __forceinline__ glm::vec3 color(const float &u) const {
+    __device__ __forceinline__ glm::vec4 color(const float &u) const {
         return p[0].m_color + u * p[1].m_color + u * u * p[2].m_color; }
 
     __device__ __forceinline__ glm::vec2 texCoord(const float &u) const {
@@ -192,7 +192,7 @@ struct CubicBSplineSegment {
         return {u3 + 0.5f * (u - uu), uu - 4 * u3, u3};
     }
 
-    __device__ __forceinline__ glm::vec3 color(float u) const {
+    __device__ __forceinline__ glm::vec4 color(float u) const {
         glm::vec3 q = terms(u);
         return p[0].m_color + q.x * p[1].m_color + q.y * p[2].m_color + q.z * p[3].m_color;
     }

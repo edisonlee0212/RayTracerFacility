@@ -1260,9 +1260,9 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             CUdeviceptr deviceWidths;
             CUdeviceptr deviceStrands;
 
-            m_curveStrandUBuffer.Upload(*m_strandU);
-            m_curveStrandIBuffer.Upload(*m_strandIndices);
-            m_curveStrandInfoBuffer.Upload(*m_strandInfos);
+            //m_curveStrandUBuffer.Upload(*m_strandU);
+            //m_curveStrandIBuffer.Upload(*m_strandIndices);
+            //m_curveStrandInfoBuffer.Upload(*m_strandInfos);
 
             deviceWidthBuffer.Resize(
                     m_curvePoints->size() * sizeof(float));
@@ -1580,9 +1580,9 @@ void RayTracedGeometry::UploadForSBT() {
     if (m_geometryType != GeometryType::Triangle) {
         Curves curves;
         curves.m_strandPoints = reinterpret_cast<UniEngine::StrandPoint *>(m_vertexDataBuffer.DevicePointer());
-        curves.m_strandU = reinterpret_cast<glm::vec2 *>(m_curveStrandUBuffer.DevicePointer());
-        curves.m_strandIndices = reinterpret_cast<int *>(m_curveStrandIBuffer.DevicePointer());
-        curves.m_strandInfos = reinterpret_cast<glm::uvec2 *>(m_curveStrandInfoBuffer.DevicePointer());
+        //curves.m_strandU = reinterpret_cast<glm::vec2 *>(m_curveStrandUBuffer.DevicePointer());
+        //curves.m_strandIndices = reinterpret_cast<int *>(m_curveStrandIBuffer.DevicePointer());
+        //curves.m_strandInfos = reinterpret_cast<glm::uvec2 *>(m_curveStrandInfoBuffer.DevicePointer());
         curves.m_segments = reinterpret_cast<int *>(m_triangleBuffer.DevicePointer());
         m_geometryBuffer.Upload(&curves, 1);
     } else {

@@ -63,9 +63,9 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial> &
                 rayTracedGeometry.m_rendererType = RendererType::Curve;
                 rayTracedGeometry.m_curveSegments = &strands->UnsafeGetSegments();
                 rayTracedGeometry.m_curvePoints = &strands->UnsafeGetPoints();
-                rayTracedGeometry.m_strandU = &strands->UnsafeGetStrandU();
-                rayTracedGeometry.m_strandIndices = &strands->UnsafeGetStrandIndices();
-                rayTracedGeometry.m_strandInfos = &strands->UnsafeGetStrandInfos();
+                //rayTracedGeometry.m_strandU = &strands->UnsafeGetStrandU();
+                //rayTracedGeometry.m_strandIndices = &strands->UnsafeGetStrandIndices();
+                //rayTracedGeometry.m_strandInfos = &strands->UnsafeGetStrandInfos();
 
                 rayTracedGeometry.m_version = strands->GetVersion();
                 switch (strands->GetSplineMode()) {

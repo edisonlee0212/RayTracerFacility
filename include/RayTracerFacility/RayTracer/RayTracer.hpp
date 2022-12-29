@@ -283,11 +283,10 @@ namespace RayTracerFacility {
         std::vector<glm::mat4> *m_instanceMatrices = nullptr;
         union {
             std::vector<glm::uvec3> *m_triangles = nullptr;
-            std::vector<int> *m_curveSegments;
+            std::vector<glm::uint> *m_curveSegments;
         };
-        std::vector<glm::vec2> *m_strandU;
-        std::vector<int> *m_strandIndices;
-        std::vector<glm::uvec2> *m_strandInfos;
+        //std::vector<glm::vec2> *m_strandU;
+        //std::vector<int> *m_strandIndices;
 
         OptixTraversableHandle m_traversableHandle = 0;
 
