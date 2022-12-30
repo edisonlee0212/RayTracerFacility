@@ -84,7 +84,7 @@ struct LinearBSplineSegment {
 
     __device__ __forceinline__ glm::vec4 color(const float &u) const { return p[0].m_color + p[1].m_color * u; }
 
-    __device__ __forceinline__ glm::vec2 texCoord(const float &u) const { return p[0].m_texCoord + p[1].m_texCoord * u; }
+    __device__ __forceinline__ glm::vec2 texCoord(const float &u) const { return glm::vec2(p[0].m_texCoord + p[1].m_texCoord * u, 0.0f); }
 
     __device__ __forceinline__ float radius(const float &u) const { return p[0].m_thickness + p[1].m_thickness * u; }
 
@@ -132,8 +132,9 @@ struct QuadraticBSplineSegment {
     __device__ __forceinline__ glm::vec4 color(const float &u) const {
         return p[0].m_color + u * p[1].m_color + u * u * p[2].m_color; }
 
-    __device__ __forceinline__ glm::vec2 texCoord(const float &u) const {
-        return p[0].m_texCoord + u * p[1].m_texCoord + u * u * p[2].m_texCoord; }
+    __device__ __forceinline__ glm::vec2 texCoord(const float& u) const {
+        return glm::vec2(p[0].m_texCoord + u * p[1].m_texCoord + u * u * p[2].m_texCoord, 0.0f);
+    }
 
     __device__ __forceinline__ glm::vec3 position(float u) const {
         return p[0].m_position + u * p[1].m_position + u * u * p[2].m_position;
@@ -199,7 +200,7 @@ struct CubicBSplineSegment {
 
     __device__ __forceinline__ glm::vec2 texCoord(float u) const {
         glm::vec3 q = terms(u);
-        return p[0].m_texCoord + q.x * p[1].m_texCoord + q.y * p[2].m_texCoord + q.z * p[3].m_texCoord;
+        return glm::vec2(p[0].m_texCoord + q.x * p[1].m_texCoord + q.y * p[2].m_texCoord + q.z * p[3].m_texCoord, 0.0f);
     }
 
     __device__ __forceinline__ glm::vec3 position(float u) const {
