@@ -193,7 +193,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial>& 
 			if (rayTracedGeometry.m_handle == 0
 				|| rayTracedInstance.m_version != skinnedMeshRenderer->GetVersion()
 				|| rayTracedGeometry.m_version != mesh->GetVersion()
-				|| (skinnedMeshRenderer->RagDoll() && !skinnedMeshRenderer->m_ragDollFreeze)
+				|| rayTracedInstance.m_dataVersion != skinnedMeshRenderer->m_finalResults->GetVersion()
 				|| skinnedMeshRenderer->m_animator.Get<Animator>()->AnimatedCurrentFrame()) {
 				rayTracedGeometry.m_updateFlag = true;
 				needInstanceUpdate = true;
@@ -202,9 +202,9 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial>& 
 				rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
 				rayTracedGeometry.m_skinnedVertices = &mesh->UnsafeGetSkinnedVertices();
 				rayTracedGeometry.m_boneMatrices =
-					reinterpret_cast<std::vector<glm::mat4> *>(
-						&skinnedMeshRenderer->m_finalResults.get()->m_value);
+					&skinnedMeshRenderer->m_finalResults->m_value;
 				rayTracedGeometry.m_version = mesh->GetVersion();
+				rayTracedInstance.m_dataVersion = skinnedMeshRenderer->m_finalResults->GetVersion();
 				rayTracedGeometry.m_handle = geometryHandle;
 			}
 			if (CheckMaterial(rayTracedMaterial, material)) needInstanceUpdate = true;
@@ -252,6 +252,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial>& 
 			if (rayTracedInstance.m_entityHandle != entityHandle
 				|| rayTracedInstance.m_privateComponentHandle != particles->GetHandle().GetValue()
 				|| rayTracedInstance.m_version != particles->GetVersion()
+				|| rayTracedInstance.m_dataVersion != particles->m_matrices->GetVersion()
 				|| globalTransform != rayTracedInstance.m_globalTransform) {
 				needInstanceUpdate = true;
 			}
@@ -267,6 +268,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial>& 
 				rayTracedGeometry.m_instanceMatrices = &matrices->m_value;
 				rayTracedGeometry.m_version = mesh->GetVersion();
 				rayTracedGeometry.m_handle = geometryHandle;
+				rayTracedInstance.m_dataVersion = particles->m_matrices->GetVersion();
 			}
 			if (CheckMaterial(rayTracedMaterial, material)) needInstanceUpdate = true;
 			if (needInstanceUpdate) {

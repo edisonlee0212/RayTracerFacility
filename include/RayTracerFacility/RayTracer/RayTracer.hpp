@@ -314,6 +314,7 @@ namespace RayTracerFacility {
     struct RAY_TRACER_FACILITY_API RayTracedInstance {
         uint64_t m_entityHandle = 0;
         size_t m_version = -1;
+        size_t m_dataVersion = -1;
         uint64_t m_privateComponentHandle = 0;
 
         uint64_t m_geometryMapKey = 0;
