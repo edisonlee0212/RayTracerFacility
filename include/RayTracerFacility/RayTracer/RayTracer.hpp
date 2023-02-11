@@ -279,15 +279,15 @@ namespace RayTracerFacility {
             std::vector<UniEngine::SkinnedVertex> *m_skinnedVertices;
             std::vector<UniEngine::StrandPoint> *m_curvePoints;
         };
+
         std::vector<glm::mat4> *m_boneMatrices = nullptr;
+        std::vector<glm::vec4>* m_instanceColors = nullptr;
         std::vector<glm::mat4> *m_instanceMatrices = nullptr;
         union {
             std::vector<glm::uvec3> *m_triangles = nullptr;
             std::vector<glm::uint> *m_curveSegments;
         };
-        //std::vector<glm::vec2> *m_strandU;
-        //std::vector<int> *m_strandIndices;
-
+        
         OptixTraversableHandle m_traversableHandle = 0;
 
         CudaBuffer m_vertexDataBuffer;
@@ -317,6 +317,7 @@ namespace RayTracerFacility {
         size_t m_dataVersion = -1;
         uint64_t m_privateComponentHandle = 0;
 
+        
         uint64_t m_geometryMapKey = 0;
         uint64_t m_materialMapKey = 0;
         glm::mat4 m_globalTransform;

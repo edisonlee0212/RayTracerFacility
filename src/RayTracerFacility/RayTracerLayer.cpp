@@ -233,7 +233,7 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial>& 
 			auto mesh = particles->m_mesh.Get<Mesh>();
 			auto material = particles->m_material.Get<Material>();
 			auto matrices = particles->m_matrices;
-			if (!material || !mesh || mesh->UnsafeGetVertices().empty() || matrices->m_value.empty())
+			if (!material || !mesh || mesh->UnsafeGetVertices().empty() || matrices->RefMatrices().empty())
 				continue;
 			auto globalTransform = scene->GetDataComponent<GlobalTransform>(entity).m_value;
 			bool needInstanceUpdate = false;
@@ -265,7 +265,8 @@ void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial>& 
 				rayTracedGeometry.m_rendererType = RendererType::Instanced;
 				rayTracedGeometry.m_triangles = &mesh->UnsafeGetTriangles();
 				rayTracedGeometry.m_vertices = &mesh->UnsafeGetVertices();
-				rayTracedGeometry.m_instanceMatrices = &matrices->m_value;
+				rayTracedGeometry.m_instanceMatrices = &matrices->RefMatrices();
+				rayTracedGeometry.m_instanceColors = &matrices->RefColors();
 				rayTracedGeometry.m_version = mesh->GetVersion();
 				rayTracedGeometry.m_handle = geometryHandle;
 				rayTracedInstance.m_dataVersion = particles->m_matrices->GetVersion();

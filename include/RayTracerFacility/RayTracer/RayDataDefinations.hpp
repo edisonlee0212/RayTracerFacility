@@ -24,6 +24,7 @@ namespace RayTracerFacility {
         glm::vec3 m_tangent = glm::vec3(0.0f);
         glm::vec4 m_color = glm::vec4(1.0f);
         glm::vec2 m_texCoord = glm::vec2(0.0f);
+        glm::vec4 m_instanceColor = glm::vec4(0.0f);
     };
 
     struct Curves {
@@ -164,6 +165,9 @@ namespace RayTracerFacility {
             } else {
                 hitInfo.m_color = vz.m_color;
             }
+
+            hitInfo.m_instanceColor = glm::vec4(vx.m_positionPadding, vx.m_normalPadding, vx.m_tangentPadding, vx.m_texCoordPadding.x);
+
             return hitInfo;
         }
 

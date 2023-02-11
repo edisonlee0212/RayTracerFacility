@@ -54,6 +54,7 @@ namespace RayTracerFacility {
             } else {
                 albedoColor = hitInfo.m_color;
             }
+            albedoColor = albedoColor * (1.0f - hitInfo.m_instanceColor.w) + glm::vec3(hitInfo.m_instanceColor) * hitInfo.m_instanceColor.w;
             energy = glm::vec3(0.0f);
             float f = 1.0f;
             if (metallic >= 0.0f)

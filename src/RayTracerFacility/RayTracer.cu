@@ -1142,7 +1142,7 @@ void RayTracer::CreateHitGroupPrograms() {
 }
 
 __global__ void
-CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matrices,
+CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matrices, glm::vec4* instanceColors,
                             UniEngine::Vertex *vertices,
                             glm::vec3 *targetPositions, UniEngine::Vertex *targetVertices) {
     const int idx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -1161,6 +1161,12 @@ CopyVerticesInstancedKernel(int matricesSize, int verticesSize, glm::mat4 *matri
         targetVertices[idx].m_normal = N;
         targetVertices[idx].m_texCoord = vertices[idx % verticesSize].m_texCoord;
         targetVertices[idx].m_color = vertices[idx % verticesSize].m_color;
+
+        targetVertices[idx].m_positionPadding = instanceColors[idx / verticesSize].x;
+        targetVertices[idx].m_normalPadding = instanceColors[idx / verticesSize].y;
+        targetVertices[idx].m_tangentPadding = instanceColors[idx / verticesSize].z;
+        targetVertices[idx].m_texCoordPadding.x = instanceColors[idx / verticesSize].w;
+        targetVertices[idx].m_texCoordPadding.y = idx / verticesSize;
     }
 }
 
@@ -1429,9 +1435,14 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
 
             CudaBuffer verticesBuffer;
             CudaBuffer instanceMatricesBuffer;
+        	CudaBuffer instanceColorsBuffer;
             verticesBuffer.Upload(*m_vertices);
             instanceMatricesBuffer.Upload(*m_instanceMatrices);
             m_vertexDataBuffer.Resize(m_instanceMatrices->size() *
+                                      m_vertices->size() * sizeof(UniEngine::Vertex));
+
+            instanceColorsBuffer.Upload(*m_instanceColors);
+            m_vertexDataBuffer.Resize(m_instanceColors->size() *
                                       m_vertices->size() * sizeof(UniEngine::Vertex));
 
             devicePositionBuffer.Resize(m_instanceMatrices->size() *
@@ -1449,6 +1460,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             CopyVerticesInstancedKernel<<<gridSize, blockSize>>>(matricesSize,
                                                                  verticesSize,
                                                                  static_cast<glm::mat4 *>(instanceMatricesBuffer.m_dPtr),
+                                                                 static_cast<glm::vec4 *>(instanceColorsBuffer.m_dPtr),
                                                                  static_cast<UniEngine::Vertex *>(verticesBuffer.m_dPtr),
                                                                  static_cast<glm::vec3 *>(devicePositionBuffer.m_dPtr),
                                                                  static_cast<UniEngine::Vertex *>(m_vertexDataBuffer.m_dPtr));
@@ -1493,6 +1505,7 @@ void RayTracedGeometry::BuildGAS(const OptixDeviceContext &context) {
             buildInput.triangleArray.sbtIndexOffsetSizeInBytes = 0;
             buildInput.triangleArray.sbtIndexOffsetStrideInBytes = 0;
             verticesBuffer.Free();
+            instanceMatricesBuffer.Free();
             instanceMatricesBuffer.Free();
         }
             break;
