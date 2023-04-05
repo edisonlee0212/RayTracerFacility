@@ -28,16 +28,21 @@ using namespace RayTracerFacility;
 void CameraProperties::Set(const glm::vec3 &position, const glm::quat &rotation) {
     auto newFront = glm::normalize(rotation * glm::vec3(0, 0, -1));
     auto newUp = glm::normalize(rotation * glm::vec3(0, 1, 0));
-    if (m_from != position || newFront != m_direction || m_up != newUp) m_modified = true;
+	const float aspect = static_cast<float>(m_frame.m_size.x) / static_cast<float>(m_frame.m_size.y);
+	const auto projection =
+        glm::perspective(glm::radians(m_fov * 0.5f), aspect, 0.1f, 100.f);
+    const auto view = glm::lookAt(position, position + newFront, newUp);
+    auto inv = glm::inverse(projection * view);
     m_from = position;
-    m_direction = newFront;
-    m_up = newUp;
+    if(inv != m_inverseProjectionView) m_modified = true;
+    m_inverseProjectionView = inv;
+    
     const float cosFovY = glm::radians(m_fov * 0.5f);
-    const float aspect = static_cast<float>(m_frame.m_size.x) / static_cast<float>(m_frame.m_size.y);
+   
     m_horizontal =
             cosFovY * aspect *
-            glm::normalize(glm::cross(m_direction, newUp));
-    m_vertical = cosFovY * glm::normalize(m_up);
+            glm::normalize(glm::cross(newFront, newUp));
+    m_vertical = cosFovY * glm::normalize(newUp);
 }
 
 void CameraProperties::Resize(const glm::ivec2 &newSize) {

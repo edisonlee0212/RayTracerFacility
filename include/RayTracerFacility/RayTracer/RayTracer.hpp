@@ -48,13 +48,10 @@ namespace RayTracerFacility {
         float m_fov = 120;
         /*! camera position - *from* where we are looking */
         glm::vec3 m_from = glm::vec3(0.0f);
-        /*! which direction we are looking *at* */
-        glm::vec3 m_direction = glm::vec3(0.0f);
-        /*! which direction we are looking *at* */
-        glm::vec3 m_up = glm::vec3(0.0f);
         /*! general up-vector */
         glm::vec3 m_horizontal;
         glm::vec3 m_vertical;
+        glm::mat4 m_inverseProjectionView;
 
         float m_denoiserStrength = 1.0f;
         float m_maxDistance = 50.0f;

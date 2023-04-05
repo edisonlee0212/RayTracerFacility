@@ -56,29 +56,25 @@ namespace RayTracerFacility {
         auto pixelNormal = glm::vec3(0.f);
         auto pixelAlbedo = glm::vec3(0.f);
         auto pixelPosition = glm::vec3(0.0f);
-        for (int sampleID = 0; sampleID < numPixelSamples; sampleID++) {
-            // normalized screen plane position, in [0,1]^2
-            // iw: note for de-noising that's not actually correct - if we
-            // assume that the camera should only(!) cover the de-noised
-            // screen then the actual screen plane we should be using during
-            // rendering is slightly larger than [0,1]^2
-            glm::vec2 screen;
-            screen = glm::vec2(ix + cameraRayData.m_random(),
-                               iy + cameraRayData.m_random()) /
-                     glm::vec2(
-                             cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size);
-            glm::vec3 primaryRayDir = glm::normalize(
-                    cameraRenderingLaunchParams.m_cameraProperties.m_direction +
-                    (screen.x - 0.5f) *
-                    cameraRenderingLaunchParams.m_cameraProperties.m_horizontal +
-                    (screen.y - 0.5f) *
-                    cameraRenderingLaunchParams.m_cameraProperties.m_vertical);
 
-            glm::vec3 convergence = cameraRenderingLaunchParams.m_cameraProperties.m_from +
-                                    primaryRayDir * cameraRenderingLaunchParams.m_cameraProperties.m_focalLength;
+        float halfX = cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.x / 2.0f;
+        float halfY = cameraRenderingLaunchParams.m_cameraProperties.m_frame.m_size.y / 2.0f;
+
+        for (int sampleID = 0; sampleID < numPixelSamples; sampleID++) {
+            glm::vec2 screen = glm::vec2((ix + cameraRayData.m_random() - halfX) / halfX,
+                               (iy + cameraRayData.m_random() - halfY) / halfY);
+            glm::vec4 start = cameraRenderingLaunchParams.m_cameraProperties.m_inverseProjectionView 
+                    * glm::vec4(screen.x, screen.y, -1.0f, 1.0f);
+            glm::vec4 end = cameraRenderingLaunchParams.m_cameraProperties.m_inverseProjectionView 
+                    * glm::vec4(screen.x, screen.y, 1.0f, 1.0f);
+        	start /= start.w;
+        	end /= end.w;
+            glm::vec3 rayStart = start;
+            glm::vec3 rayEnd = end;
+        	glm::vec3 primaryRayDir = glm::normalize(rayEnd - rayStart);
+            glm::vec3 convergence = rayStart + primaryRayDir * cameraRenderingLaunchParams.m_cameraProperties.m_focalLength;
             float angle = cameraRayData.m_random() * 3.1415927f * 2.0f;
-            glm::vec3 aperturePoint = cameraRenderingLaunchParams.m_cameraProperties.m_from +
-                                      cameraRenderingLaunchParams.m_cameraProperties.m_aperture *
+            glm::vec3 aperturePoint = rayStart + cameraRenderingLaunchParams.m_cameraProperties.m_aperture *
                                       (cameraRenderingLaunchParams.m_cameraProperties.m_horizontal * glm::sin(angle) +
                                        cameraRenderingLaunchParams.m_cameraProperties.m_vertical * glm::cos(angle));
             glm::vec3 rayDir = glm::normalize(convergence - aperturePoint);

@@ -114,9 +114,7 @@ RayTracerCamera &RayTracerCamera::operator=(const RayTracerCamera &source) {
 
     m_cameraProperties.m_accumulate = source.m_cameraProperties.m_accumulate;
     m_cameraProperties.m_fov = source.m_cameraProperties.m_fov;
-    m_cameraProperties.m_from = source.m_cameraProperties.m_from;
-    m_cameraProperties.m_direction = source.m_cameraProperties.m_direction;
-    m_cameraProperties.m_up = source.m_cameraProperties.m_up;
+    m_cameraProperties.m_inverseProjectionView = source.m_cameraProperties.m_inverseProjectionView;
     m_cameraProperties.m_horizontal = source.m_cameraProperties.m_horizontal;
     m_cameraProperties.m_outputType = source.m_cameraProperties.m_outputType;
     m_cameraProperties.m_gamma = source.m_cameraProperties.m_gamma;
