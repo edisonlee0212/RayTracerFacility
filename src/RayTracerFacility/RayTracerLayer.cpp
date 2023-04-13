@@ -620,8 +620,7 @@ void RayTracerLayer::SceneCameraWindow() {
 			if (scene->IsEntityValid(selectedEntity)) {
 				ImGuizmo::SetOrthographic(false);
 				ImGuizmo::SetDrawlist();
-				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, viewPortSize.x, viewPortSize.y);
-
+				ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, viewPortSize.x, viewPortSize.y - 20);
 				glm::mat4 cameraView =
 					glm::inverse(glm::translate(editorLayer->m_sceneCameraPosition) *
 						glm::mat4_cast(editorLayer->m_sceneCameraRotation));
@@ -656,40 +655,6 @@ void RayTracerLayer::SceneCameraWindow() {
 					mouseSelectEntity = false;
 				}
 			}
-			/*
-			if (ImGui::IsWindowFocused() && mouseSelectEntity) {
-				if (!m_leftMouseButtonHold &&
-					!(mousePosition.x < 0 || mousePosition.y < 0 || mousePosition.x > viewPortSize.x ||
-					  mousePosition.y > viewPortSize.y) &&
-					Inputs::GetMouseInternal(GLFW_MOUSE_BUTTON_LEFT, Windows::GetWindow())) {
-					Entity focusedEntity = editorLayer->MouseEntitySelection(mousePosition);
-					if (focusedEntity == Entity()) {
-						editorLayer->SetSelectedEntity(Entity());
-					} else {
-						Entity walker = focusedEntity;
-						bool found = false;
-						while (walker.GetIndex() != 0) {
-							if (walker == editorLayer->m_selectedEntity) {
-								found = true;
-								break;
-							}
-							walker = scene->GetParent(walker);
-						}
-						if (found) {
-							walker = scene->GetParent(walker);
-							if (walker.GetIndex() == 0) {
-								editorLayer->SetSelectedEntity(focusedEntity);
-							} else {
-								editorLayer->SetSelectedEntity(walker);
-							}
-						} else {
-							editorLayer->SetSelectedEntity(focusedEntity);
-						}
-					}
-					m_leftMouseButtonHold = true;
-				}
-			}
-			*/
 #pragma endregion
 		}
 		ImGui::EndChild();
