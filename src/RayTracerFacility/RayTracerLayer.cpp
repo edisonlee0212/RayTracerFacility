@@ -15,9 +15,9 @@ using namespace RayTracerFacility;
 
 std::shared_ptr<RayTracerCamera> RayTracerLayer::m_rayTracerCamera;
 
-void RayTracerLayer::UpdateMeshesStorage(std::map<uint64_t, RayTracedMaterial>& materialStorage,
-	std::map<uint64_t, RayTracedGeometry>& geometryStorage,
-	std::map<uint64_t, RayTracedInstance>& instanceStorage,
+void RayTracerLayer::UpdateMeshesStorage(std::unordered_map<uint64_t, RayTracedMaterial>& materialStorage,
+	std::unordered_map<uint64_t, RayTracedGeometry>& geometryStorage,
+	std::unordered_map<uint64_t, RayTracedInstance>& instanceStorage,
 	bool& rebuildInstances, bool& updateShaderBindingTable) const {
 	for (auto& i : instanceStorage) i.second.m_removeFlag = true;
 	for (auto& i : geometryStorage) i.second.m_removeFlag = true;

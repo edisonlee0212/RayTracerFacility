@@ -4,7 +4,12 @@ namespace RayTracerFacility {
     extern "C" __constant__ PointCloudScanningLaunchParams
             pointCloudScanningLaunchParams;
 
-
+	struct PointCloudScanningPerRayData {
+        bool m_hit;
+        Random m_random;
+        uint64_t m_handle;
+        HitInfo m_hitInfo;
+    };
 
 #pragma region Closest hit functions
     extern "C" __global__ void __closesthit__PCS_R() {
@@ -16,29 +21,10 @@ namespace RayTracerFacility {
                 rayDirectionInternal.x, rayDirectionInternal.y, rayDirectionInternal.z);
         auto hitInfo = sbtData.GetHitInfo(rayDirection);
 
-        PerRayData <uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
-        prd.m_hitCount = 1;
-        prd.m_energy = sbtData.m_handle;
-        /*
-        switch (sbtData.m_materialType) {
-            case MaterialType::VertexColor: {
-                prd.m_albedo = sbtData.m_mesh.GetColor(triangleBarycentricsInternal,
-        indices);
-            }
-                break;
-            case MaterialType::Default: {
-                glm::vec3 albedoColor = static_cast<SurfaceMaterial
-        *>(sbtData.m_material)->GetAlbedo(texCoord); prd.m_albedo = albedoColor;
-            }
-                break;
-            case MaterialType::CompressedBTF: {
-                glm::vec3 btfColor = glm::vec3(0);
-                prd.m_albedo = btfColor;
-            }
-                break;
-        }*/
-        prd.m_albedo = hitInfo.m_color;
-        prd.m_normal = hitInfo.m_position;
+        PointCloudScanningPerRayData &prd = *GetRayDataPointer <PointCloudScanningPerRayData> ();
+        prd.m_hit = true;
+        prd.m_handle = sbtData.m_handle;
+        prd.m_hitInfo = hitInfo;
     }
     extern "C" __global__ void __closesthit__PCS_SS() {}
 #pragma endregion
@@ -48,9 +34,9 @@ namespace RayTracerFacility {
 #pragma endregion
 #pragma region Miss functions
     extern "C" __global__ void __miss__PCS_R() {
-        PerRayData <uint64_t> &prd = *GetRayDataPointer < PerRayData < uint64_t >> ();
-        prd.m_hitCount = 0;
-        prd.m_energy = 0;
+        PointCloudScanningPerRayData &prd = *GetRayDataPointer<PointCloudScanningPerRayData> ();
+        prd.m_hit = false;
+        prd.m_handle = 0;
     }
     extern "C" __global__ void __miss__PCS_SS() {}
 #pragma endregion
@@ -63,12 +49,10 @@ namespace RayTracerFacility {
         float3 rayOrigin = make_float3(start.x, start.y, start.z);
         float3 rayDirection = make_float3(direction.x, direction.y, direction.z);
 
-        PerRayData <uint64_t> perRayData;
+        PointCloudScanningPerRayData perRayData;
         perRayData.m_random.Init(ix, 0);
-        perRayData.m_hitCount = 0;
-        perRayData.m_energy = 0;
-        perRayData.m_normal = glm::vec3(0);
-        perRayData.m_albedo = glm::vec3(0);
+        perRayData.m_hit = false;
+        perRayData.m_hitInfo = HitInfo();
         uint32_t u0, u1;
         PackRayDataPointer(&perRayData, u0, u1);
         optixTrace(
@@ -85,10 +69,9 @@ namespace RayTracerFacility {
                 static_cast<int>(
                         RayType::Radiance), // missSBTIndex
                 u0, u1);
-        samples.m_handle = perRayData.m_energy;
-        samples.m_hit = perRayData.m_hitCount != 0;
-        samples.m_albedo = perRayData.m_albedo;
-        samples.m_end = perRayData.m_normal;
+        samples.m_handle = perRayData.m_handle;
+        samples.m_hit = perRayData.m_hit;
+        samples.m_hitInfo = perRayData.m_hitInfo;
     }
 #pragma endregion
 } // namespace RayTracerFacility

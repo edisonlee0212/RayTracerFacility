@@ -8,7 +8,7 @@
 #include "MaterialProperties.hpp"
 #include <optix_device.h>
 #include "CurveSplineDefinations.hpp"
-
+#include "HitInfo.hpp"
 namespace RayTracerFacility {
     static __forceinline__ __device__ float3 GetHitPoint() {
         const float t = optixGetRayTmax();
@@ -17,15 +17,6 @@ namespace RayTracerFacility {
 
         return rayOrigin + rayDirection * t;
     }
-
-    struct HitInfo {
-        glm::vec3 m_position = glm::vec3(0.0f);
-        glm::vec3 m_normal = glm::vec3(0.0f);
-        glm::vec3 m_tangent = glm::vec3(0.0f);
-        glm::vec4 m_color = glm::vec4(1.0f);
-        glm::vec2 m_texCoord = glm::vec2(0.0f);
-        glm::vec4 m_instanceColor = glm::vec4(0.0f);
-    };
 
     struct Curves {
         UniEngine::StrandPoint *m_strandPoints = nullptr;
@@ -74,6 +65,7 @@ namespace RayTracerFacility {
                     break;
 
             }
+            hitInfo.m_data = glm::vec4(0.0f);
             hitInfo.m_tangent = glm::cross(hitInfo.m_normal,
                                            glm::vec3(hitInfo.m_normal.y, hitInfo.m_normal.z, hitInfo.m_normal.x));
             return hitInfo;
@@ -160,14 +152,14 @@ namespace RayTracerFacility {
             auto z = 1.f - triangleBarycentrics.x - triangleBarycentrics.y;
             if (triangleBarycentrics.x > z && triangleBarycentrics.x > triangleBarycentrics.y) {
                 hitInfo.m_color = vx.m_color;
+                hitInfo.m_data = glm::vec4(vx.m_positionPadding, vx.m_normalPadding, vx.m_tangentPadding, vx.m_texCoordPadding.x);
             } else if (triangleBarycentrics.y > z) {
                 hitInfo.m_color = vy.m_color;
+                hitInfo.m_data = glm::vec4(vy.m_positionPadding, vy.m_normalPadding, vy.m_tangentPadding, vy.m_texCoordPadding.x);
             } else {
                 hitInfo.m_color = vz.m_color;
+                hitInfo.m_data = glm::vec4(vz.m_positionPadding, vz.m_normalPadding, vz.m_tangentPadding, vz.m_texCoordPadding.x);
             }
-
-            hitInfo.m_instanceColor = glm::vec4(vx.m_positionPadding, vx.m_normalPadding, vx.m_tangentPadding, vx.m_texCoordPadding.x);
-
             return hitInfo;
         }
 

@@ -9,6 +9,7 @@
 #include <Vertex.hpp>
 
 #include <cuda.h>
+#include <unordered_map>
 
 #include "string"
 
@@ -19,6 +20,7 @@
 #include "Enums.hpp"
 #include "MaterialProperties.hpp"
 #include "filesystem"
+#include "HitInfo.hpp"
 
 namespace RayTracerFacility {
     enum class OutputType {
@@ -215,14 +217,14 @@ namespace RayTracerFacility {
 
     struct RAY_TRACER_FACILITY_API PointCloudSample {
         // Input
-        glm::vec3 m_direction;
-        glm::vec3 m_start;
+        glm::vec3 m_direction = glm::vec3(0.0f);
+        glm::vec3 m_start = glm::vec3(0.0f);
 
         // Output
-        uint64_t m_handle;
+        uint64_t m_handle = 0;
         bool m_hit = false;
-        glm::vec3 m_end;
-        glm::vec3 m_albedo;
+
+        HitInfo m_hitInfo;
     };
 
     struct PointCloudScanningLaunchParams {
@@ -352,9 +354,9 @@ namespace RayTracerFacility {
     class RayTracer {
     public:
         bool m_requireUpdate = false;
-        std::map<uint64_t, RayTracedMaterial> m_materials;
-        std::map<uint64_t, RayTracedGeometry> m_geometries;
-        std::map<uint64_t, RayTracedInstance> m_instances;
+        std::unordered_map<uint64_t, RayTracedMaterial> m_materials;
+        std::unordered_map<uint64_t, RayTracedGeometry> m_geometries;
+        std::unordered_map<uint64_t, RayTracedInstance> m_instances;
 
         // ------------------------------------------------------------------
         // internal helper functions

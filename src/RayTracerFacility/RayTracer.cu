@@ -1241,6 +1241,11 @@ __global__ void CopySkinnedVerticesKernel(int size,
         targetVertices[idx].m_tangent = T;
         targetVertices[idx].m_texCoord = vertices[idx].m_texCoord;
         targetVertices[idx].m_color = vertices[idx].m_color;
+
+        targetVertices[idx].m_positionPadding = vertices[idx].m_positionPadding;
+        targetVertices[idx].m_normalPadding = vertices[idx].m_normalPadding;
+        targetVertices[idx].m_tangentPadding = vertices[idx].m_tangentPadding;
+        targetVertices[idx].m_texCoordPadding = vertices[idx].m_texCoordPadding;
     }
 }
 
