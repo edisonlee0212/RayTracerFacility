@@ -1766,7 +1766,7 @@ void RayTracer::CreateModule(RayTracerPipeline &targetPipeline, char ptxCode[],
 
     char log[2048];
     size_t sizeof_log = sizeof(log);
-    OPTIX_CHECK(optixModuleCreateFromPTX(
+    OPTIX_CHECK(optixModuleCreate(
             m_optixDeviceContext, &targetPipeline.m_moduleCompileOptions,
             &targetPipeline.m_pipelineCompileOptions, code.c_str(), code.size(), log,
             &sizeof_log, &targetPipeline.m_module));
@@ -1802,7 +1802,6 @@ void RayTracer::AssemblePipeline(RayTracerPipeline &targetPipeline) const {
 
     const uint32_t maxTraceDepth = 31;
     targetPipeline.m_pipelineLinkOptions.maxTraceDepth = maxTraceDepth;
-    targetPipeline.m_pipelineLinkOptions.debugLevel = OPTIX_COMPILE_DEBUG_LEVEL_FULL;
     char log[2048];
     size_t sizeofLog = sizeof(log);
     OPTIX_CHECK(optixPipelineCreate(
@@ -1815,7 +1814,7 @@ void RayTracer::AssemblePipeline(RayTracerPipeline &targetPipeline) const {
 
     OptixStackSizes stackSizes = {};
     for (auto &progGroup: programGroups) {
-        OPTIX_CHECK(optixUtilAccumulateStackSizes(progGroup, &stackSizes));
+        OPTIX_CHECK(optixUtilAccumulateStackSizes(progGroup, &stackSizes, targetPipeline.m_pipeline));
     }
 
     uint32_t directCallableStackSizeFromTraversal;
