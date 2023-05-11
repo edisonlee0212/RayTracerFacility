@@ -705,7 +705,7 @@ void RayTracer::EstimateIllumination(const size_t &size,
     m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_environment = environmentProperties;
     m_illuminationEstimationLaunchParams.m_rayTracerProperties.m_rayProperties = rayProperties;
     m_illuminationEstimationLaunchParams.m_lightProbes =
-            reinterpret_cast<IlluminationSampler<float> *>(lightProbes.DevicePointer());
+            reinterpret_cast<IlluminationSampler<glm::vec3> *>(lightProbes.DevicePointer());
     m_illuminationEstimationPipeline.m_launchParamsBuffer.Upload(
             &m_illuminationEstimationLaunchParams, 1);
 #pragma endregion

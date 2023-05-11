@@ -171,7 +171,7 @@ namespace RayTracerFacility {
         }
         environmentalLightColor = pow(environmentalLightColor,
                                       glm::vec3(1.0f / environment.m_gamma));
-        return environmentalLightColor;
+        return glm::max(glm::vec3(0.0f), environmentalLightColor);
     }
 
 #pragma endregion

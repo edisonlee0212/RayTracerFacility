@@ -37,7 +37,7 @@ void CudaModule::Terminate() {
 
 
 void CudaModule::EstimateIlluminationRayTracing(const EnvironmentProperties &environmentProperties, const RayProperties& rayProperties,
-                                                std::vector<IlluminationSampler<float>> &lightProbes, unsigned seed, float pushNormalDistance) {
+                                                std::vector<IlluminationSampler<glm::vec3>> &lightProbes, unsigned seed, float pushNormalDistance) {
     auto &cudaModule = GetInstance();
 #pragma region Prepare light probes
     size_t size = lightProbes.size();

@@ -186,32 +186,36 @@ namespace RayTracerFacility {
 
     template<typename T>
     struct RAY_TRACER_FACILITY_API IlluminationSampler {
-        glm::vec3 m_surfaceNormal{};
+				UniEngine::Vertex m_a;
+				UniEngine::Vertex m_b;
+				UniEngine::Vertex m_c;
         /**
-         * \brief The position of the light probe.
-         */
-        glm::vec3 m_position{};
-        /**
-         * \brief The calculated overall direction where the point received most
+         * \brief The calculated overall direction where the triangle received most
          * light.
          */
-        glm::vec3 m_direction{};
+        glm::vec3 m_direction;
         /**
-         * \brief The total energy received at this point.
+         * \brief The total energy received at this triangle.
          */
-        T m_energy = 0;
-        /*
-         * If the lightprobe covers entire sphere or just a hemisphere.
-         */
-        bool m_doubleFace = false;
+        T m_energy;
+				bool m_frontFace = true;
+				bool m_backFace = true;
+
+				[[nodiscard]] float GetArea() const{
+						const float a = glm::distance(m_a.m_position, m_b.m_position);
+						const float b = glm::distance(m_b.m_position, m_c.m_position);
+						const float c = glm::distance(m_c.m_position, m_a.m_position);
+						const float p = (a + b + c) * 0.5f;
+						return glm::sqrt(p * (p - a) * (p - b) * (p - c));
+				}
     };
 
-    struct IlluminationEstimationLaunchParams {
+	struct IlluminationEstimationLaunchParams {
         unsigned m_seed = 0;
         float m_pushNormalDistance = 0.001f;
         size_t m_size;
         RayTracerProperties m_rayTracerProperties;
-        IlluminationSampler<float> *m_lightProbes;
+        IlluminationSampler<glm::vec3> *m_lightProbes;
         OptixTraversableHandle m_traversable;
     };
 
