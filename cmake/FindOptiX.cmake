@@ -30,63 +30,63 @@
 
 # Our initial guess will be within the SDK.
 #set(OptiX_INSTALL_DIR "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.6.0" CACHE PATH "Path to OptiX installed location.")
-find_path(searched_OptiX_INSTALL_DIR
-        NAME include/optix.h
-        PATHS
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.9.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.8.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.7.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.6.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.5.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.4.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.3.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.2.0"
-        "C:/ProgramData/NVIDIA Corporation/OptiX SDK 7.1.0"
-        )
+if(NOT WIN32)
+	find_path(searched_OptiX_INSTALL_DIR
+		NAME include/optix.h
+		PATHS
+		~/NVIDIA-OptiX-SDK-8.0.0-linux64-x86_64
+		)
+else()
+	find_path(searched_OptiX_INSTALL_DIR
+		NAME include/optix.h
+		PATHS
+		"C:/ProgramData/NVIDIA Corporation/OptiX SDK 8.0.0"
+		)
+endif()
 mark_as_advanced(searched_OptiX_INSTALL_DIR)
 set(OptiX_INSTALL_DIR ${searched_OptiX_INSTALL_DIR} CACHE PATH "Path to OptiX installed location.")
 # The distribution contains only 64 bit libraries.  Error when we have been mis-configured.
 if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
-    if(WIN32)
-        message(SEND_ERROR "Make sure when selecting the generator, you select one with Win64 or x64.")
-    endif()
-    message(FATAL_ERROR "OptiX only supports builds configured for 64 bits.")
+	if(WIN32)
+		message(SEND_ERROR "Make sure when selecting the generator, you select one with Win64 or x64.")
+	endif()
+	message(FATAL_ERROR "OptiX only supports builds configured for 64 bits.")
 endif()
 
 # search path based on the bit-ness of the build.  (i.e. 64: bin64, lib64; 32:
 # bin, lib).  Note that on Mac, the OptiX library is a universal binary, so we
 # only need to look in lib and not lib64 for 64 bit builds.
 if(NOT APPLE)
-    set(bit_dest "64")
+	set(bit_dest "64")
 else()
-    set(bit_dest "")
+	set(bit_dest "")
 endif()
 
 # Include
 find_path(OptiX_INCLUDE
-        NAMES optix.h
-        PATHS "${OptiX_INSTALL_DIR}/include"
-        NO_DEFAULT_PATH
-        )
+	NAMES optix.h
+	PATHS "${OptiX_INSTALL_DIR}/include"
+	NO_DEFAULT_PATH
+	)
 find_path(OptiX_INCLUDE
-        NAMES optix.h
-        )
+	NAMES optix.h
+	)
 
 # Check to make sure we found what we were looking for
 function(OptiX_report_error error_message required component )
-    if(DEFINED OptiX_FIND_REQUIRED_${component} AND NOT OptiX_FIND_REQUIRED_${component})
-        set(required FALSE)
-    endif()
-    if(OptiX_FIND_REQUIRED AND required)
-        message(FATAL_ERROR "${error_message}  Please locate before proceeding.")
-    else()
-        if(NOT OptiX_FIND_QUIETLY)
-            message(STATUS "${error_message}")
-        endif(NOT OptiX_FIND_QUIETLY)
-    endif()
+	if(DEFINED OptiX_FIND_REQUIRED_${component} AND NOT OptiX_FIND_REQUIRED_${component})
+		set(required FALSE)
+	endif()
+	if(OptiX_FIND_REQUIRED AND required)
+		message(FATAL_ERROR "${error_message}  Please locate before proceeding.")
+	else()
+		if(NOT OptiX_FIND_QUIETLY)
+			message(STATUS "${error_message}")
+		endif(NOT OptiX_FIND_QUIETLY)
+	endif()
 endfunction()
 
 if(NOT OptiX_INCLUDE)
-    OptiX_report_error("OptiX headers (optix.h and friends) not found." TRUE headers )
+	OptiX_report_error("OptiX headers (optix.h and friends) not found." TRUE headers )
 endif()
 
